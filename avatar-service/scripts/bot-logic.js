@@ -84,7 +84,8 @@ function buildMainKeyboard() {
     keyboard: [
       [{ text: '🎨 Стили' }, { text: '🎮 Промпт' }],
       [{ text: '🖼 Аватар' }, { text: '💰 Баланс' }],
-      [{ text: '⚙️ Настройки' }, { text: '❓ Помощь' }]
+      [{ text: '💳 Купить' }, { text: '⚙️ Настройки' }],
+      [{ text: '❓ Помощь' }]
     ],
     resize_keyboard: true
   };
@@ -123,6 +124,39 @@ function exhaustionText() {
   return '😔 Твои бесплатные генерации закончились.\n\n'
     + 'Но это не повод расстраиваться! Ты можешь приобрести ещё генераций.\n'
     + 'Напиши администратору — @imgy_support, он поможет с продлением.';
+}
+
+// ======================
+// ОПЛАТА
+// ======================
+
+/**
+ * Показать меню покупки генераций
+ */
+function handleBuy(telegramId) {
+  const payments = require('./payments');
+  const user = findUserByTelegram(telegramId);
+  if (!user) {
+    return { text: '❌ Сначала напиши /start, чтобы зарегистрироваться.' };
+  }
+
+  // Инлайн кнопки с пакетами
+  const keyboard = payments.PACKAGES.map(pkg => ([
+    { text: `${pkg.label} — ${pkg.price}₽`, callback_data: `buy:${pkg.id}` }
+  ]));
+
+  let text = '💳 <b>Пополнение баланса</b>\n\n';
+  text += 'Выбери количество генераций:\n\n';
+  for (const pkg of payments.PACKAGES) {
+    text += `${pkg.label} — <b>${pkg.price}₽</b>\n`;
+  }
+  text += `\nУ тебя сейчас: <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)}`;
+
+  return {
+    text,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  };
 }
 
 // ======================
@@ -698,6 +732,23 @@ function checkBalance(telegramId) {
   return user.generationsRemaining;
 }
 
+/**
+ * Начислить генерации пользователю (после оплаты или вручную)
+ *
+ * @param {string} telegramId
+ * @param {number} n — сколько генераций добавить
+ * @returns {number|null} — новое количество или null если пользователь не найден
+ */
+function addGenerations(telegramId, n) {
+  const users = readJSON(USERS_FILE);
+  const user = users.find(u => u.telegram === telegramId);
+  if (!user) return null;
+  user.generationsRemaining = (user.generationsRemaining || 0) + n;
+  writeJSON(USERS_FILE, users);
+  console.log(`💰 ${user.name || user.telegram}: +${n} генераций → всего ${user.generationsRemaining}`);
+  return user.generationsRemaining;
+}
+
 // ======================
 // НАСТРОЙКИ
 // ======================
@@ -879,6 +930,7 @@ function getSizePrompt(telegramId) {
 
 module.exports = {
   handleStart,
+  handleBuy,
   handlePhotosReceived,
   handleStyleSelected,
   handleGenerationsExhausted,
@@ -897,6 +949,7 @@ module.exports = {
   deleteAvatar,
   checkBalance,
   consumeGeneration,
+  addGenerations,
   buildMainKeyboard,
   buildStylesKeyboard,
   readJSON,

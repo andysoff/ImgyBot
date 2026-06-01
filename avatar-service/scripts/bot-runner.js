@@ -612,6 +612,114 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Покупка генераций ------
+    const payments = require('./payments');
+
+    if (data.startsWith('buy:')) {
+      const packageId = data.replace('buy:', '');
+      const pkg = payments.PACKAGES.find(p => p.id === packageId);
+
+      await tgAnswerCb(cb.id, '');
+
+      if (!payments.isConfigured()) {
+        await tgSend(chatId, '❌ Оплата временно недоступна. Напиши администратору — @imgy_support');
+        return;
+      }
+
+      try {
+        const payment = await payments.createPayment(chatId, packageId);
+
+        // Сохраняем paymentId в conversation для последующей проверки
+        const conv = botLogic.getConversation(String(chatId));
+        botLogic.setConversation(String(chatId), conv.state, {
+          ...conv.data,
+          pendingPaymentId: payment.paymentId,
+          pendingPackageId: packageId,
+        });
+
+        await tgEdit(chatId, msgId,
+          `💳 <b>${pkg.label}</b> — ${pkg.price}₽\n\n`
+          + 'Нажми кнопку ниже, чтобы перейти к оплате.\n'
+          + 'После оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.',
+          {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: `💳 Оплатить ${pkg.price}₽`, url: payment.confirmationUrl }],
+                [{ text: '✅ Я оплатил', callback_data: `check_payment:${payment.paymentId}:${packageId}` }],
+                [{ text: '🔙 Назад', callback_data: 'show_buy' }]
+              ]
+            }
+          }
+        );
+      } catch (err) {
+        console.error('❌ Ошибка создания платежа:', err.message);
+        await tgSend(chatId, `❌ Не удалось создать платёж: ${err.message}`);
+      }
+      return;
+    }
+
+    if (data.startsWith('check_payment:')) {
+      await tgAnswerCb(cb.id, '🔄 Проверяю...');
+
+      const parts = data.split(':');
+      const paymentId = parts[1];
+      const packageId = parts[2];
+
+      if (!payments.isConfigured()) {
+        await tgSend(chatId, '❌ Проверка платежа временно недоступна.');
+        return;
+      }
+
+      try {
+        const result = await payments.checkPayment(paymentId);
+
+        if (result.paid) {
+          const pkg = payments.PACKAGES.find(p => p.id === packageId);
+          if (pkg) {
+            // Начисляем генерации
+            const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
+
+            await tgEdit(chatId, msgId,
+              `✅ <b>Оплата подтверждена!</b>\n\n`
+              + `Тебе начислено <b>${pkg.generations}</b> ${botLogic.pluralGen(pkg.generations)}.\n`
+              + `Теперь у тебя <b>${newTotal}</b> ${botLogic.pluralGen(newTotal)}.`,
+              { parse_mode: 'HTML' }
+            );
+
+            // Сбрасываем pendingPaymentId из conversation
+            const conv = botLogic.getConversation(String(chatId));
+            botLogic.setConversation(String(chatId), conv.state, {});
+          }
+        } else if (result.status === 'pending') {
+          await tgSend(chatId, '⏳ Платёж ещё не завершён. Попробуй оплатить или нажми «✅ Я оплатил» через несколько секунд.');
+        } else if (result.status === 'canceled') {
+          await tgEdit(chatId, msgId,
+            '❌ Платёж был отменён.\nПопробуй ещё раз — /buy',
+            { parse_mode: 'HTML' }
+          );
+        } else {
+          await tgSend(chatId, `❌ Статус платежа: ${result.status}. Если оплатил — подожди немного и попробуй ещё раз.`);
+        }
+      } catch (err) {
+        console.error('❌ Ошибка проверки платежа:', err.message);
+        await tgSend(chatId, `❌ Не удалось проверить платёж: ${err.message}`);
+      }
+      return;
+    }
+
+    if (data === 'show_buy') {
+      await tgAnswerCb(cb.id, '');
+      const buyResult = botLogic.handleBuy(String(chatId));
+      if (buyResult) {
+        await tgEdit(chatId, msgId, buyResult.text, {
+          parse_mode: buyResult.parse_mode,
+          reply_markup: buyResult.reply_markup
+        });
+      }
+      return;
+    }
+
     if (data.startsWith('style:')) {
       const styleId = data.replace('style:', '');
       const result = botLogic.handleStyleSelected(String(chatId), styleId);
@@ -1031,13 +1139,29 @@ async function handleUpdate(update) {
     return;
   }
 
+  // /buy — покупка генераций
+  if (text.toLowerCase() === '/buy' || text.toLowerCase() === '/купить') {
+    const buyResult = botLogic.handleBuy(String(chatId));
+    if (buyResult) {
+      await tgSend(chatId, buyResult.text, {
+        parse_mode: buyResult.parse_mode,
+        reply_markup: buyResult.reply_markup
+      });
+    }
+    return;
+  }
+
   // /status, /remaining, /balance, /осталось — остаток генераций
   if (['/status', '/remaining', '/balance', '/осталось'].includes(text.toLowerCase())) {
     const remaining = botLogic.checkBalance(String(chatId));
+    const payments = require('./payments');
     if (remaining === null) {
       await tgSend(chatId, '❌ Ты ещё не загружал фото. Напиши /start чтобы начать.');
     } else if (remaining <= 0) {
-      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+      const buyBtn = payments.isConfigured()
+        ? { reply_markup: { inline_keyboard: [[{ text: '💳 Купить генерации', callback_data: 'show_buy' }]] } }
+        : {};
+      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support', buyBtn);
     } else {
       await tgSend(chatId, `🌀 У тебя осталось <b>${remaining}</b> ${botLogic.pluralGen(remaining)}`, { parse_mode: 'HTML' });
     }
@@ -1094,12 +1218,27 @@ async function handleUpdate(update) {
   
   if (text === '💰 Баланс') {
     const remaining = botLogic.checkBalance(String(chatId));
+    const payments = require('./payments');
     if (remaining === null) {
       await tgSend(chatId, '❌ Ты ещё не загружал фото. Напиши /start чтобы начать.');
     } else if (remaining <= 0) {
-      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+      const buyBtn = payments.isConfigured()
+        ? { reply_markup: { inline_keyboard: [[{ text: '💳 Купить генерации', callback_data: 'show_buy' }]] } }
+        : {};
+      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support', buyBtn);
     } else {
       await tgSend(chatId, `🌀 У тебя осталось <b>${remaining}</b> ${botLogic.pluralGen(remaining)}`, { parse_mode: 'HTML' });
+    }
+    return;
+  }
+
+  if (text === '💳 Купить') {
+    const buyResult = botLogic.handleBuy(String(chatId));
+    if (buyResult) {
+      await tgSend(chatId, buyResult.text, {
+        parse_mode: buyResult.parse_mode,
+        reply_markup: buyResult.reply_markup
+      });
     }
     return;
   }
