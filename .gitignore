@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Data
+avatar-service/data/*
+!avatar-service/data/styles.json
+avatar-service/logs/
+avatar-service/photos/
+
+# Backups
+*.bak
+*.bak2
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
