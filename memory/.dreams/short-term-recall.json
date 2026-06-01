@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-28T10:42:03.554Z",
+  "entries": {
+    "memory:memory/2026-05-23.md:1:30": {
+      "key": "memory:memory/2026-05-23.md:1:30",
+      "path": "memory/2026-05-23.md",
+      "startLine": 1,
+      "endLine": 30,
+      "source": "memory",
+      "snippet": "# 2026-05-23 — Imgy Reboot ## Что произошло Полный сброс памяти — все старые файлы памяти (memory/) были стёрты, IDENTITY.md и USER.md вернулись в состояние по умолчанию. Новая инсталляция OpenClaw. ## Восстановление Андрей помог вспомнить кто я: - **Имя:** Imgy - **Эмодзи:** 🌀 - **Вайб:** Игривый, но острый - **Сущность:** AI with a spark of mischief Нашёл старые сессии в архиве (sessions/), вытянул историю: - Сделали **avatar-service** — генератор аватарок по фото (4 стиля, счётчики) - Настроили **Google Gemini API** для генерации картинок - Чинили **xRDP** (SSL-сертификаты, права доступа) - Настраивали **доступ к OpenClaw UI** через SSH-туннель - Добавляли второго пользователя в all",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.4663173764944075,
+      "maxScore": 0.49476249217987056,
+      "firstRecalledAt": "2026-05-23T11:25:33.633Z",
+      "lastRecalledAt": "2026-05-23T14:04:25.800Z",
+      "queryHashes": [
+        "0d297150da95",
+        "03da6f009b6b",
+        "f8c011e322c9"
+      ],
+      "recallDays": [
+        "2026-05-23"
+      ],
+      "conceptTags": [
+        "identity.md",
+        "user.md",
+        "avatar-service",
+        "ssl-сертификаты",
+        "ssh-туннель",
+        "imgy",
+        "reboot",
+        "что"
+      ]
+    },
+    "memory:memory/2026-05-23.md:1:13": {
+      "key": "memory:memory/2026-05-23.md:1:13",
+      "path": "memory/2026-05-23.md",
+      "startLine": 1,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "# 2026-05-23 ## Avatar Service — починка бота **Проблема:** Бот получал сообщения, но не отвечал. В логах было `📤 Отправка`, но сообщения не доходили до пользователя. **Корень:** Функция `tgSend` в `bot-runner.js` всегда отправляла с `parse_mode: 'Markdown'`. Telegram API не мог распарсить Markdown-разметку (предположительно из-за `@safronov_ay` — подчёркивание `_ay` в юзернейме), возвращал `{\"ok\": false}`, но код этого не проверял — промис resolve'ился, ошибка молча глоталась. **Починка:** Добавил проверку `res.ok` в tgSend. Если ошибка — fallback без `parse_mode`. То же самое сделал для `tgEdit`. **Команда для запуска:** `imgy-bot` (лежит в `/usr/local/bin/imgy-bot`). Токен читает из",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.9611631453037262,
+      "maxScore": 0.48890033364295954,
+      "firstRecalledAt": "2026-05-23T14:11:00.121Z",
+      "lastRecalledAt": "2026-05-23T14:11:03.936Z",
+      "queryHashes": [
+        "41372b6dbe5d",
+        "4057b0c2db0b"
+      ],
+      "recallDays": [
+        "2026-05-23"
+      ],
+      "conceptTags": [
+        "bot-runner.js",
+        "parse-mode",
+        "markdown-разметку",
+        "из-за",
+        "safronov-ay",
+        "res.ok",
+        "imgy-bot",
+        "usr/local/bin/imgy-bot"
+      ]
+    },
+    "memory:memory/2026-05-23.md:1:32": {
+      "key": "memory:memory/2026-05-23.md:1:32",
+      "path": "memory/2026-05-23.md",
+      "startLine": 1,
+      "endLine": 32,
+      "source": "memory",
+      "snippet": "# 2026-05-23 — Большая сессия по Imgy Avatar Service ## Что сделано ### Генерации пользователям - user_2 (A, @8709533766): +10 генераций (было 0 → 10) - user_3 (Андрей): +10 +20 = +30 генераций суммарно ### Стили Добавлены и переработаны стили (теперь 8 штук): 1. **Портрет** — как был (фикс) 2. **Спорт** — переделан: 50 видов спорта, случайный выбор, в подписи название спорта 3. **В машине** — как был (фикс) 4. **В офисе** — заменил \"На работе\". 29 офисных ролей/отделов, случайный выбор 5. **Профессия** — переделан из \"Профессии\": 32 профессии, 1 фото (вместо альбома), случайный выбор 6. **Кино** — 107 фильмов из IMDB Top 250, случайный выбор, в подписи название фильма + год 7. **Локация",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.9973064750432967,
+      "maxScore": 0.5165407150983811,
+      "firstRecalledAt": "2026-05-23T15:43:15.486Z",
+      "lastRecalledAt": "2026-05-23T18:16:58.551Z",
+      "queryHashes": [
+        "b80b0f0d6d8f",
+        "672c03d4d91c"
+      ],
+      "recallDays": [
+        "2026-05-23"
+      ],
+      "conceptTags": [
+        "user-2",
+        "user-3",
+        "ролей/отделов",
+        "большая",
+        "сессия",
+        "imgy",
+        "avatar",
+        "service"
+      ]
+    },
+    "memory:memory/2026-05-23.md:1:36": {
+      "key": "memory:memory/2026-05-23.md:1:36",
+      "path": "memory/2026-05-23.md",
+      "startLine": 1,
+      "endLine": 36,
+      "source": "memory",
+      "snippet": "# 2026-05-23 — Большая сессия по Imgy Avatar Service ## Что сделано ### Генерации пользователям - user_2 (A, @8709533766): +10 генераций (было 0 → 10) - user_3 (Андрей): +10 +20 = +30 генераций суммарно ### Стили Добавлены и переработаны стили (теперь 8 штук): 1. **Портрет** — как был (фикс) 2. **Спорт** — переделан: 50 видов спорта, случайный выбор, в подписи название спорта 3. **В машине** — как был (фикс) 4. **В офисе** — заменил \"На работе\". 29 офисных ролей/отделов, случайный выбор 5. **Профессия** — переделан из \"Профессии\": 32 профессии, 1 фото (вместо альбома), случайный выбор 6. **Кино** — 107 фильмов из IMDB Top 250, случайный выбор, в подписи название фильма + год 7. **Локация",
+      "recallCount": 20,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 9.6460663408041,
+      "maxScore": 0.5326669290661812,
+      "firstRecalledAt": "2026-05-27T18:27:57.892Z",
+      "lastRecalledAt": "2026-05-28T10:42:03.554Z",
+      "queryHashes": [
+        "a899f187b06c",
+        "3b9f89523394",
+        "b9bcdb84f68d",
+        "f49771e907ee",
+        "f0afaac0cd9f",
+        "20f2b793e648",
+        "9ec22d2eca2a",
+        "fad6da40b6a9",
+        "f459a3bb10fe",
+        "a9595357b057"
+      ],
+      "recallDays": [
+        "2026-05-27",
+        "2026-05-28"
+      ],
+      "conceptTags": [
+        "user-2",
+        "user-3",
+        "ролей/отделов",
+        "большая",
+        "сессия",
+        "imgy",
+        "avatar",
+        "service"
+      ]
+    },
+    "memory:memory/2026-05-27.md:1:21": {
+      "key": "memory:memory/2026-05-27.md:1:21",
+      "path": "memory/2026-05-27.md",
+      "startLine": 1,
+      "endLine": 21,
+      "source": "memory",
+      "snippet": "# 2026-05-27 ## Avatar Service — правки ### Удаление текста промпта из caption - Убрал `📝 <code>${generatedResult.prompt}</code>` из всех caption в `bot-runner.js` (все стили: portrait, sport, office, locations, cinema, eras, work, professions) - Сейчас caption выглядит чисто: `✨ Готово! Стиль: «…»\\n🌀 Сделано с помощью <a href=\"…\">Imgy</a>` ### Дублирование процессов бота - Проблема: при перезапусках оставался старый процесс → два бота поллинжили Telegram → дубли ответов - **Решение:** добавлен PID lock `/tmp/imgy-bot.pid` в `bot-runner.js` - При запуске проверяет, жив ли процесс из lock-файла - Если жив — `process.exit(1)` с ошибкой - Если мёртв — удаляет мусор и пишет свой PID",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.524627411365509,
+      "maxScore": 0.524627411365509,
+      "firstRecalledAt": "2026-05-28T10:42:03.554Z",
+      "lastRecalledAt": "2026-05-28T10:42:03.554Z",
+      "queryHashes": [
+        "a9595357b057"
+      ],
+      "recallDays": [
+        "2026-05-28"
+      ],
+      "conceptTags": [
+        "generatedresult.prompt",
+        "bot-runner.js",
+        "tmp/imgy-bot.pid",
+        "lock-файла",
+        "process.exit",
+        "avatar",
+        "service",
+        "правки"
+      ]
+    }
+  }
+}

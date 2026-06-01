@@ -1,22 +1,39 @@
 #!/usr/bin/env node
 /**
- * Модуль оплаты через ЮMoney (ЮKassa)
+ * Модуль оплаты через ЮMoney (ЮKassa) / Режим демонстрации
  *
- * Создание платежей, проверка статуса, начисление генераций.
+ * Реальная оплата:  YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY
+ * Демо-режим:       PAYMENT_DEMO_MODE=true (или пустые ключи)
  *
- * API документация: https://yookassa.ru/developers/api
+ * В демо-режиме:
+ *   - Создаётся фейковый платёж с ссылкой на заглушку
+ *   - Кнопка "✅ Я оплатил" сразу начисляет генерации
+ *   - Никаких реальных API-запросов
+ *
+ * API документация (реальная): https://yookassa.ru/developers/api
  */
 
 const https = require('https');
+const crypto = require('crypto');
 
 const YOOKASSA_API = 'https://api.yookassa.ru/v3';
 
 // Пакеты генераций
 const PACKAGES = [
-  { id: 'gen_10',  label: '🔟 10 генераций',  generations: 10,  price: 50 },
-  { id: 'gen_30',  label: '📦 30 генераций',  generations: 30,  price: 150 },
-  { id: 'gen_100', label: '🚀 100 генераций', generations: 100, price: 500 },
+  { id: 'gen_10',  label: '🔟 10 генераций',  generations: 10,  price: 50,  priceLabel: '50₽' },
+  { id: 'gen_30',  label: '📦 30 генераций',  generations: 30,  price: 150, priceLabel: '150₽' },
+  { id: 'gen_100', label: '🚀 100 генераций', generations: 100, price: 500, priceLabel: '500₽' },
 ];
+
+/**
+ * Включён ли демо-режим?
+ */
+function isDemoMode() {
+  const shopId = process.env.YOOKASSA_SHOP_ID || '';
+  const secretKey = process.env.YOOKASSA_SECRET_KEY || '';
+  const explicitDemo = process.env.PAYMENT_DEMO_MODE === 'true';
+  return explicitDemo || (!shopId && !secretKey);
+}
 
 /**
  * Прочитать ключи ЮKassa из .env
@@ -30,21 +47,61 @@ function getConfig() {
 }
 
 /**
- * Проверить, что ЮKassa настроена
+ * Проверить, настроена ли оплата (реальная или демо)
  */
 function isConfigured() {
   const cfg = getConfig();
-  return !!(cfg.shopId && cfg.secretKey);
+  // Даже если ключи не заполнены — считаем настроенным в демо-режиме
+  return !!(cfg.shopId && cfg.secretKey) || isDemoMode();
+}
+
+// =============================
+// ДЕМО-РЕЖИМ — заглушка
+// =============================
+
+/**
+ * Создать демо-платёж
+ */
+async function createDemoPayment(telegramId, packageId) {
+  const pkg = PACKAGES.find(p => p.id === packageId);
+  if (!pkg) throw new Error(`Неизвестный пакет: ${packageId}`);
+
+  // Генерируем UUID-образный ID
+  const paymentId = `demo_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+
+  console.log(`💳 [DEMO] Создан платёж ${paymentId} для ${telegramId}: ${pkg.label} — ${pkg.price}₽`);
+
+  // Демо-ссылка на Telegram-бота (реальная страница для показа)
+  const confirmationUrl = 'https://t.me/Imgy_bot?start=payment_demo';
+
+  return {
+    paymentId,
+    confirmationUrl,
+    status: 'pending',
+  };
 }
 
 /**
- * Создать платёж в ЮKassa
- *
- * @param {number} telegramId — ID пользователя в Telegram
- * @param {string} packageId  — ID пакета (gen_10, gen_30, gen_100)
- * @returns {Promise<{paymentId: string, confirmationUrl: string}>}
+ * Проверить статус демо-платежа — всегда успешно
  */
-async function createPayment(telegramId, packageId) {
+async function checkDemoPayment(paymentId) {
+  console.log(`💳 [DEMO] Статус платежа ${paymentId}: succeeded ✅`);
+  return {
+    status: 'succeeded',
+    paid: true,
+    metadata: null,
+    amount: null,
+  };
+}
+
+// =============================
+// РЕАЛЬНАЯ ЮKASSA
+// =============================
+
+/**
+ * Создать платёж в ЮKassa
+ */
+async function createRealPayment(telegramId, packageId) {
   const pkg = PACKAGES.find(p => p.id === packageId);
   if (!pkg) throw new Error(`Неизвестный пакет: ${packageId}`);
 
@@ -122,12 +179,9 @@ async function createPayment(telegramId, packageId) {
 }
 
 /**
- * Проверить статус платежа
- *
- * @param {string} paymentId — ID платежа в ЮKassa
- * @returns {Promise<{status: string, paid: boolean, metadata: object|null}>}
+ * Проверить статус платежа (реальный)
  */
-async function checkPayment(paymentId) {
+async function checkRealPayment(paymentId) {
   const cfg = getConfig();
   const auth = Buffer.from(`${cfg.shopId}:${cfg.secretKey}`).toString('base64');
 
@@ -169,9 +223,34 @@ async function checkPayment(paymentId) {
   };
 }
 
+// =============================
+// ЕДИНЫЙ ИНТЕРФЕЙС
+// =============================
+
+/**
+ * Создать платёж (автовыбор: реальный или демо)
+ */
+async function createPayment(telegramId, packageId) {
+  if (isDemoMode()) {
+    return createDemoPayment(telegramId, packageId);
+  }
+  return createRealPayment(telegramId, packageId);
+}
+
+/**
+ * Проверить статус платежа (автовыбор: реальный или демо)
+ */
+async function checkPayment(paymentId) {
+  if (paymentId && paymentId.startsWith('demo_')) {
+    return checkDemoPayment(paymentId);
+  }
+  return checkRealPayment(paymentId);
+}
+
 module.exports = {
   PACKAGES,
   isConfigured,
+  isDemoMode,
   createPayment,
   checkPayment,
 };

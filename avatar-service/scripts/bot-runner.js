@@ -637,10 +637,13 @@ async function handleUpdate(update) {
           pendingPackageId: packageId,
         });
 
+        const isDemoMode = payments.isDemoMode && payments.isDemoMode();
+
         await tgEdit(chatId, msgId,
           `💳 <b>${pkg.label}</b> — ${pkg.price}₽\n\n`
-          + 'Нажми кнопку ниже, чтобы перейти к оплате.\n'
-          + 'После оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.',
+          + (isDemoMode
+            ? '🔄 <i>Демо-режим</i>. Оплата не подключена.\nПросто нажми «✅ Я оплатил» — генерации начислятся сразу.\n\n')
+          : 'Нажми кнопку ниже, чтобы перейти к оплате.\nПосле оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.\n\n'),
           {
             parse_mode: 'HTML',
             reply_markup: {
@@ -680,8 +683,11 @@ async function handleUpdate(update) {
             // Начисляем генерации
             const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
 
+            const isDemoPayment = String(paymentId).startsWith('demo_');
+
             await tgEdit(chatId, msgId,
               `✅ <b>Оплата подтверждена!</b>\n\n`
+              + (isDemoPayment ? '🔄 <i>Демо-режим</i> — генерации начислены для теста.\n\n' : '')
               + `Тебе начислено <b>${pkg.generations}</b> ${botLogic.pluralGen(pkg.generations)}.\n`
               + `Теперь у тебя <b>${newTotal}</b> ${botLogic.pluralGen(newTotal)}.`,
               { parse_mode: 'HTML' }

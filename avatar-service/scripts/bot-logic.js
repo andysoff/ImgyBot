@@ -145,11 +145,17 @@ function handleBuy(telegramId) {
     { text: `${pkg.label} — ${pkg.price}₽`, callback_data: `buy:${pkg.id}` }
   ]));
 
+  const isDemo = payments.isDemoMode && payments.isDemoMode();
+
   let text = '💳 <b>Пополнение баланса</b>\n\n';
   text += 'Выбери количество генераций:\n\n';
   for (const pkg of payments.PACKAGES) {
     text += `${pkg.label} — <b>${pkg.price}₽</b>\n`;
   }
+  if (isDemo) {
+    text += '\n━━━━━━━━━━━━━━━━━━━\n🔄 <i>Демо-режим</i> — оплата без реального подключения.\nНажми «Я оплатил» → генерации начислятся сразу.\n<i>Для продакшена зарегистрируй ЮKassa</i>.\n━━━━━━━━━━━━━━━━━━━\n';
+  }
+
   text += `\nУ тебя сейчас: <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)}`;
 
   return {
