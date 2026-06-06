@@ -3,17 +3,23 @@
  * Логика бота Imgy — новый сценарий.
  *
  * Flow:
- *   1. Приветствие → загрузи фото (10 бесплатных генераций)
- *   2. Загрузка фото (одним сообщением, несколько вложений)
- *   3. Создание юзера + аватара, счётчик = 10 → кнопки со стилями
- *   4. Выбор стиля → генерация, −1 от счётчика
- *   5. Счётчик = 0 → просьба оплатить
- *   6. После генерации (если остались генерации) → снова кнопки со стилями
+ *   Онбординг (новый пользователь):
+ *     1. Приветствие — рассказ о возможностях, 5 бесплатных генераций
+ *     2. Кнопки: Узнать больше / Попробовать
+ *     3. Узнать больше — детальное описание шагов
+ *     4. Попробовать → загрузи фото
+ *   Далее:
+ *     5. Загрузка фото (одним сообщением, несколько вложений)
+ *     6. Создание юзера + аватара, счётчик = 5 → кнопки со стилями
+ *     7. Выбор стиля → генерация, −1 от счётчика
+ *     8. Счётчик = 0 → просьба оплатить
+ *     9. После генерации (если остались генерации) → снова кнопки со стилями
  *
  * Состояния (conversations.json):
- *   idle              — ожидание
- *   awaiting_photos   — ждём фото
- *   awaiting_style    — ждём выбор стиля
+ *   idle                    — ожидание
+ *   awaiting_photos         — ждём фото
+ *   awaiting_style          — ждём выбор стиля
+ *   awaiting_onboarding_choice — онбординг: выбор Узнать больше / Попробовать
  */
 
 const fs = require('fs');
@@ -77,15 +83,25 @@ function resetConversation(telegramId) {
 // ======================
 
 /**
+ * Проверить, новый ли пользователь.
+ * Новый = нет записи в users.json.
+ * Если запись есть — возвращающийся, даже без аватаров.
+ * @param {string} telegramId
+ * @returns {boolean}
+ */
+function isNewUser(telegramId) {
+  return !findUserByTelegram(telegramId);
+}
+
+/**
  * Постоянная клавиатура (кнопки над полем ввода)
  */
 function buildMainKeyboard() {
   return {
     keyboard: [
-      [{ text: '🎨 Стили' }, { text: '🎮 Промпт' }],
-      [{ text: '🖼 Аватар' }, { text: '💰 Баланс' }],
-      [{ text: '💳 Купить' }, { text: '⚙️ Настройки' }],
-      [{ text: '❓ Помощь' }]
+      [{ text: '🖼 Стили' }, { text: '✍️ Промпт' }],
+      [{ text: '👤 Аватар' }, { text: '💰 Баланс' }],
+      [{ text: '⚙️ Настройки' }, { text: '❓ Помощь' }]
     ],
     resize_keyboard: true
   };
@@ -110,20 +126,46 @@ function findUserByTelegram(telegramId) {
   return users.find(u => u.telegram === `@${telegramId}`) || null;
 }
 
-function consumeGeneration(userId) {
+function consumeGeneration(userId, cost = 1) {
   const users = readJSON(USERS_FILE);
   const user = users.find(u => u.id === userId);
   if (!user) return { user: null, remaining: 0 };
-  if (user.generationsRemaining <= 0) return { user, remaining: 0 };
-  user.generationsRemaining -= 1;
+  if (user.generationsRemaining < cost) return { user, remaining: user.generationsRemaining };
+  user.generationsRemaining -= cost;
   writeJSON(USERS_FILE, users);
   return { user, remaining: user.generationsRemaining };
 }
 
+function getModelCost(telegramId) {
+  const settings = getSettings(telegramId);
+  return MODEL_COST[settings.model] || 1;
+}
+
+function getModelOptions(telegramId) {
+  if (String(telegramId) === ADMIN_TELEGRAM_ID) {
+    return MODEL_OPTIONS;
+  }
+  // Не-админам скрываем 2.5 Flash
+  const filtered = { ...MODEL_OPTIONS };
+  delete filtered['gemini-2.5-flash-image'];
+  return filtered;
+}
+
 function exhaustionText() {
   return '😔 Твои бесплатные генерации закончились.\n\n'
-    + 'Но это не повод расстраиваться! Ты можешь приобрести ещё генераций.\n'
-    + 'Напиши администратору — @imgy_support, он поможет с продлением.';
+    + 'Но это не повод расстраиваться! Ты можешь приобрести ещё генераций.';
+}
+
+function buildBuyKeyboard() {
+  return { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] };
+}
+
+function exhaustionMessage() {
+  return {
+    text: exhaustionText(),
+    parse_mode: 'Markdown',
+    reply_markup: buildBuyKeyboard()
+  };
 }
 
 // ======================
@@ -142,21 +184,18 @@ function handleBuy(telegramId) {
 
   // Инлайн кнопки с пакетами
   const keyboard = payments.PACKAGES.map(pkg => ([
-    { text: `${pkg.label} — ${pkg.price}₽`, callback_data: `buy:${pkg.id}` }
+    { text: `Купить ${pkg.generations}`, callback_data: `buy:${pkg.id}` }
   ]));
-
-  const isDemo = payments.isDemoMode && payments.isDemoMode();
 
   let text = '💳 <b>Пополнение баланса</b>\n\n';
   text += 'Выбери количество генераций:\n\n';
   for (const pkg of payments.PACKAGES) {
-    text += `${pkg.label} — <b>${pkg.price}₽</b>\n`;
+    text += `${pkg.label} — <b>${pkg.price}₽</b>`;
+    if (pkg.savingsPercent > 0) {
+      text += ` (скидка ${pkg.savingsPercent}%)`;
+    }
+    text += '\n';
   }
-  if (isDemo) {
-    text += '\n━━━━━━━━━━━━━━━━━━━\n🔄 <i>Демо-режим</i> — оплата без реального подключения.\nНажми «Я оплатил» → генерации начислятся сразу.\n<i>Для продакшена зарегистрируй ЮKassa</i>.\n━━━━━━━━━━━━━━━━━━━\n';
-  }
-
-  text += `\nУ тебя сейчас: <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)}`;
 
   return {
     text,
@@ -170,45 +209,102 @@ function handleBuy(telegramId) {
 // ======================
 
 /**
- * Шаг 1 — Приветствие.
+ * Шаг 1 — Приветствие / Онбординг для новых пользователей.
  * При /start или когда юзер в idle.
+ *
+ * Новый пользователь = нет записи в users.json.
  */
 function handleStart(telegramId) {
-  // Проверяем, есть ли уже пользователь
-  const user = findUserByTelegram(telegramId);
-
-  if (user) {
-    // Пользователь есть — проверяем аватары
+  // === Возвращающийся пользователь (есть запись в users.json) ===
+  if (!isNewUser(telegramId)) {
+    const user = findUserByTelegram(telegramId);
     const avatars = readJSON(AVATARS_FILE);
     const userAvatars = avatars.filter(a => user.avatars.includes(a.id));
 
-    if (userAvatars.length > 0 && userAvatars.some(a => a.photos.length > 0)) {
-      if (user.generationsRemaining <= 0) {
-        // Генераций нет — пишем про пополнение, без стилей
-        resetConversation(telegramId);
-        return {
-          text: `👋 С возвращением!\n\n😔 Твои бесплатные генерации закончились.\n\nНо ты можешь приобрести ещё. Напиши администратору — @imgy_support, он поможет с продлением.`,
-          parse_mode: 'Markdown'
-        };
-      }
-
-      // Есть генерации — сразу к стилям
-      const avatar = userAvatars[0];
-      setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
-
+    if (user.generationsRemaining <= 0) {
+      // Генераций нет — пишем про пополнение, кнопка Купить
+      resetConversation(telegramId);
       return {
-        text: `👋 С возвращением!\nУ тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.\n\nВыбери стиль для своей фотосессии 👇`,
+        text: `👋 С возвращением, <b>${user.name}</b>!\n\n😔 Твои бесплатные генерации закончились.\n\nНо ты можешь приобрести ещё!`,
         parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: buildStylesKeyboard() }
+        reply_markup: buildBuyKeyboard(),
+        showDefaultKeyboard: false
       };
     }
+
+    // Есть запись, есть генерации, но нет аватаров — просим загрузить фото
+    if (!userAvatars || userAvatars.length === 0) {
+      setConversation(telegramId, 'awaiting_photos', {});
+      return {
+        text: `👋 С возвращением, <b>${user.name}</b>!\nУ тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.\n\n📸 Чтобы начать, загрузи свои фото одним сообщением.`,
+        parse_mode: 'HTML',
+        showDefaultKeyboard: false
+      };
+    }
+
+    // Есть генерации и аватары — показываем меню
+    const conv = getConversation(telegramId);
+    const convAvatarId = conv?.data?.avatarId;
+    const savedAvatar = convAvatarId ? userAvatars.find(a => a.id === convAvatarId) : null;
+    const avatar = savedAvatar || userAvatars[userAvatars.length - 1];
+    setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
+
+    const mainKB = buildMainKeyboard();
+
+    return {
+      text: `👋 С возвращением, <b>${user.name}</b>!\nУ тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.\n\nМожешь создавать фото с помощью готовых стилей или написать своё описание.\nВыбери действие в меню 👇`,
+      parse_mode: 'HTML',
+      reply_markup: mainKB
+    };
   }
 
-  // Новый пользователь или нет аватаров — просим фото
+  // === Новый пользователь — онбординг ===
+  setConversation(telegramId, 'awaiting_onboarding_choice', {});
+  return {
+    text: 'Привет! Я Imgy — твой персональный AI-фотограф 📸\n\nЯ умею генерировать высококачественные изображения на основе твоих фото.\nТы сможешь сделать красивое фото для соцсетей или целую виртуальную фотосессию!\n\n🎁 У новых пользователей есть <b>5 бесплатных генераций</b>.\n\nПробуем или нужно больше информации?'
+    ,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'ℹ️ Узнать больше', callback_data: 'onboarding_learn' }],
+        [{ text: '🚀 Попробовать', callback_data: 'onboarding_try' }]
+      ]
+    }
+  };
+}
+
+/**
+ * Шаг 3 — Узнать больше.
+ * Детальное описание возможностей и шагов.
+ */
+function handleOnboardingLearnMore() {
+  return {
+    text: 'Вот как это работает 👇\n\n'
+      + '1️⃣ <b>Загрузи фото</b>\n'
+      + 'Можно прислать одно, но лучше несколько. Выбирай самые качественные и любимые.\n\n'
+      + '2️⃣ <b>Создание исходника</b>\n'
+      + 'После загрузки я создам твой цифровой исходник, и можно приступать к созданию новых фото.\n\n'
+      + '3️⃣ <b>Генерация фото</b>\n'
+      + 'Можно создавать фото с использованием готовых стилей или написать детальное описание самому (промпт).\n\n'
+      + '4️⃣ <b>Несколько исходников</b>\n'
+      + 'При желании можно создать несколько исходников и делать фото для близких и друзей.\n\n'
+      + 'Готов попробовать? 👇',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🚀 Попробовать', callback_data: 'onboarding_try' }]
+      ]
+    }
+  };
+}
+
+/**
+ * Шаг 4 — Попробовать → загрузка фото.
+ */
+function handleOnboardingTry(telegramId) {
   setConversation(telegramId, 'awaiting_photos', {});
   return {
-    text: 'Привет! Я Imgy, могу сделать классную фотосессию для тебя за 5 минут! '
-        + 'У тебя будет 10 бесплатных генераций. Для начала загрузи свои фото.',
+    text: '📸 Отлично! Загрузи свои фото одним сообщением.\nМожно прислать одно или несколько — чем больше, тем лучше результат!',
     parse_mode: 'Markdown'
   };
 }
@@ -227,7 +323,7 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
   }
 
   if (!filePaths || filePaths.length === 0) {
-    return { text: 'Пожалуйста, отправь фото. Нужны твои фотографии, чтобы я мог сделать аватарки.' };
+    return { text: 'Пожалуйста, отправь фото. Нужны твои фотографии для создания исходника.' };
   }
 
   if (filePaths.length > 10) {
@@ -245,7 +341,7 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
       id: userId,
       name: userDisplayName || `User ${telegramId}`,
       telegram: `@${telegramId}`,
-      generationsRemaining: 10,
+      generationsRemaining: 5,
       avatars: []
     };
     users.push(user);
@@ -276,7 +372,7 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
   const avatar = {
     id: avatarId,
     userId: user.id,
-    name: `Аватар ${existingCount + 1}`,
+    name: `Исходник ${existingCount + 1}`,
     createdAt: new Date().toISOString(),
     photos: savedPhotos,
     lastGeneratedAt: null
@@ -292,17 +388,19 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
     writeJSON(USERS_FILE, usersReload);
   }
 
-  // Переходим к выбору стиля
+  // Переходим к ожиданию выбора действия через меню
   setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId });
+
+  const mainKB = buildMainKeyboard();
 
   return {
     text: `✅ Загрузка завершена! ${savedPhotos.length} фото сохранено.\n`
         + `У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.\n\n`
-        + `Теперь выбери стиль для своей фотосессии 👇`,
+        + `Теперь ты можешь создавать фото с помощью готовых стилей или написать своё описание.\n`
+        + `Выбери действие в меню 👇`,
     parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: buildStylesKeyboard()
-    }
+    reply_markup: mainKB,
+    avatarId
   };
 }
 
@@ -320,7 +418,7 @@ function handleStyleSelected(telegramId, styleId) {
       conv = { state: 'awaiting_style', data: { userId: user.id, avatarId: avatar.id } };
       setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
     } else {
-      const userMsg = !user ? '❌ Пользователь не найден. Напиши /start чтобы начать.' : '❌ Не найдены твои фото. Загрузи новые через /start.';
+      const userMsg = !user ? '❌ Пользователь не найден. Напиши /start, чтобы начать.' : '❌ Не найдены твои фото. Загрузи новые через /start.';
       return { text: userMsg };
     }
   }
@@ -333,51 +431,28 @@ function handleStyleSelected(telegramId, styleId) {
 
   const { userId, avatarId } = conv.data;
 
-  // Проверяем баланс до списания
-  const userBefore = findUserByTelegram(telegramId);
-  if (!userBefore || userBefore.generationsRemaining <= 0) {
+  // Проверяем баланс (не списываем!)
+  const user = findUserByTelegram(telegramId);
+  const cost = getModelCost(telegramId);
+  if (!user || user.generationsRemaining < cost) {
     resetConversation(telegramId);
-    return {
-      text: exhaustionText(),
-      parse_mode: 'Markdown'
-    };
-  }
-
-  // Списываем одну генерацию
-  const result = consumeGeneration(userId);
-  if (!result.user) {
-    resetConversation(telegramId);
-    return { text: '❌ Пользователь не найден. Начни заново — /start' };
+    return exhaustionMessage();
   }
 
   const avatars = readJSON(AVATARS_FILE);
   const avatar = avatars.find(a => a.id === avatarId);
 
-  if (result.remaining > 0) {
-    // Ещё есть генерации — снова показываем стили
-    setConversation(telegramId, 'awaiting_style', { userId, avatarId });
-
-    return {
-      text: `✅ Готово! Стиль «${style.name}».\nОсталось генераций: <b>${result.remaining}</b>\n\nВыбери ещё один стиль 👇`,
-      parse_mode: 'HTML',
-      style, userId, avatarId,
-      user: result.user, avatar,
-      remaining: result.remaining,
-      readyToGenerate: true,
-      reply_markup: { inline_keyboard: buildStylesKeyboard() }
-    };
-  }
-
-  // Генераций больше нет
-  resetConversation(telegramId);
+  // Не списываем генерации — они будут списаны после успешной генерации
+  setConversation(telegramId, 'awaiting_style', { userId, avatarId });
 
   return {
-    text: `✅ Готово! Стиль «${style.name}».\n\n${exhaustionText()}`,
-    parse_mode: 'Markdown',
-    style, userId, avatarId,
-    user: result.user, avatar,
-    remaining: 0,
-    readyToGenerate: true
+    text: `✅ Стиль «${style.name}». Генерирую...`,
+    parse_mode: 'HTML',
+    style, userId, avatarId, cost,
+    user, avatar,
+    remaining: user.generationsRemaining,
+    readyToGenerate: true,
+    reply_markup: { inline_keyboard: buildStylesKeyboard() }
   };
 }
 
@@ -389,10 +464,7 @@ function handleStyleSelected(telegramId, styleId) {
  * Счётчик на нуле — предложение оплатить (отдельный вызов, не после генерации).
  */
 function handleGenerationsExhausted(telegramId) {
-  return {
-    text: exhaustionText(),
-    parse_mode: 'Markdown'
-  };
+  return exhaustionMessage();
 }
 
 /**
@@ -413,8 +485,21 @@ function handleUnknown(telegramId, text) {
     return handleStart(telegramId);
   }
 
+  if (conv.state === 'awaiting_onboarding_choice') {
+    return {
+      text: 'Нажми на одну из кнопок ниже',
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'ℹ️ Узнать больше', callback_data: 'onboarding_learn' }],
+          [{ text: '🚀 Попробовать', callback_data: 'onboarding_try' }]
+        ]
+      }
+    };
+  }
+
   if (conv.state === 'awaiting_photos') {
-    return { text: 'Отправь свои фото, и я сделаю классные аватарки! 📸' };
+    return { text: 'Отправь свои фото, и я сделаю классные фото! 📸' };
   }
 
   if (conv.state === 'awaiting_style') {
@@ -427,11 +512,11 @@ function handleUnknown(telegramId, text) {
 
   if (conv.state === 'awaiting_custom_prompt') {
     return {
-      text: '✍️ Напиши описание для генерации или прикрепи фото с описанием.\nИли нажми /cancel чтобы выйти.'
+      text: '✍️ Напиши описание для генерации или прикрепи фото с описанием.\nИли нажми /cancel, чтобы выйти.'
     };
   }
 
-  return { text: '❌ Не понял. Напиши /start чтобы начать заново.' };
+  return { text: '❌ Не понял. Напиши /start, чтобы начать заново.' };
 }
 
 // --- Проверка баланса (админ-утилита) ---
@@ -445,7 +530,7 @@ function deleteAvatar(telegramId, avatarId) {
 
   const allAvatars = readJSON(AVATARS_FILE);
   const idx = allAvatars.findIndex(a => a.id === avatarId);
-  if (idx === -1) return { error: 'Аватар не найден' };
+  if (idx === -1) return { error: 'Исходник не найден' };
 
   const avatar = allAvatars[idx];
 
@@ -505,15 +590,13 @@ function handleNewAvatar(telegramId) {
   }
 
   if (user.generationsRemaining <= 0) {
-    return {
-      text: '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support'
-    };
+    return exhaustionMessage();
   }
 
   resetConversation(telegramId);
   setConversation(telegramId, 'awaiting_photos', {});
   return {
-    text: '📸 Отправь новые фото для нового аватара.\nМожно 1-3 фото одним сообщением.'
+    text: '📸 Отправь новые фото для нового исходника.\nМожно 1-3 фото одним сообщением.'
   };
 }
 
@@ -522,12 +605,36 @@ function handleNewAvatar(telegramId) {
  */
 function handleAvatars(telegramId) {
   const user = findUserByTelegram(telegramId);
-  if (!user) return null;
+  if (!user) {
+    return {
+      text: '📸 У тебя пока нет исходников. Напиши /start, чтобы создать первый.',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🚀 Начать', callback_data: 'new_avatar' }]]
+      }
+    };
+  }
 
   const allAvatars = readJSON(AVATARS_FILE);
   const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
 
-  if (userAvatars.length === 0) return null;
+  if (userAvatars.length === 0) {
+    // Пользователь есть, но аватаров нет — предлагаем создать
+    if (user.generationsRemaining <= 0) {
+      return {
+        text: '😔 У тебя нет исходников, а генерации закончились. Пополни баланс, чтобы создать новый исходник.',
+        reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] }
+      };
+    }
+    return {
+      text: `📸 У тебя пока нет исходников. Загрузи фото, чтобы создать первый!
+
+🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: '📸 Загрузить фото', callback_data: 'new_avatar' }]]
+      }
+    };
+  }
 
   // Получаем текущий аватар (из conversation)
   const conv = getConversation(telegramId);
@@ -548,17 +655,17 @@ function handleAvatars(telegramId) {
     ]);
   }
 
-  // Добавляем кнопку "Новый аватар" внизу списка
+  // Добавляем кнопку "Новый исходник" внизу списка
   keyboard.push([{
-    text: '➕ Новый аватар',
+    text: '➕ Новый исходник',
     callback_data: 'new_avatar'
   }]);
 
   return {
-    text: '🖼 Твои аватары:\n' + userAvatars.map(av => {
+    text: '👤 Твои исходники:\n' + userAvatars.map(av => {
       const isCurrent = av.id === currentAvatarId;
       return (isCurrent ? '✅ ' : '• ') + av.name + ' — ' + av.photos.length + ' фото';
-    }).join('\n') + '\n\n✅ Нажми на аватар — выбрать\n🗑 Нажми 🗑 — удалить',
+    }).join('\n') + '\n\n✅ Нажми на исходник — выбрать\n🗑 Нажми 🗑 — удалить',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -568,7 +675,18 @@ function handleAvatars(telegramId) {
  */
 function handleStyles(telegramId) {
   const user = findUserByTelegram(telegramId);
-  if (!user) return null;
+  if (!user) {
+    return {
+      text: '📸 Сначала напиши /start, чтобы зарегистрироваться.',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🚀 Начать', callback_data: 'onboarding_try' }]]
+      }
+    };
+  }
+
+  if (user.generationsRemaining <= 0) {
+    return exhaustionMessage();
+  }
 
   const avatars = readJSON(AVATARS_FILE);
   
@@ -578,25 +696,34 @@ function handleStyles(telegramId) {
   
   if (conv?.data?.avatarId) {
     avatar = avatars.find(a => a.id === conv.data.avatarId);
-    console.log(`📋 handleStyles: conv avatarId=${conv.data.avatarId}, found=${!!avatar}`);
-  } else {
-    console.log(`📋 handleStyles: conv нет avatarId`);
   }
   
   // Если выбранный не найден — берём первый аватар пользователя
   if (!avatar) {
     avatar = avatars.find(a => a.userId === user.id);
-    console.log(`📋 handleStyles: fallback to first avatar=${avatar?.id}`);
   }
   
-  if (!avatar) return null;
+  if (!avatar) {
+    // Пользователь есть и есть генерации, но нет аватаров
+    if (user.generationsRemaining > 0) {
+      return {
+        text: `📸 Сначала загрузи фото, чтобы создать исходник!
+
+🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '📸 Загрузить фото', callback_data: 'new_avatar' }]]
+        }
+      };
+    }
+    return exhaustionMessage();
+  }
 
   // Сохраняем правильный avatarId в conversation
   setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
-  console.log(`📋 handleStyles: сохранён avatarId=${avatar.id}`);
 
   return {
-    text: '🎨 Выбери стиль для аватарки 👇',
+    text: '🖼 Выбери стиль для фото 👇',
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: buildStylesKeyboard()
@@ -609,12 +736,17 @@ function handleStyles(telegramId) {
  */
 function handleGodMode(telegramId) {
   const user = findUserByTelegram(telegramId);
-  if (!user) return null;
+  if (!user) {
+    return {
+      text: '📸 Сначала напиши /start, чтобы зарегистрироваться.',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🚀 Начать', callback_data: 'onboarding_try' }]]
+      }
+    };
+  }
 
   if (user.generationsRemaining <= 0) {
-    return {
-      text: '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support'
-    };
+    return exhaustionMessage();
   }
 
   const avatars = readJSON(AVATARS_FILE);
@@ -633,7 +765,16 @@ function handleGodMode(telegramId) {
   }
 
   if (!currentAvatarId) {
-    return { text: '❌ У тебя нет аватаров. Сначала загрузи фото — /start' };
+    // Пользователь есть, есть генерации, но нет аватаров
+    return {
+      text: `📸 Сначала загрузи фото, чтобы создать исходник!
+
+🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: '📸 Загрузить фото', callback_data: 'new_avatar' }]]
+      }
+    };
   }
 
   setConversation(telegramId, 'awaiting_custom_prompt', {
@@ -642,7 +783,7 @@ function handleGodMode(telegramId) {
   });
 
   return {
-    text: '🎮 <b>Промпт</b>\n\nНапиши, что хочешь увидеть на фото. Можно прикрепить своё фото, и я использую его как основу для генерации.\n\nПример: <i>«киберпанк, неоновые огни, дождь, как в Blade Runner»</i>',
+    text: '✍️ <b>Промпт</b>\n\nНапиши, что хочешь увидеть на фото. Можно прикрепить изображение, и я использую его как основу совместно с твоими фото.\n\nПример: <i>«киберпанк, неоновые огни, дождь, как в Blade Runner»</i>',
     parse_mode: 'HTML'
   };
 }
@@ -674,37 +815,31 @@ function handleCustomPrompt(telegramId, promptText, attachedPhotoPath) {
   // Если есть pendingPhoto от предыдущего шага — используем его
   const effectivePhoto = attachedPhotoPath || conv.data?.pendingPhoto || null;
 
-  // Проверяем баланс
+  // Проверяем баланс (не списываем!)
   const user = findUserByTelegram(telegramId);
-  if (!user || user.generationsRemaining <= 0) {
+  const cost = getModelCost(telegramId);
+  if (!user || user.generationsRemaining < cost) {
     resetConversation(telegramId);
-    return {
-      text: '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support'
-    };
-  }
-
-  // Списываем одну генерацию
-  const result = consumeGeneration(userId);
-  if (!result.user) {
-    resetConversation(telegramId);
-    return { text: '❌ Пользователь не найден. Начни заново — /start' };
+    return exhaustionMessage();
   }
 
   const avatars = readJSON(AVATARS_FILE);
   const avatar = avatars.find(a => a.id === avatarId);
 
+  // Не списываем генерации — будут списаны после успешной генерации
   setConversation(telegramId, 'awaiting_custom_prompt', { userId, avatarId });
 
   return {
-    text: `🎮 Генерирую: «${promptText.slice(0, 60)}${promptText.length > 60 ? '...' : ''}»`,
+    text: `✍️ Генерирую: «${promptText.slice(0, 60)}${promptText.length > 60 ? '...' : ''}»`,
     promptText: promptText.trim(),
     hasExternalPhoto: !!effectivePhoto,
-    user: result.user,
+    user,
     avatar,
     userId,
     avatarId,
+    cost,
     attachedPhoto: effectivePhoto,
-    remaining: result.remaining,
+    remaining: user.generationsRemaining,
     readyToGenerate: true
   };
 }
@@ -747,7 +882,7 @@ function checkBalance(telegramId) {
  */
 function addGenerations(telegramId, n) {
   const users = readJSON(USERS_FILE);
-  const user = users.find(u => u.telegram === telegramId);
+  const user = users.find(u => u.telegram === `@${telegramId}`);
   if (!user) return null;
   user.generationsRemaining = (user.generationsRemaining || 0) + n;
   writeJSON(USERS_FILE, users);
@@ -759,16 +894,24 @@ function addGenerations(telegramId, n) {
 // НАСТРОЙКИ
 // ======================
 
+const ADMIN_TELEGRAM_ID = '132454710';
+
+const MODEL_COST = {
+  'gemini-2.5-flash-image': 1,
+  'gemini-3.1-flash-image-preview': 1,
+  'gemini-3-pro-image-preview': 2,
+};
+
 const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
   size: 'medium',
-  model: 'gemini-2.5-flash-image'
+  model: 'gemini-3.1-flash-image-preview'
 };
 
 const QUALITY_OPTIONS = {
   economy:  { label: '🟢 Эконом', prompt: 'low quality, fast generation, compressed' },
-  standard: { label: '🟡 Стандарт', prompt: 'standard quality, balanced' },
+  standard: { label: '👍 Стандарт', prompt: 'standard quality, balanced' },
   premium:  { label: '🔥 Премиум', prompt: 'ultra high quality, maximum detail, 8K, professional photography grade' }
 };
 
@@ -787,15 +930,20 @@ const ASPECT_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'gemini-3.1-flash-image-preview': { label: '⚡ Flash 3.1 (быстрая)', desc: 'Nano Banana 2 — быстрая генерация, 4K' },
-  'gemini-3-pro-image-preview': { label: '🔥 Flash 3.1 Pro (качество)', desc: 'Nano Banana Pro — макс. детализация' },
-  'gemini-2.5-flash-image': { label: '🟢 Flash 2.5 (бесплатно)', desc: 'Nano Banana — бесплатный слой' },
+  'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
+  'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
+  'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
 };
 
 function getSettings(telegramId) {
   try {
     const all = readJSON(SETTINGS_FILE);
-    return { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
+    const settings = { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
+    // Не-админам 2.5 Flash не показываем и не используем
+    if (settings.model === "gemini-2.5-flash-image" && String(telegramId) !== ADMIN_TELEGRAM_ID) {
+      settings.model = DEFAULT_SETTINGS.model;
+    }
+    return settings;
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -814,9 +962,10 @@ function updateSetting(telegramId, key, value) {
  */
 function handleSettings(telegramId) {
   const s = getSettings(telegramId);
-  const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '🟡 Стандарт';
+  const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
   const aspectLabel = ASPECT_OPTIONS[s.aspectRatio]?.label || '📐 1:1';
   const sizeLabel = SIZE_OPTIONS[s.size]?.label || '🟡 Средний';
+  const modelCost = MODEL_COST[s.model] !== undefined ? MODEL_COST[s.model] : 1;
   const modelLabel = MODEL_OPTIONS[s.model]?.label || '⚙️ Не выбрана';
 
   const keyboard = [
@@ -846,7 +995,7 @@ function handleSettingsQuality(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   return {
-    text: '📷 <b>Качество изображения</b>\n\n🟢 <b>Эконом</b> — быстро, низкое качество\n🟡 <b>Стандарт</b> — среднее качество, сбалансированно\n🔥 <b>Премиум</b> — максимальное качество, детализация\n\nВыбери 👇',
+    text: '📷 <b>Качество изображения</b>\n\n🟢 <b>Эконом</b> — быстро, низкое качество\n👍 <b>Стандарт</b> — среднее качество, сбалансированное\n🔥 <b>Премиум</b> — максимальное качество, детализация\n\nВыбери 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
@@ -878,14 +1027,20 @@ function handleSettingsAspect(telegramId) {
  */
 function handleSettingsModel(telegramId) {
   const s = getSettings(telegramId);
-  const keyboard = Object.entries(MODEL_OPTIONS).map(([key, opt]) => ({
+  const options = getModelOptions(telegramId);
+  const keyboard = Object.entries(options).map(([key, opt]) => ({
     text: (s.model === key ? '✅ ' : '') + opt.label,
     callback_data: 'set_model:' + key
   })).map(btn => [btn]);
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
+  const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
+  const proLabel = '🏆 <b>Про</b> — 2 генерации, макс. качество';
+  const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
+  const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
+
   return {
-    text: '🤖 <b>Модель генерации</b>\n\n⚡ <b>Flash</b> — быстро, до 4K\n🔥 <b>Pro</b> — макс. качество, дольше\n\nВыбери модель 👇',
+    text: '🤖 <b>Модель генерации</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + '\nВыбери модель 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
@@ -935,13 +1090,18 @@ function getSizePrompt(telegramId) {
 // ======================
 
 module.exports = {
+  isNewUser,
   handleStart,
   handleBuy,
   handlePhotosReceived,
   handleStyleSelected,
   handleGenerationsExhausted,
+  buildBuyKeyboard,
+  exhaustionMessage,
   handleCancel,
   handleUnknown,
+  handleOnboardingLearnMore,
+  handleOnboardingTry,
   getConversation,
   setConversation,
   resetConversation,
@@ -974,5 +1134,7 @@ module.exports = {
   ASPECT_OPTIONS,
   SIZE_OPTIONS,
   MODEL_OPTIONS,
+  getModelCost,
+  MODEL_COST,
   pluralGen
 };

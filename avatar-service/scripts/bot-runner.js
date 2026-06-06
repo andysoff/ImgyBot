@@ -8,7 +8,7 @@
  * Токен — от @BotFather.
  *
  * Обрабатывает:
- *   /start          → приветствие (шаг 1)
+ *   /start          → Запустить бота
  *   фото            → загрузка, создание юзера, кнопки стилей (шаги 2-3)
  *   callback_data   → выбор стиля → генерация (шаги 4-5)
  *   "отмена"        → возврат в начало
@@ -77,6 +77,7 @@ if (!TOKEN) {
 }
 
 const botLogic = require('./bot-logic');
+const { buildBuyKeyboard } = botLogic;
 const generateImage = require('./generate-image');
 
 const PHOTOS_TMP = path.join(__dirname, '..', 'photos', '_incoming');
@@ -225,19 +226,18 @@ function tgApiWithReq(method, body, timeoutMs = 60000) {
 async function tgSend(chatId, text, extra = {}) {
   const opts = { chat_id: chatId, text, ...extra };
   console.log(`📤 Отправка ${chatId}: [${text.slice(0, 80)}]`, extra.reply_markup ? '(с кнопками)' : '');
-  let res = await tgApi('sendMessage', opts);
-  if (!res.ok) {
-    console.error(`❌ tgSend ошибка API: ${res.error_code} ${res.description}`);
-    // fallback без parse_mode
-    const { parse_mode, ...optsClean } = opts;
-    res = await tgApi('sendMessage', optsClean);
+  try {
+    const res = await tgApi('sendMessage', opts, 30000);
     if (!res.ok) {
-      console.error(`❌ tgSend fallback тоже ошибка: ${res.error_code} ${res.description}`);
+      console.error(`❌ tgSend ошибка API: ${res.error_code} ${res.description}`);
+    } else {
+      console.log(`✅ tgSend OK message_id=${res.result?.message_id}`);
     }
-  } else {
-    console.log(`✅ tgSend OK message_id=${res.result?.message_id}`);
+    return res;
+  } catch (err) {
+    console.error(`❌ tgSend исключение: ${err.message}`);
+    return { ok: false };
   }
-  return res;
 }
 
 async function tgEdit(chatId, messageId, text, extra = {}) {
@@ -411,6 +411,14 @@ async function processPhotos(chatId, filePaths, userName) {
     ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
   });
 
+  // followUp с inline-кнопками (выбор стиля / своё описание)
+  if (result.followUp) {
+    await tgSend(chatId, result.followUp.text, {
+      ...(result.followUp.parse_mode ? { parse_mode: result.followUp.parse_mode } : {}),
+      ...(result.followUp.reply_markup ? { reply_markup: result.followUp.reply_markup } : {})
+    });
+  }
+
   // ==== Загружаем все фото в Gemini File API (с проверкой кеша) ====
   try {
     const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
@@ -432,6 +440,54 @@ async function handleUpdate(update) {
     const chatId = cb.message.chat.id;
     const msgId = cb.message.message_id;
     const data = cb.data || '';
+
+    // ------ Callback: Онбординг ------
+    if (data === 'onboarding_learn') {
+      await tgAnswerCb(cb.id, 'ℹ️ Узнать больше');
+      // Удаляем старое сообщение с кнопками
+      try { await tgDelete(chatId, msgId); } catch {}
+      // Отправляем шаг 3 как новое сообщение
+      const result = botLogic.handleOnboardingLearnMore();
+      await tgSend(chatId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data === 'onboarding_try') {
+      await tgAnswerCb(cb.id, '🚀 Погнали!');
+      // Удаляем старое сообщение с кнопками
+      try { await tgDelete(chatId, msgId); } catch {}
+      // Отправляем шаг 4 как новое сообщение
+      const result = botLogic.handleOnboardingTry(String(chatId));
+      await tgSend(chatId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    // ------ Callback: Выбрать стили / Своё описание (из приветствия) ------
+    if (data === 'start_choose_style') {
+      await tgAnswerCb(cb.id, '🎨 Стили');
+      const result = botLogic.handleStyles(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data === 'start_custom_prompt') {
+      await tgAnswerCb(cb.id, '✍️ Промпт');
+      const result = botLogic.handleGodMode(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+      });
+      return;
+    }
 
     // ------ Callback: Настройки ------
     if (data === 'settings_main') {
@@ -541,7 +597,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
-      await tgAnswerCb(cb.id, `🖼 Выбран аватар`);
+      await tgAnswerCb(cb.id, `🖼 Выбран исходник`);
 
       // Обновляем conversation с новым avatarId
       const conv = botLogic.getConversation(String(chatId));
@@ -552,12 +608,8 @@ async function handleUpdate(update) {
 
       // Показываем стили для выбранного аватара
       const result = botLogic.handleStyles(String(chatId));
-      // Обновляем текст сообщения со списком аватаров
-      const avText = result
-        ? `✅ Аватар выбран.\n\n${result.text}`
-        : '✅ Аватар выбран. Нажми 🎨 Стили чтобы продолжить.';
-      await tgEdit(chatId, msgId, avText, {
-        ...(result?.reply_markup ? { reply_markup: result.reply_markup } : {})
+      await tgEdit(chatId, msgId, `✅ Исходник выбран.\n\n${result.text}`, {
+        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
       });
 
       // Проверяем/загружаем фото выбранного аватара в Gemini (проверка кеша + дозагрузка протухших)
@@ -586,7 +638,7 @@ async function handleUpdate(update) {
 
       const result = botLogic.deleteAvatar(String(chatId), avatarId);
       if (result.success) {
-        await tgEdit(chatId, msgId, `🗑 Аватар «${result.name}» удалён.`);
+        await tgEdit(chatId, msgId, `🗑 Исходник «${result.name}» удалён.`);
 
         // Показываем оставшиеся аватары или возвращаемся к старту
         const remainingResult = botLogic.handleAvatars(String(chatId));
@@ -595,7 +647,7 @@ async function handleUpdate(update) {
             reply_markup: remainingResult.reply_markup
           });
         } else {
-          await tgSend(chatId, '🆕 У тебя больше нет аватаров. Загрузи новое фото через /start');
+          await tgSend(chatId, '🆕 У тебя больше нет исходников. Загрузи новое фото через /start');
         }
       } else {
         await tgSend(chatId, `❌ Ошибка: ${result.error}`);
@@ -604,7 +656,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'new_avatar') {
-      await tgAnswerCb(cb.id, '➕ Новый аватар');
+      await tgAnswerCb(cb.id, '➕ Новый исходник');
 
       const result = botLogic.handleNewAvatar(String(chatId));
       // Редактируем текущее сообщение
@@ -626,6 +678,13 @@ async function handleUpdate(update) {
         return;
       }
 
+      // Демо-режим — только для администратора
+      const isDemo = payments.isDemoMode && payments.isDemoMode();
+      if (isDemo && Number(chatId) !== 132454710) {
+        await tgSend(chatId, '💳 Оплата временно недоступна. Скоро подключим — следи за обновлениями!');
+        return;
+      }
+
       try {
         const payment = await payments.createPayment(chatId, packageId);
 
@@ -642,8 +701,8 @@ async function handleUpdate(update) {
         await tgEdit(chatId, msgId,
           `💳 <b>${pkg.label}</b> — ${pkg.price}₽\n\n`
           + (isDemoMode
-            ? '🔄 <i>Демо-режим</i>. Оплата не подключена.\nПросто нажми «✅ Я оплатил» — генерации начислятся сразу.\n\n')
-          : 'Нажми кнопку ниже, чтобы перейти к оплате.\nПосле оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.\n\n'),
+            ? '🔄 <i>Демо-режим</i>. Оплата не подключена.\nПросто нажми «✅ Я оплатил» — генерации начислятся сразу.\n\n'
+            : 'Нажми кнопку ниже, чтобы перейти к оплате.\nПосле оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.\n\n'),
           {
             parse_mode: 'HTML',
             reply_markup: {
@@ -717,8 +776,9 @@ async function handleUpdate(update) {
     if (data === 'show_buy') {
       await tgAnswerCb(cb.id, '');
       const buyResult = botLogic.handleBuy(String(chatId));
+      // Отправляем отдельным сообщением, не редактируем текущее
       if (buyResult) {
-        await tgEdit(chatId, msgId, buyResult.text, {
+        await tgSend(chatId, buyResult.text, {
           parse_mode: buyResult.parse_mode,
           reply_markup: buyResult.reply_markup
         });
@@ -747,6 +807,7 @@ async function handleUpdate(update) {
         await tgEdit(chatId, msgId, statusText);
 
         // ==== Генерация изображения ====
+        const settings = botLogic.getSettings(String(chatId));
         try {
           const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
           const avatar = avatars.find(a => a.id === result.avatarId);
@@ -754,7 +815,7 @@ async function handleUpdate(update) {
           fs.mkdirSync(outputDir, { recursive: true });
 
           // Уведомление о старте
-          const statusMsg = `🎨 Генерирую аватарку в стиле «${result.style.name}»...`;
+          const statusMsg = `🎨 Генерирую фото в стиле «${result.style.name}»...`;
           await tgSend(chatId, statusMsg);
 
           // Получаем Gemini URI с проверкой кеша и дозагрузкой протухших
@@ -763,9 +824,9 @@ async function handleUpdate(update) {
             await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
             return;
           }
-          console.log(`⚡ Генерация использует ${geminiFiles.length} файлов аватара ${avatar?.id}`);
+          console.log(`⚡ Генерация использует ${geminiFiles.length} файлов исходника ${avatar?.id}`);
 
-          const settings = botLogic.getSettings(String(chatId));
+          // Используется getModelCost для динамической стоимости
 
           if (styleId === 'professions') {
             // === Профессия — случайная из 30+ самых известных ===
@@ -778,14 +839,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'sport') {
@@ -799,14 +861,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'in_office') {
@@ -820,14 +883,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'location') {
@@ -841,14 +905,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'history') {
@@ -862,14 +927,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'literature') {
@@ -883,14 +949,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else if (styleId === 'cinema') {
@@ -905,14 +972,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
 
           } else {
@@ -923,14 +991,15 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            if (result.remaining > 0 && result.remaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
 
-            if (result.reply_markup) {
+            if (actualRemaining > 0) {
               await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
             } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
           }
 
@@ -1013,26 +1082,31 @@ async function handleUpdate(update) {
               }
 
               if (retryResult) {
-                if ((result.remaining || 0) > 0 && (result.remaining || 0) <= 3) {
-                  await tgSend(chatId, `⚠️ Осталось всего ${result.remaining} ${botLogic.pluralGen(result.remaining)}`);
+                const retryRemaining = consumeAfterGeneration(chatId, result);
+                if (retryRemaining > 0 && retryRemaining <= 3) {
+                  await tgSend(chatId, `⚠️ Осталось всего ${retryRemaining} ${botLogic.pluralGen(retryRemaining)}`);
                 }
-                if (result.reply_markup) {
+                if (retryRemaining > 0) {
                   await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
                 } else {
-                  await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support');
+                  await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
                 }
               }
             } catch (retryErr) {
               console.error('❌ Retry тоже не удался:', retryErr.message);
               await tgSend(chatId, `❌ Не удалось сгенерировать даже после повтора: ${retryErr.message}`);
-              if (result.reply_markup) {
+              if (result.remaining > 0) {
                 await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
+              } else {
+                await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
               }
             }
           } else {
             await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
-            if (result.reply_markup) {
+            if (result.remaining > 0) {
               await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
+            } else {
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
             }
           }
         }
@@ -1054,15 +1128,17 @@ async function handleUpdate(update) {
 
       const storedPhoto = conv?.data?.lastAttachedPhoto || null;
 
+      // Динамическая стоимость
+      const cost = botLogic.getModelCost ? botLogic.getModelCost(String(chatId)) : 1;
+
       // Проверяем баланс
       const user = botLogic.findUserByTelegram(String(chatId));
-      if (!user || user.generationsRemaining <= 0) {
-        await tgSend(chatId, '😔 Твои бесплатные генерации закончились. Напиши администратору — @imgy_support');
+      if (!user || user.generationsRemaining < cost) {
+        await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
         botLogic.resetConversation(String(chatId));
         return;
       }
-
-      const generationResult = botLogic.consumeGeneration(conv.data.userId);
+      const generationResult = botLogic.consumeGeneration(conv.data.userId, cost);
       const promptResult = {
         promptText: storedPrompt,
         attachedPhoto: storedPhoto,
@@ -1105,43 +1181,46 @@ async function handleUpdate(update) {
       // Сначала пробуем отменить режим бога
       const cancelResult = botLogic.handleCancelGodMode(String(chatId));
       if (cancelResult) {
-        await tgSend(chatId, cancelResult.text);
-        // Показываем постоянную клавиатуру
         const mainKB = botLogic.buildMainKeyboard();
-        await tgSend(chatId, 'Выбери действие 👇', { reply_markup: mainKB });
+        await tgSend(chatId, cancelResult.text, { reply_markup: mainKB });
         return;
       }
     }
     
     const fn = text.toLowerCase() === '/start' ? botLogic.handleStart : botLogic.handleCancel;
     const result = fn(String(chatId));
+
+    // Отправляем только ОДНО сообщение — то, что вернул handleStart/handleCancel.
+    // Если нужна клавиатура, handleStart сам её возвращает в reply_markup.
+    // Дублирующая отправка удалена — она была причиной двух сообщений.
     await tgSend(chatId, result.text, {
       ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
       ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
     });
-    // Отправляем постоянную клавиатуру (кнопки над вводом)
-    const mainKB = botLogic.buildMainKeyboard();
-    await tgSend(chatId, 'Выбери действие 👇', { reply_markup: mainKB });
-    return;
-  }
 
-  // /help — информация
-  if (text.toLowerCase() === '/help') {
-    await tgSend(chatId, '🤖 <b>Imgy Avatar Bot</b>\n\n🎨 Генерирую аватарки по твоему фото в разных стилях.\n\n📸 <b>Как использовать:</b>\n1️⃣ Напиши /start\n2️⃣ Загрузи фото (1-3 штуки)\n3️⃣ Выбери стиль из кнопок\n4️⃣ Готово! 🎉\n\n💰 /balance — остаток генераций\n🎨 /styles — показать стили\n❓ /help — эта справка', { parse_mode: 'HTML' });
-    return;
-  }
-
-  // /styles — показать стили (то же что и после загрузки фото)
-  if (text.toLowerCase() === '/styles') {
-    const result = botLogic.handleStyles(String(chatId));
-    if (result) {
-      await tgSend(chatId, result.text, {
-        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
-        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+    // Отправляем followUp (следующее сообщение), если есть
+    if (result.followUp) {
+      await tgSend(chatId, result.followUp.text, {
+        ...(result.followUp.parse_mode ? { parse_mode: result.followUp.parse_mode } : {}),
+        ...(result.followUp.reply_markup ? { reply_markup: result.followUp.reply_markup } : {})
       });
-    } else {
-      await tgSend(chatId, '❌ Сначала загрузи фото — /start');
     }
+    return;
+  }
+
+  // /help — информация (и кнопка ❓ Помощь)
+  if (text.toLowerCase() === '/help' || text === '❓ Помощь') {
+    await tgSend(chatId, '🤖 <b>Imgy Bot</b>\n\n🎨 Генерирую фотографии по твоим фото в разных стилях.\n\n📸 <b>Как использовать:</b>\n1️⃣ Напиши /start\n2️⃣ Загрузи фото (1-3 штуки)\n3️⃣ Выбери стиль или напиши описание\n4️⃣ Готово! 🎉\n\n🚀 /prompt — написать описание\n🎨 /styles — показать стили\n👤 /avatar — управление исходниками\n💰 /balance — остаток генераций\n⚙️ /settings — настройки\n❓ /help — эта справка', { parse_mode: 'HTML' });
+    return;
+  }
+
+  // /styles — показать стили (и кнопка 🖼 Стили)
+  if (text.startsWith('/styles') || text === '🖼 Стили') {
+    const result = botLogic.handleStyles(String(chatId));
+    await tgSend(chatId, result.text, {
+      ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+      ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+    });
     return;
   }
 
@@ -1157,100 +1236,54 @@ async function handleUpdate(update) {
     return;
   }
 
-  // /status, /remaining, /balance, /осталось — остаток генераций
-  if (['/status', '/remaining', '/balance', '/осталось'].includes(text.toLowerCase())) {
+  // /status, /remaining, /balance, /осталось — остаток генераций (и кнопка 💰 Баланс)
+  if (['/status', '/remaining', '/balance', '/осталось'].includes(text.toLowerCase()) || text === '💰 Баланс') {
     const remaining = botLogic.checkBalance(String(chatId));
     const payments = require('./payments');
     if (remaining === null) {
       await tgSend(chatId, '❌ Ты ещё не загружал фото. Напиши /start чтобы начать.');
-    } else if (remaining <= 0) {
-      const buyBtn = payments.isConfigured()
-        ? { reply_markup: { inline_keyboard: [[{ text: '💳 Купить генерации', callback_data: 'show_buy' }]] } }
-        : {};
-      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support', buyBtn);
-    } else {
-      await tgSend(chatId, `🌀 У тебя осталось <b>${remaining}</b> ${botLogic.pluralGen(remaining)}`, { parse_mode: 'HTML' });
+      return;
     }
+    
+    let responseText;
+    if (remaining <= 0) {
+      responseText = '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё 👇';
+    } else {
+      responseText = `🌀 У тебя осталось <b>${remaining}</b> ${botLogic.pluralGen(remaining)}\n\nЕсли нужно ещё — можно приобрести 👇`;
+    }
+    
+    const buyBtn = payments.isConfigured()
+      ? { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } }
+      : {};
+    await tgSend(chatId, responseText, { ...buyBtn, parse_mode: 'HTML' });
     return;
   }
 
-  // ------ Reply keyboard buttons (постоянная клавиатура) ------
-  if (text === '🎮 Промпт') {
+  // ------ Reply keyboard buttons (команды) ------
+  if (text.startsWith('/prompt') || text === '✍️ Промпт') {
     const result = botLogic.handleGodMode(String(chatId));
-    if (result) {
-      await tgSend(chatId, result.text, {
-        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {})
-      });
-    } else {
-      await tgSend(chatId, '❌ Сначала загрузи фото — /start');
-    }
+    await tgSend(chatId, result.text, {
+      ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+      ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+    });
     return;
   }
   
-  if (text === '🎨 Стили') {
-    const result = botLogic.handleStyles(String(chatId));
-    if (result) {
-      await tgSend(chatId, result.text, {
-        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
-        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
-      });
-    } else {
-      await tgSend(chatId, '❌ Сначала загрузи фото — /start');
-    }
-    return;
-  }
-  
-  if (text === '🖼 Аватар') {
+  if (text.startsWith('/avatar') || text === '👤 Аватар') {
     const result = botLogic.handleAvatars(String(chatId));
-    if (result) {
-      await tgSend(chatId, result.text, {
-        ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
-        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
-      });
-    } else {
-      await tgSend(chatId, '❌ У тебя нет аватаров. Загрузи фото через /start');
-    }
+    await tgSend(chatId, result.text, {
+      ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+      ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+    });
     return;
   }
   
-  if (text === '⚙️ Настройки') {
+  if (text.startsWith('/settings') || text === '⚙️ Настройки') {
     const result = botLogic.handleSettings(String(chatId));
     await tgSend(chatId, result.text, {
       parse_mode: result.parse_mode,
       reply_markup: result.reply_markup
     });
-    return;
-  }
-  
-  if (text === '💰 Баланс') {
-    const remaining = botLogic.checkBalance(String(chatId));
-    const payments = require('./payments');
-    if (remaining === null) {
-      await tgSend(chatId, '❌ Ты ещё не загружал фото. Напиши /start чтобы начать.');
-    } else if (remaining <= 0) {
-      const buyBtn = payments.isConfigured()
-        ? { reply_markup: { inline_keyboard: [[{ text: '💳 Купить генерации', callback_data: 'show_buy' }]] } }
-        : {};
-      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНапиши администратору — @imgy_support', buyBtn);
-    } else {
-      await tgSend(chatId, `🌀 У тебя осталось <b>${remaining}</b> ${botLogic.pluralGen(remaining)}`, { parse_mode: 'HTML' });
-    }
-    return;
-  }
-
-  if (text === '💳 Купить') {
-    const buyResult = botLogic.handleBuy(String(chatId));
-    if (buyResult) {
-      await tgSend(chatId, buyResult.text, {
-        parse_mode: buyResult.parse_mode,
-        reply_markup: buyResult.reply_markup
-      });
-    }
-    return;
-  }
-  
-  if (text === '❓ Помощь') {
-    await tgSend(chatId, '🤖 <b>Imgy Avatar Bot</b>\n\n🎨 Генерирую аватарки по твоему фото в разных стилях.\n\n📸 <b>Как использовать:</b>\n1️⃣ Напиши /start\n2️⃣ Загрузи фото (1-3 штуки)\n3️⃣ Выбери стиль из кнопок\n4️⃣ Готово! 🎉\n\n💰 /balance — остаток генераций\n🎨 /styles — показать стили\n❓ /help — эта справка', { parse_mode: 'HTML' });
     return;
   }
 
@@ -1270,17 +1303,22 @@ async function handleUpdate(update) {
         return;
       }
 
+      const sendOpts = {
+        ...(promptResult.parse_mode ? { parse_mode: promptResult.parse_mode } : {}),
+        ...(promptResult.reply_markup ? { reply_markup: promptResult.reply_markup } : {})
+      };
+
       if (promptResult.pendingPhotoAttached) {
         // Фото сохранено, ждём текстовое описание
-        await tgSend(chatId, promptResult.text);
+        await tgSend(chatId, promptResult.text, sendOpts);
         return;
       }
 
       if (promptResult.readyToGenerate) {
-        await tgSend(chatId, promptResult.text);
+        await tgSend(chatId, promptResult.text, sendOpts);
         await generateCustomAvatarWithPhoto(chatId, promptResult);
       } else {
-        await tgSend(chatId, promptResult.text);
+        await tgSend(chatId, promptResult.text, sendOpts);
       }
       return;
     }
@@ -1311,20 +1349,28 @@ async function handleUpdate(update) {
       return;
     }
 
+    const sendOpts = {
+      ...(promptResult.parse_mode ? { parse_mode: promptResult.parse_mode } : {}),
+      ...(promptResult.reply_markup ? { reply_markup: promptResult.reply_markup } : {})
+    };
+
     if (promptResult.readyToGenerate) {
-      await tgSend(chatId, promptResult.text);
+      await tgSend(chatId, promptResult.text, sendOpts);
       await generateCustomAvatarWithPhoto(chatId, promptResult);
     } else {
-      await tgSend(chatId, promptResult.text);
+      await tgSend(chatId, promptResult.text, sendOpts);
     }
     return;
   }
 
-  // ------ Всё остальное ------
-  const result = botLogic.handleUnknown(String(chatId), text);
-  await tgSend(chatId, result.text, {
-    ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
-    ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+  // ------ Всё остальное — не команда и не промпт, предлагаем действия ------
+  await tgSend(chatId, 'Выбери действие:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎨 Выбрать стиль', callback_data: 'start_choose_style' }],
+        [{ text: '✍️ Своё описание', callback_data: 'start_custom_prompt' }]
+      ]
+    }
   });
 }
 
@@ -1334,6 +1380,19 @@ async function handleUpdate(update) {
  * Сгенерировать аватар по промпту + опционально прикреплённое фото.
  * Вызывается как из текстового сообщения, так и из сообщения с фото.
  */
+/**
+ * Списать одну генерацию после успешного создания фото.
+ */
+function consumeAfterGeneration(chatId, result) {
+  try {
+    const genResult = botLogic.consumeGeneration(result.userId, result.cost || 1);
+    return genResult.remaining;
+  } catch (e) {
+    console.error('❌ Ошибка списания генерации:', e.message);
+    return 0;
+  }
+}
+
 async function generateCustomAvatarWithPhoto(chatId, promptResult) {
   // Сохраняем промпт и фото в conversation заранее (на случай ошибки)
   const earlyConv = botLogic.getConversation(String(chatId));
@@ -1349,7 +1408,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     const outputDir = path.join(__dirname, '..', 'photos', 'generated');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const statusMsg = `🎮 Генерирую по твоему описанию...`;
+    const statusMsg = `✍️ Генерирую по твоему описанию...`;
     await tgSend(chatId, statusMsg);
 
     // Получаем Gemini URI для фото аватара
@@ -1377,37 +1436,46 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       return;
     }
 
+    // Используется getModelCost для динамической стоимости
     const settings = botLogic.getSettings(String(chatId));
     const generatedResult = await generateImage.generateCustomAvatar(geminiFiles, promptResult.promptText, outputDir, settings);
 
-    const caption = `🎮 Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
+    const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
-    if (promptResult.remaining > 0 && promptResult.remaining <= 3) {
-      await tgSend(chatId, `⚠️ Осталось всего ${promptResult.remaining} ${botLogic.pluralGen(promptResult.remaining)}`);
-    }
+    const promptRemaining = consumeAfterGeneration(chatId, promptResult);
 
-    // Обновляем conversation: сохраняем lastPromptText/lastAttachedPhoto для Повторить
-    const conv = botLogic.getConversation(String(chatId));
-    if (conv?.data) {
-      delete conv.data.pendingPhoto;
-      conv.data.lastPromptText = promptResult.promptText;
-      if (promptResult.attachedPhoto) conv.data.lastAttachedPhoto = promptResult.attachedPhoto;
-      botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', conv.data);
-    }
-
-    // Показываем inline кнопки: Повторить / Выйти
-    await tgSend(chatId, '🎮 Что дальше?', {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🔄 Повторить', callback_data: 'prompt_repeat' },
-            { text: '🚪 Выйти', callback_data: 'prompt_exit' }
-          ]
-        ]
+    if (promptRemaining <= 0) {
+      botLogic.resetConversation(String(chatId));
+      const exhMsg = botLogic.exhaustionMessage();
+      await tgSend(chatId, exhMsg.text, { reply_markup: exhMsg.reply_markup });
+    } else {
+      if (promptRemaining <= 3) {
+        await tgSend(chatId, `⚠️ Осталось всего ${promptRemaining} ${botLogic.pluralGen(promptRemaining)}`);
       }
-    });
+
+      // Обновляем conversation: сохраняем lastPromptText/lastAttachedPhoto для Повторить
+      const conv = botLogic.getConversation(String(chatId));
+      if (conv?.data) {
+        delete conv.data.pendingPhoto;
+        conv.data.lastPromptText = promptResult.promptText;
+        if (promptResult.attachedPhoto) conv.data.lastAttachedPhoto = promptResult.attachedPhoto;
+        botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', conv.data);
+      }
+
+      // Показываем inline кнопки: Повторить / Выйти
+      await tgSend(chatId, '✍️ Что дальше?', {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Повторить', callback_data: 'prompt_repeat' },
+              { text: '🚪 Выйти', callback_data: 'prompt_exit' }
+            ]
+          ]
+        }
+      });
+    }
 
   } catch (err) {
     console.error('❌ Ошибка генерации в режиме промпта:', err.message);
@@ -1416,7 +1484,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     } else {
       await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
     }
-    await tgSend(chatId, '🎮 Что дальше?', {
+    await tgSend(chatId, '✍️ Что дальше?', {
       reply_markup: {
         inline_keyboard: [
           [
