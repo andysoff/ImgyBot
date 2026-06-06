@@ -1086,10 +1086,74 @@ function getSizePrompt(telegramId) {
 }
 
 // ======================
+// ПОМОЩЬ
+// ======================
+
+/**
+ * Главный экран Помощи — как онбординг, с inline-кнопками.
+ */
+function handleHelp() {
+  return {
+    text: '🤖 <b>Какая помощь необходима?</b>',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📖 Инструкция', callback_data: 'help_instructions' }],
+        [{ text: '💬 Задать вопрос', callback_data: 'help_support' }]
+      ]
+    }
+  };
+}
+
+/**
+ * Экран Инструкция — основные шаги.
+ */
+function handleHelpInstructions() {
+  return {
+    text: '🤖 <b>Imgy Bot</b> — твой персональный AI-фотограф 📸\n\n<b>Как это работает:</b>\n\n'
+      + '1️⃣ <b>Загрузи фото</b>\n'
+      + 'Можно прислать одно, но лучше несколько. Выбирай самые качественные и любимые.\n\n'
+      + '2️⃣ <b>Создание исходника</b>\n'
+      + 'После загрузки я создам твой цифровой исходник, и можно приступать к созданию новых фото.\n\n'
+      + '3️⃣ <b>Генерация фото</b>\n'
+      + 'Можно создавать фото с использованием готовых стилей или написать детальное описание самому (промпт).\n\n'
+      + '4️⃣ <b>Несколько исходников</b>\n'
+      + 'При желании можно создать несколько исходников и делать фото для близких и друзей.',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🔙 Назад', callback_data: 'help_back' }]
+      ]
+    }
+  };
+}
+
+/**
+ * Контакты поддержки.
+ */
+function handleHelpSupport() {
+  return {
+    text: '💬 <b>Поддержка</b>\n\n'
+      + 'Если у тебя возникли вопросы или проблемы — пиши:\n\n'
+      + '📩 <a href="https://t.me/imgy_support">@imgy_support</a>\n\n'
+      + 'Мы ответим в ближайшее время 🕐',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🔙 Назад', callback_data: 'help_back' }]
+      ]
+    }
+  };
+}
+
+// ======================
 // Экспорт
 // ======================
 
 module.exports = {
+  handleHelp,
+  handleHelpInstructions,
+  handleHelpSupport,
   isNewUser,
   handleStart,
   handleBuy,

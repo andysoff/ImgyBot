@@ -1162,6 +1162,37 @@ async function handleUpdate(update) {
       }
       return;
     }
+
+    // ------ Callback: Помощь ------
+    if (data === 'help_instructions') {
+      await tgAnswerCb(cb.id, '📖 Инструкция');
+      const result = botLogic.handleHelpInstructions();
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data === 'help_support') {
+      await tgAnswerCb(cb.id, '💬 Задать вопрос');
+      const result = botLogic.handleHelpSupport();
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data === 'help_back') {
+      await tgAnswerCb(cb.id, '🔙 Назад');
+      const result = botLogic.handleHelp();
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
   }
 
   // ------ Обычные сообщения ------
@@ -1210,7 +1241,11 @@ async function handleUpdate(update) {
 
   // /help — информация (и кнопка ❓ Помощь)
   if (text.toLowerCase() === '/help' || text === '❓ Помощь') {
-    await tgSend(chatId, '🤖 <b>Imgy Bot</b>\n\n🎨 Генерирую фотографии по твоим фото в разных стилях.\n\n📸 <b>Как использовать:</b>\n1️⃣ Напиши /start\n2️⃣ Загрузи фото (1-3 штуки)\n3️⃣ Выбери стиль или напиши описание\n4️⃣ Готово! 🎉\n\n🚀 /prompt — написать описание\n🎨 /styles — показать стили\n👤 /avatar — управление исходниками\n💰 /balance — остаток генераций\n⚙️ /settings — настройки\n❓ /help — эта справка', { parse_mode: 'HTML' });
+    const result = botLogic.handleHelp();
+    await tgSend(chatId, result.text, {
+      parse_mode: result.parse_mode,
+      reply_markup: result.reply_markup
+    });
     return;
   }
 
