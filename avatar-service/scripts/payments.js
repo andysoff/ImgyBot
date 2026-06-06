@@ -20,9 +20,9 @@ const YOOKASSA_API = 'https://api.yookassa.ru/v3';
 
 // Пакеты генераций
 const PACKAGES = [
-  { id: 'gen_10',  label: '🔟 10 генераций',  generations: 10,  price: 50,  priceLabel: '50₽' },
-  { id: 'gen_30',  label: '📦 30 генераций',  generations: 30,  price: 150, priceLabel: '150₽' },
-  { id: 'gen_100', label: '🚀 100 генераций', generations: 100, price: 500, priceLabel: '500₽' },
+  { id: 'gen_10',  label: '👌 10 генераций',  generations: 10,  price: 100, priceLabel: '100₽', savings: 0, savingsPercent: 0, buyEmoji: '' },
+  { id: 'gen_50',  label: '👍 50 генераций',   generations: 50,  price: 400, priceLabel: '400₽', savings: 100, savingsPercent: 20, buyEmoji: '👍' },
+  { id: 'gen_100', label: '🔥 100 генераций', generations: 100, price: 700, priceLabel: '700₽', savings: 300, savingsPercent: 30, buyEmoji: '🔥' },
 ];
 
 /**
