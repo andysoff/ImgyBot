@@ -50,12 +50,28 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - When you make a mistake → document it so future-you doesn't repeat it
 - **Text > Brain** 📝
 
+## 📝 Проверка орфографии
+
+Всегда проверяй орфографию и пунктуацию в пользовательских текстах перед сохранением в коде ботов.
+
+Особое внимание:
+- Запятые перед «и» в сложносочинённых предложениях
+- Запятые перед «чтобы»
+- Согласование прилагательных с существительными (род, число)
+- Пропущенные буквы и опечатки
+
 ## Red Lines
 
 - Don't exfiltrate private data. Ever.
 - Don't run destructive commands without asking.
 - `trash` > `rm` (recoverable beats gone forever)
 - When in doubt, ask.
+
+### 🔴 Особо важное — Андрей
+
+- Перед любым удалением — спроси подтверждение и дождись ответа. Вопрос «как ты удалял до этого?» — это вопрос, а не команда. Не домысливай.
+- Если задал вопрос — жди ответа. Не делай ничего, пока не получишь его.
+- Если сказали «стой», «постой», «погоди» — остановись немедленно и жди дальнейших указаний.
 
 ## External vs Internal
 
