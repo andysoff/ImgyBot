@@ -1260,12 +1260,9 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
     const finishMsg = candidates?.[0]?.finishMessage || '';
-    if (reason === 'PROHIBITED_CONTENT') {
-      throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
-    }
-    if (reason === 'IMAGE_OTHER') {
-      const hint = finishMsg ? finishMsg.replace(/\[.*?\]\(.*?\)/g, '').trim() : '';
-      throw new Error('Заблокировано: модель не смогла сгенерировать изображение по твоему описанию. ' + (hint || 'Попробуй переформулировать.'));
+    const userMsg = finishReasonMessage(reason, finishMsg);
+    if (userMsg) {
+      throw new Error(userMsg);
     }
     throw new Error('Gemini не вернул изображение');
   }
@@ -1350,12 +1347,9 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
     const finishMsg = candidates?.[0]?.finishMessage || '';
-    if (reason === 'PROHIBITED_CONTENT') {
-      throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
-    }
-    if (reason === 'IMAGE_OTHER') {
-      const hint = finishMsg ? finishMsg.replace(/\[.*?\]\(.*?\)/g, '').trim() : '';
-      throw new Error('Заблокировано: модель не смогла сгенерировать изображение по твоему описанию. ' + (hint || 'Попробуй переформулировать.'));
+    const userMsg = finishReasonMessage(reason, finishMsg);
+    if (userMsg) {
+      throw new Error(userMsg);
     }
     throw new Error('Gemini не вернул изображение');
   }
@@ -1366,6 +1360,35 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
 
   console.log(`✅ Без аватара промпт: ${outputPath}`);
   return { path: outputPath, prompt };
+}
+
+/**
+ * Преобразовать finishReason Gemini в понятное сообщение для пользователя.
+ * Возвращает текст ошибки или null, если причина не распознана.
+ */
+function finishReasonMessage(reason, finishMsg) {
+  const hint = finishMsg ? finishMsg.replace(/\[.*?\]\(.*?\)/g, '').trim() : '';
+  const msg = hint || 'Попробуй переформулировать описание.';
+  switch (reason) {
+    case 'PROHIBITED_CONTENT':
+      return 'Заблокировано: контент отклонён safety-фильтром Gemini. ' + msg;
+    case 'IMAGE_PROHIBITED_CONTENT':
+      return 'Заблокировано: сгенерированное изображение содержит запрещённый контент. ' + msg;
+    case 'IMAGE_SAFETY':
+      return 'Заблокировано: сработал safety-фильтр на изображении. ' + msg;
+    case 'IMAGE_OTHER':
+      return 'Заблокировано: модель не смогла сгенерировать изображение по твоему описанию. ' + msg;
+    case 'NO_IMAGE':
+      return 'Заблокировано: модель не создала изображение. ' + msg;
+    case 'SAFETY':
+      return 'Заблокировано: сработал фильтр безопасности. ' + msg;
+    case 'OTHER':
+      return 'Заблокировано: генерация отклонена. ' + msg;
+    case 'RECITATION':
+      return 'Заблокировано: изображение слишком похоже на защищённый авторским правом материал. ' + msg;
+    default:
+      return null;
+  }
 }
 
 module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatarCustom };
