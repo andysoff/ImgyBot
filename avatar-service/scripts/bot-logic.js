@@ -1027,20 +1027,20 @@ function handleSettings(telegramId) {
       [{ text: '🖼 Размер: ' + sizeLabel, callback_data: 'settings_size' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
-      [{ text: '🤖 Модель: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Модель: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel;
   } else {
     // Обычные пользователи — только модель и соотношение
     keyboard = [
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
-      [{ text: '🤖 Модель: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Модель: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel;
   }
 
   return {
@@ -1107,7 +1107,7 @@ function handleSettingsModel(telegramId) {
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
 
   return {
-    text: '🤖 <b>Модель генерации</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + '\nВыбери модель 👇',
+    text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + '\nВыбери нейросеть 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
