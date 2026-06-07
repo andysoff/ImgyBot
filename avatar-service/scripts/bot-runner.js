@@ -1411,21 +1411,19 @@ async function handleUpdate(update) {
       // Динамическая стоимость
       const cost = botLogic.getModelCost ? botLogic.getModelCost(String(chatId)) : 1;
 
-      // Проверяем баланс
+      // Проверяем баланс — сама генерация спишет внутри generateCustomAvatarWithPhoto
       const user = botLogic.findUserByTelegram(String(chatId));
       if (!user || user.generationsRemaining < cost) {
         await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
         botLogic.resetConversation(String(chatId));
         return;
       }
-      const generationResult = botLogic.consumeGeneration(conv.data.userId, cost);
       const isNoAvatar = conv?.data?.avatarId === 'no_avatar';
       const promptResult = {
         promptText: storedPrompt,
         attachedPhoto: isNoAvatar ? null : storedPhoto,
         avatarId: conv.data.avatarId,
         userId: conv.data.userId,
-        remaining: generationResult.remaining,
         isNoAvatar,
         readyToGenerate: true
       };
