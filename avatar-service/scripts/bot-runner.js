@@ -695,7 +695,7 @@ async function handleUpdate(update) {
         const checkConv = botLogic.getConversation(String(chatId));
         if (checkConv?.data?.avatarId === 'no_avatar') {
           await tgAnswerCb(cb.id, '❌ Flash 2.5 не работает без фото');
-          const warnText = '⚠️ <b>Flash 2.5</b> (gemini-2.5-flash-image) требует фото пользователя и несовместима с режимом «Без аватара».\n\nСначала выбери аватар в 👤 Аватар или смени на ⚡ Базовую модель.';
+          const warnText = '⚠️ <b>Flash 2.5</b> требует фото пользователя и несовместима с режимом «Без аватара».\n\nСначала выбери аватар в 👤 Аватар или смени на ⚡ Базовую модель.';
           await tgSend(chatId, warnText, { parse_mode: 'HTML' });
           return;
         }
