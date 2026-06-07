@@ -1418,6 +1418,9 @@ async function handleUpdate(update) {
         botLogic.resetConversation(String(chatId));
         return;
       }
+      // Отправляем явное сообщение, что генерация началась
+      await tgSend(chatId, `✍️ Генерирую: «${storedPrompt.slice(0, 60)}${storedPrompt.length > 60 ? '...' : ''}»`);
+
       const isNoAvatar = conv?.data?.avatarId === 'no_avatar';
       const promptResult = {
         promptText: storedPrompt,
