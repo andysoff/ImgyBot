@@ -1299,7 +1299,7 @@ async function generateNoAvatar(styleId, outputDir, settings) {
   const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
   const contextPrompt = getStyleContextPrompt(styleId);
   const prompt = applyQuality(
-    `<start_of_image_generation>\n${stylePrompt}. ${contextPrompt}\n<end_of_image_generation>\n\nMake it look like a high-quality realistic photo taken by a professional photographer.`, 
+    `Generate a beautiful, professional portrait photo of a person. ${stylePrompt}. ${contextPrompt}. Make it look like a high-quality realistic photo taken by a professional photographer.`, 
     settings
   );
 
