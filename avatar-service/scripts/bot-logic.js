@@ -686,6 +686,10 @@ function handleAvatars(telegramId) {
         callback_data: 'avatar:' + av.id
       },
       {
+        text: '👁 Показать',
+        callback_data: 'show_avatar:' + av.id
+      },
+      {
         text: '🗑',
         callback_data: 'del_avatar:' + av.id
       }
