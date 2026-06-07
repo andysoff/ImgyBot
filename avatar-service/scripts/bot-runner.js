@@ -809,6 +809,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('del_avatar:')) {
       const avatarId = data.replace('del_avatar:', '');
+      metrics.track('avatar:delete_initiated', { telegram_id: String(chatId), avatar_id: avatarId });
       await tgAnswerCb(cb.id, '');
 
       const confirmResult = botLogic.handleDeleteConfirm(String(chatId), avatarId);
@@ -857,6 +858,7 @@ async function handleUpdate(update) {
     // ------ Callback: Показать фото аватара ------
     if (data.startsWith('show_avatar:')) {
       const avatarId = data.replace('show_avatar:', '');
+      metrics.track('avatar:photo_viewed', { telegram_id: String(chatId), avatar_id: avatarId });
       await tgAnswerCb(cb.id, '📸 Загружаю фото...');
 
       const result = botLogic.handleShowAvatar(String(chatId), avatarId);
@@ -888,6 +890,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'back_to_avatars') {
+      metrics.track('avatar:back_to_list', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
 
       // Удаляем сообщение с подменю
@@ -905,6 +908,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('back_to_avatar_menu:')) {
       const avatarId = data.replace('back_to_avatar_menu:', '');
+      metrics.track('avatar:back_to_menu', { telegram_id: String(chatId), avatar_id: avatarId });
       await tgAnswerCb(cb.id, '');
 
       const result = botLogic.handleAvatarMenu(String(chatId), avatarId);
@@ -1370,6 +1374,7 @@ async function handleUpdate(update) {
 
               if (retryResult) {
                 const retryRemaining = consumeAfterGeneration(chatId, result);
+                metrics.track('generation:completed', { telegram_id: String(chatId), style_id: styleId, sub_id: '', model: settings?.model || '', cost: String(result.cost || 1) });
                 if (retryRemaining > 0 && retryRemaining <= 3) {
                   await tgSend(chatId, `⚠️ Осталось всего ${retryRemaining} ${botLogic.pluralGen(retryRemaining)}`);
                 }
@@ -1479,6 +1484,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'help_back') {
+      metrics.track('help:back', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🔙 Назад');
       const result = botLogic.handleHelp();
       await tgEdit(chatId, msgId, result.text, {
@@ -1866,6 +1872,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
       const promptRemaining = consumeAfterGeneration(chatId, promptResult);
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt_no_avatar', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
 
       if (promptRemaining <= 0) {
         botLogic.resetConversation(String(chatId));
