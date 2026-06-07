@@ -10,6 +10,8 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+const metrics = require('./metrics-ga4');
+
 const API_KEY = process.env.GEMINI_API_KEY;
 const MODEL = 'gemini-2.5-flash-image';
 
@@ -35,7 +37,9 @@ async function uploadPhoto(photoPath) {
   const mimeType = getMimeType(photoPath);
   const fileName = path.basename(photoPath);
 
-  console.log(`📤 Gemini File API: загрузка ${fileName} (${(stats.size / 1024).toFixed(1)} KB)`);
+  const startTime = Date.now();
+  const fileSizeKB = (stats.size / 1024).toFixed(1);
+  console.log(`📤 Gemini File API: загрузка ${fileName} (${fileSizeKB} KB)`);
 
   // === Шаг 1: Initiate resumable upload ===
   const initUrl = new URL('https://generativelanguage.googleapis.com/upload/v1beta/files');
@@ -117,6 +121,8 @@ async function uploadPhoto(photoPath) {
     req.end();
   });
 
+  const uploadDuration = Date.now() - startTime;
+  metrics.track('gemini:file_upload', { file_name: fileName, file_size_kb: fileSizeKB, duration_ms: String(uploadDuration), mime_type: mimeType });
   console.log(`✅ Gemini File URI: ${fileInfo.uri || fileInfo.name}`);
   return {
     name: fileInfo.name,
@@ -192,6 +198,9 @@ async function generateAvatar(files, styleId, outputDir, settings) {
 
   console.log(`🎨 Gemini: генерация в стиле ${styleId}...`);
 
+  const genStart = Date.now();
+  _callLabel = 'generateAvatar:' + styleId;
+
   const result = await apiCall(payload, extraConfig);
 
   // Извлекаем изображение из ответа
@@ -218,9 +227,14 @@ async function generateAvatar(files, styleId, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Генерация завершена: ${outputPath} (${(imgBuffer.length / 1024).toFixed(1)} KB)`);
+  const totalDuration = Date.now() - genStart;
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  console.log(`✅ Генерация завершена: ${outputPath} (${imgSizeKB} KB)`);
+
+  metrics.track('gemini:generation_success', { label: _callLabel, style: styleId, model: extraConfig?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
+
 
 /**
  * Сгенерировать набор аватарок для всех профессий.
@@ -262,6 +276,9 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
     ]
   });
 
+  const genStart = Date.now();
+  _callLabel = 'generateProfessionAvatar:' + profession.id;
+
   console.log(`🎨 Gemini: генерация профессии «${profession.name}»...`);
 
   const extraConfig = {};
@@ -290,7 +307,10 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Профессия «${profession.name}»: ${outputPath} (${(imgBuffer.length / 1024).toFixed(1)} KB)`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Профессия «${profession.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'professions', sub: profession.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -435,6 +455,9 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
   const extraConfig = {};
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
+  const genStart = Date.now();
+  _callLabel = 'generateSportAvatar:' + sport.id;
+
   console.log(`🎨 Gemini: генерация спорта «${sport.name}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -460,7 +483,10 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Спорт «${sport.name}»: ${outputPath} (${(imgBuffer.length / 1024).toFixed(1)} KB)`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Спорт «${sport.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'sport', sub: sport.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -541,6 +567,9 @@ const extraConfig = {};
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
+  const genStart = Date.now();
+  _callLabel = 'generateOfficeAvatar:' + work.id;
+
   console.log(`🎨 Gemini: генерация офисной роли «${work.name}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -566,7 +595,10 @@ const extraConfig = {};
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Офис «${work.name}»: ${outputPath} (${(imgBuffer.length / 1024).toFixed(1)} KB)`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Офис «${work.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'in_office', sub: work.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -839,6 +871,9 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
+  const genStart = Date.now();
+  _callLabel = 'generateCinemaAvatar:' + movie.titleEn;
+
   console.log(`🎬 Gemini: генерация в стиле фильма «${movie.title}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -865,7 +900,10 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Кино «${movie.title}»: ${outputPath} (${(imgBuffer.length / 1024).toFixed(1)} KB)`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Кино «${movie.title}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'cinema', sub: movie.titleEn, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -916,6 +954,9 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
+  const genStart = Date.now();
+  _callLabel = 'generateLocationAvatar:' + location.id;
+
   console.log(`🌍 Gemini: генерация локации «${location.name}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -940,7 +981,10 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Локация «${location.name}»: ${outputPath}`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Локация «${location.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'location', sub: location.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -997,6 +1041,9 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
+  const genStart = Date.now();
+  _callLabel = 'generateHistoryAvatar:' + era.id;
+
   console.log(`🎬 Gemini: генерация эпохи «${era.name}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -1021,7 +1068,10 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ История «${era.name}»: ${outputPath}`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ История «${era.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'history', sub: era.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -1038,7 +1088,12 @@ function getMimeType(filePath) {
   }
 }
 
+// Shared variable for apiCall to use when called from generator functions
+let _callLabel = 'unknown';
+
 function apiCall(payload, extraConfig) {
+  const callStart = Date.now();
+  const callLabel = _callLabel;
   // Если есть extra config (model, aspectRatio и т.п.) — встраиваем
   let modelName = MODEL;
   if (extraConfig) {
@@ -1071,25 +1126,40 @@ function apiCall(payload, extraConfig) {
         console.log(`📥 Gemini HTTP ${res.statusCode}`);
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
+          const duration = Date.now() - callStart;
           try {
             if (res.statusCode !== 200) {
               console.error(`❌ Gemini HTTP ${res.statusCode}: ${data.slice(0, 500)}`);
+              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel });
             }
             const parsed = JSON.parse(data);
             if (parsed.error) {
+              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: (parsed.error.message || '').slice(0, 100) });
               reject(new Error(`Gemini API: ${parsed.error.message} (${parsed.error.code})`));
             } else {
+              const finishReason = parsed?.candidates?.[0]?.finishReason || '';
+              metrics.track('gemini:api_success', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, finish_reason: finishReason });
               resolve(parsed);
             }
           } catch {
+            metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: 'parse_error' });
             reject(new Error(`Gemini API parse error: ${data.slice(0, 300)}`));
           }
         });
       }
     );
 
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Gemini API timeout (>5 min)')); });
+    req.on('error', (err) => {
+      const duration = Date.now() - callStart;
+      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: (err.message || '').slice(0, 100) });
+      reject(err);
+    });
+    req.on('timeout', () => {
+      const duration = Date.now() - callStart;
+      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: 'timeout' });
+      req.destroy();
+      reject(new Error('Gemini API timeout (>5 min)'));
+    });
     req.write(payload);
     req.end();
   });
@@ -1176,6 +1246,9 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
+  const genStart = Date.now();
+  _callLabel = 'generateLiteratureAvatar:' + work.id;
+
   console.log(`📚 Gemini: генерация литературы «${work.name}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -1200,7 +1273,10 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Литература «${work.name}»: ${outputPath}`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Литература «${work.name}»: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'literature', sub: work.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -1239,6 +1315,9 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
     ]
   });
 
+  const genStart = Date.now();
+  _callLabel = 'generateCustomAvatar';
+
   console.log(`🎮 Режим бога: ${customPrompt.slice(0, 100)}`);
 
   const result = await apiCall(payload, extraConfig);
@@ -1271,7 +1350,10 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Режим бога: ${outputPath}`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Режим бога: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'custom_prompt', model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 
@@ -1326,6 +1408,9 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
     ]
   });
 
+  const genStart = Date.now();
+  _callLabel = 'generateNoAvatarCustom';
+
   console.log(`✍️ Без аватара: промпт «${promptText.slice(0, 80)}»...`);
 
   const result = await apiCall(payload, extraConfig);
@@ -1358,7 +1443,10 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  console.log(`✅ Без аватара промпт: ${outputPath}`);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  const totalDuration = Date.now() - genStart;
+  console.log(`✅ Без аватара промпт: ${outputPath} (${imgSizeKB} KB)`);
+  metrics.track('gemini:generation_success', { label: _callLabel, style: 'no_avatar_custom', model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
   return { path: outputPath, prompt };
 }
 

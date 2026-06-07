@@ -1101,6 +1101,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1123,6 +1125,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1145,6 +1149,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1167,6 +1173,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1189,6 +1197,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1211,6 +1221,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1234,6 +1246,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn, model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1253,6 +1267,8 @@ async function handleUpdate(update) {
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
+            metrics.track('generation:completed', { telegram_id: String(chatId), style_id: styleId, sub_id: '', model: settings?.model || '', cost: String(result.cost || 1) });
+
             if (actualRemaining > 0 && actualRemaining <= 3) {
               await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
             }
@@ -1914,6 +1930,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
 
     const promptRemaining = consumeAfterGeneration(chatId, promptResult);
 
