@@ -1845,9 +1845,6 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     const outputDir = path.join(__dirname, '..', 'photos', 'generated');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const statusMsg = `✍️ Генерирую по твоему описанию...`;
-    await tgSend(chatId, statusMsg);
-
     const settings = botLogic.getSettings(String(chatId));
 
     // Режим "Без аватара" — генерация без фото пользователя
