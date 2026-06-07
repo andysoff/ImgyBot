@@ -689,6 +689,18 @@ async function handleUpdate(update) {
     if (data.startsWith('set_model:')) {
       const value = data.replace('set_model:', '');
       metrics.track('settings:model_changed', { telegram_id: String(chatId), value });
+
+      // Проверяем — если 'Без аватара', Про модель не работает
+      if (value === 'gemini-2.5-flash-image') {
+        const checkConv = botLogic.getConversation(String(chatId));
+        if (checkConv?.data?.avatarId === 'no_avatar') {
+          await tgAnswerCb(cb.id, '❌ Про модель не работает без фото');
+          const warnText = '⚠️ <b>Про модель</b> (gemini-2.5-flash-image) требует фото пользователя и несовместима с режимом «Без аватара».\n\nСначала выбери аватар в 👤 Аватар или смени на ⚡ Базовую модель.';
+          await tgSend(chatId, warnText, { parse_mode: 'HTML' });
+          return;
+        }
+      }
+
       botLogic.updateSetting(String(chatId), 'model', value);
       await tgAnswerCb(cb.id, '✅ Модель обновлена');
       const result = botLogic.handleSettingsModel(String(chatId));
@@ -707,6 +719,11 @@ async function handleUpdate(update) {
       const result = botLogic.handleSelectAvatar(String(chatId), avatarId);
       if (!result) {
         await tgAnswerCb(cb.id, '❌ Ошибка');
+        return;
+      }
+      if (result.error) {
+        await tgAnswerCb(cb.id, '❌ ' + result.error.replace(/<[^>]+>/g, '').slice(0, 50));
+        await tgSend(chatId, result.error, { parse_mode: 'HTML' });
         return;
       }
 
