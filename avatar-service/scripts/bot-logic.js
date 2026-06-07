@@ -1012,22 +1012,39 @@ function updateSetting(telegramId, key, value) {
  */
 function handleSettings(telegramId) {
   const s = getSettings(telegramId);
-  const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
-  const aspectLabel = ASPECT_OPTIONS[s.aspectRatio]?.label || '📐 1:1';
-  const sizeLabel = SIZE_OPTIONS[s.size]?.label || '🟡 Средний';
-  const modelCost = MODEL_COST[s.model] !== undefined ? MODEL_COST[s.model] : 1;
+  const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
   const modelLabel = MODEL_OPTIONS[s.model]?.label || '⚙️ Не выбрана';
+  const aspectLabel = ASPECT_OPTIONS[s.aspectRatio]?.label || '📐 1:1';
 
-  const keyboard = [
-    [{ text: '🖼 Размер: ' + sizeLabel, callback_data: 'settings_size' }],
-    [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
-    [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
-    [{ text: '🤖 Модель: ' + modelLabel, callback_data: 'settings_model' }],
-    [{ text: '🔙 Назад', callback_data: 'settings_back' }]
-  ];
+  let textLines, keyboard;
+
+  if (isAdmin) {
+    // Админ — полное меню
+    const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
+    const sizeLabel = SIZE_OPTIONS[s.size]?.label || '🟡 Средний';
+
+    keyboard = [
+      [{ text: '🖼 Размер: ' + sizeLabel, callback_data: 'settings_size' }],
+      [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
+      [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
+      [{ text: '🤖 Модель: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🔙 Назад', callback_data: 'settings_back' }]
+    ];
+
+    textLines = '🤖 Модель: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel;
+  } else {
+    // Обычные пользователи — только модель и соотношение
+    keyboard = [
+      [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
+      [{ text: '🤖 Модель: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🔙 Назад', callback_data: 'settings_back' }]
+    ];
+
+    textLines = '🤖 Модель: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel;
+  }
 
   return {
-    text: '⚙️ <b>Настройки генерации</b>\n\nТекущие:\n🤖 Модель: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n\nВыбери параметр для изменения 👇',
+    text: '⚙️ <b>Настройки генерации</b>\n\nТекущие:\n' + textLines + '\n\nВыбери параметр для изменения 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
