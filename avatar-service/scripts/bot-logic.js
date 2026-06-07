@@ -441,16 +441,21 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName, language =
 function handleStyleSelected(telegramId, styleId) {
   let conv = getConversation(telegramId);
   if (conv.state !== 'awaiting_style') {
-    // Попробуем восстановиться — найдём пользователя и его аватар
-    const user = findUserByTelegram(telegramId);
-    const avatars = readJSON(AVATARS_FILE);
-    const avatar = user ? avatars.find(a => a.userId === user.id && a.photos?.length > 0) : null;
-    if (user && avatar) {
-      conv = { state: 'awaiting_style', data: { userId: user.id, avatarId: avatar.id } };
-      setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
+    // Проверяем режим "Без аватара"
+    if (conv?.data?.avatarId === 'no_avatar') {
+      conv = { state: 'awaiting_style', data: { ...conv.data } };
     } else {
-      const userMsg = !user ? '❌ Пользователь не найден. Напиши /start, чтобы начать.' : '❌ Не найдены твои фото. Загрузи новые через /start.';
-      return { text: userMsg };
+      // Попробуем восстановиться — найдём пользователя и его аватар
+      const user = findUserByTelegram(telegramId);
+      const avatars = readJSON(AVATARS_FILE);
+      const avatar = user ? avatars.find(a => a.userId === user.id && a.photos?.length > 0) : null;
+      if (user && avatar) {
+        conv = { state: 'awaiting_style', data: { userId: user.id, avatarId: avatar.id } };
+        setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
+      } else {
+        const userMsg = !user ? '❌ Пользователь не найден. Напиши /start, чтобы начать.' : '❌ Не найдены твои фото. Загрузи новые через /start.';
+        return { text: userMsg };
+      }
     }
   }
 
@@ -470,8 +475,12 @@ function handleStyleSelected(telegramId, styleId) {
     return exhaustionMessage();
   }
 
-  const avatars = readJSON(AVATARS_FILE);
-  const avatar = avatars.find(a => a.id === avatarId);
+  // Для режима "Без аватара" не ищем аватар
+  let avatar = null;
+  if (avatarId !== 'no_avatar') {
+    const avatars = readJSON(AVATARS_FILE);
+    avatar = avatars.find(a => a.id === avatarId);
+  }
 
   // Не списываем генерации — они будут списаны после успешной генерации
   setConversation(telegramId, 'awaiting_style', { userId, avatarId });
@@ -482,6 +491,7 @@ function handleStyleSelected(telegramId, styleId) {
     style, userId, avatarId, cost,
     user, avatar,
     remaining: user.generationsRemaining,
+    isNoAvatar: avatarId === 'no_avatar',
     readyToGenerate: true,
     reply_markup: { inline_keyboard: buildStylesKeyboard() }
   };
@@ -767,14 +777,21 @@ function handleAvatars(telegramId) {
     ]);
   }
 
-  // Добавляем кнопку "Новый аватар" внизу списка
+  // Добавляем кнопки внизу списка
   keyboard.push([{
     text: '➕ Новый аватар',
     callback_data: 'new_avatar'
   }]);
 
+  // Режим "Без аватара"
+  const isNoAvatarMode = currentAvatarId === 'no_avatar';
+  keyboard.push([{
+    text: (isNoAvatarMode ? '✅ ' : '❌ ') + 'Без аватара',
+    callback_data: 'avatar:no_avatar'
+  }]);
+
   return {
-    text: '✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
+    text: '✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)\n❌ Без аватара — генерация без твоих фото',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -797,10 +814,22 @@ function handleStyles(telegramId) {
     return exhaustionMessage();
   }
 
+  // Проверяем режим "Без аватара"
+  const conv = getConversation(telegramId);
+  if (conv?.data?.avatarId === 'no_avatar') {
+    setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: 'no_avatar' });
+    return {
+      text: '🖼 Выбери стиль для фото 👇',
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: buildStylesKeyboard()
+      }
+    };
+  }
+
   const avatars = readJSON(AVATARS_FILE);
   
   // Пытаемся использовать выбранный аватар из conversation
-  const conv = getConversation(telegramId);
   let avatar = null;
   
   if (conv?.data?.avatarId) {
@@ -858,11 +887,23 @@ function handleGodMode(telegramId) {
     return exhaustionMessage();
   }
 
+  // Проверяем режим "Без аватара"
+  const conv = getConversation(telegramId);
+  if (conv?.data?.avatarId === 'no_avatar') {
+    setConversation(telegramId, 'awaiting_custom_prompt', {
+      userId: user.id,
+      avatarId: 'no_avatar'
+    });
+    return {
+      text: '✍️ <b>Промпт</b>\n\nНапиши, что хочешь увидеть на фото. Генерация будет без использования твоих фото.\n\nПример: <i>«киберпанк, неоновые огни, дождь, как в Blade Runner»</i>',
+      parse_mode: 'HTML'
+    };
+  }
+
   const avatars = readJSON(AVATARS_FILE);
   let currentAvatarId = null;
 
   // Берём аватар из conversation или первый попавшийся
-  const conv = getConversation(telegramId);
   if (conv?.data?.avatarId) {
     const found = avatars.find(a => a.id === conv.data.avatarId);
     if (found) currentAvatarId = found.id;
@@ -932,8 +973,13 @@ function handleCustomPrompt(telegramId, promptText, attachedPhotoPath) {
     return exhaustionMessage();
   }
 
-  const avatars = readJSON(AVATARS_FILE);
-  const avatar = avatars.find(a => a.id === avatarId);
+  // Для режима "Без аватара" не ищем аватар
+  let avatar = null;
+  const isNoAvatar = avatarId === 'no_avatar';
+  if (!isNoAvatar) {
+    const avatars = readJSON(AVATARS_FILE);
+    avatar = avatars.find(a => a.id === avatarId);
+  }
 
   // Не списываем генерации — будут списаны после успешной генерации
   setConversation(telegramId, 'awaiting_custom_prompt', { userId, avatarId });
@@ -949,6 +995,7 @@ function handleCustomPrompt(telegramId, promptText, attachedPhotoPath) {
     cost,
     attachedPhoto: effectivePhoto,
     remaining: user.generationsRemaining,
+    isNoAvatar,
     readyToGenerate: true
   };
 }
@@ -1315,6 +1362,13 @@ function handleHelpSupport() {
 function handleSelectAvatar(telegramId, avatarId) {
   const user = findUserByTelegram(telegramId);
   if (!user) return null;
+
+  // Режим "Без аватара"
+  if (avatarId === 'no_avatar') {
+    const conv = getConversation(telegramId);
+    setConversation(telegramId, conv.state || 'idle', { ...(conv.data || {}), avatarId: 'no_avatar' });
+    return { success: true, name: 'Без аватара', isNoAvatar: true };
+  }
 
   const allAvatars = readJSON(AVATARS_FILE);
   const avatar = allAvatars.find(a => a.id === avatarId);

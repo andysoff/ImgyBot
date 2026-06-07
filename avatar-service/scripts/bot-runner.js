@@ -1072,17 +1072,32 @@ async function handleUpdate(update) {
           const statusMsg = `🎨 Генерирую фото в стиле «${result.style.name}»...`;
           await tgSend(chatId, statusMsg);
 
-          // Получаем Gemini URI с проверкой кеша и дозагрузкой протухших
-          const geminiFiles = await ensureGeminiFiles(avatar, avatars);
-          if (geminiFiles.length === 0) {
-            await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
-            return;
-          }
-          console.log(`⚡ Генерация использует ${geminiFiles.length} файлов исходника ${avatar?.id}`);
+          // Режим "Без аватара" — генерация без фото пользователя
+          if (result.isNoAvatar) {
+            const generatedResult = await generateImage.generateNoAvatar(styleId, outputDir, settings);
+            const caption = `${result.style.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+            await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+            const actualRemaining = consumeAfterGeneration(chatId, result);
+            if (actualRemaining > 0 && actualRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
+            }
+            if (actualRemaining > 0) {
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+            } else {
+              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
+            }
+          } else {
+            // Получаем Gemini URI с проверкой кеша и дозагрузкой протухших
+            const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+            if (geminiFiles.length === 0) {
+              await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+              return;
+            }
+            console.log(`⚡ Генерация использует ${geminiFiles.length} файлов исходника ${avatar?.id}`);
 
-          // Используется getModelCost для динамической стоимости
+            // Используется getModelCost для динамической стоимости
 
-          if (styleId === 'professions') {
+            if (styleId === 'professions') {
             // === Профессия — случайная из 30+ самых известных ===
             const profession = generateImage.getRandomProfession();
             await tgEdit(chatId, statusMsg, `👨‍💼 Генерирую в стиле «${profession.name}»...`);
@@ -1256,6 +1271,7 @@ async function handleUpdate(update) {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
           }
+          }
 
         } catch (err) {
           console.error('❌ Ошибка генерации:', err.message);
@@ -1403,12 +1419,14 @@ async function handleUpdate(update) {
         return;
       }
       const generationResult = botLogic.consumeGeneration(conv.data.userId, cost);
+      const isNoAvatar = conv?.data?.avatarId === 'no_avatar';
       const promptResult = {
         promptText: storedPrompt,
-        attachedPhoto: storedPhoto,
+        attachedPhoto: isNoAvatar ? null : storedPhoto,
         avatarId: conv.data.avatarId,
         userId: conv.data.userId,
         remaining: generationResult.remaining,
+        isNoAvatar,
         readyToGenerate: true
       };
 
@@ -1830,6 +1848,49 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     const statusMsg = `✍️ Генерирую по твоему описанию...`;
     await tgSend(chatId, statusMsg);
 
+    const settings = botLogic.getSettings(String(chatId));
+
+    // Режим "Без аватара" — генерация без фото пользователя
+    if (promptResult.isNoAvatar) {
+      metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
+      const generatedResult = await generateImage.generateNoAvatarCustom(promptResult.promptText, outputDir, settings);
+
+      const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
+
+      await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+      const promptRemaining = consumeAfterGeneration(chatId, promptResult);
+
+      if (promptRemaining <= 0) {
+        botLogic.resetConversation(String(chatId));
+        const exhMsg = botLogic.exhaustionMessage();
+        await tgSend(chatId, exhMsg.text, { reply_markup: exhMsg.reply_markup });
+      } else {
+        if (promptRemaining <= 3) {
+          await tgSend(chatId, `⚠️ Осталось всего ${promptRemaining} ${botLogic.pluralGen(promptRemaining)}`);
+        }
+
+        const conv = botLogic.getConversation(String(chatId));
+        if (conv?.data) {
+          delete conv.data.pendingPhoto;
+          conv.data.lastPromptText = promptResult.promptText;
+          botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', conv.data);
+        }
+
+        await tgSend(chatId, '✍️ Что дальше?', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🔄 Повторить', callback_data: 'prompt_repeat' },
+                { text: '🚪 Выйти', callback_data: 'prompt_exit' }
+              ]
+            ]
+          }
+        });
+      }
+      return;
+    }
+
     // Получаем Gemini URI для фото аватара
     let geminiFiles = await ensureGeminiFiles(avatar, avatars);
     if (geminiFiles.length === 0 && !promptResult.attachedPhoto) {
@@ -1856,7 +1917,6 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     }
 
     // Используется getModelCost для динамической стоимости
-    const settings = botLogic.getSettings(String(chatId));
     metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
     const generatedResult = await generateImage.generateCustomAvatar(geminiFiles, promptResult.promptText, outputDir, settings);
 
