@@ -1260,7 +1260,7 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
     const finishMsg = candidates?.[0]?.finishMessage || '';
-    const userMsg = finishReasonMessage(reason);
+    const userMsg = finishReasonMessage(reason, settings);
     if (userMsg) {
       throw new Error(userMsg);
     }
@@ -1347,7 +1347,7 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
     const finishMsg = candidates?.[0]?.finishMessage || '';
-    const userMsg = finishReasonMessage(reason);
+    const userMsg = finishReasonMessage(reason, settings);
     if (userMsg) {
       throw new Error(userMsg);
     }
@@ -1365,11 +1365,15 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
 /**
  * Преобразовать finishReason Gemini в короткое сообщение для пользователя.
  */
-function finishReasonMessage(reason) {
+function finishReasonMessage(reason, settings) {
   if (reason === 'NO_IMAGE') {
     return 'Не смогли сгенерировать изображение, попробуйте еще раз.';
   }
   if (reason) {
+    const isPro = settings?.model === 'gemini-3-pro-image-preview';
+    if (isPro) {
+      return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос.';
+    }
     return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос или использовать нейросеть Про.';
   }
   return null;
