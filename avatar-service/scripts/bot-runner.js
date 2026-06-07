@@ -372,7 +372,7 @@ async function tgSendMediaGroup(chatId, photoPaths) {
     media: i === 0 ? `attach://photo_${i}` : `attach://photo_${i}`
   }));
   // У первого фото caption
-  mediaItems[0].caption = `📸 Фото исходника`;
+  mediaItems[0].caption = `📸 Фото аватара`;
   mediaItems[0].parse_mode = 'HTML';
 
   const parts = [];
@@ -702,7 +702,7 @@ async function handleUpdate(update) {
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
       metrics.track('avatar:selected', { telegram_id: String(chatId), avatar_id: avatarId });
-      await tgAnswerCb(cb.id, `🖼 Выбран исходник`);
+      await tgAnswerCb(cb.id, `🖼 Аватар выбран`);
 
       // Обновляем conversation с новым avatarId
       const conv = botLogic.getConversation(String(chatId));
@@ -713,7 +713,7 @@ async function handleUpdate(update) {
 
       // Показываем стили для выбранного аватара
       const result = botLogic.handleStyles(String(chatId));
-      await tgEdit(chatId, msgId, `✅ Исходник выбран.\n\n${result.text}`, {
+      await tgEdit(chatId, msgId, `✅ Аватар выбран.\n\n${result.text}`, {
         ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
       });
 
@@ -744,7 +744,7 @@ async function handleUpdate(update) {
 
       const result = botLogic.deleteAvatar(String(chatId), avatarId);
       if (result.success) {
-        await tgEdit(chatId, msgId, `🗑 Исходник «${result.name}» удалён.`);
+        await tgEdit(chatId, msgId, `🗑 Аватар «${result.name}» удалён.`);
 
         // Показываем оставшиеся аватары или возвращаемся к старту
         const remainingResult = botLogic.handleAvatars(String(chatId));
@@ -753,7 +753,7 @@ async function handleUpdate(update) {
             reply_markup: remainingResult.reply_markup
           });
         } else {
-          await tgSend(chatId, '🆕 У тебя больше нет исходников. Загрузи новое фото через /start');
+          await tgSend(chatId, '🆕 У тебя больше нет аватаров. Загрузи новое фото через /start');
         }
       } else {
         await tgSend(chatId, `❌ Ошибка: ${result.error}`);
@@ -786,7 +786,7 @@ async function handleUpdate(update) {
 
     if (data === 'new_avatar') {
       metrics.track('avatar:new_requested', { telegram_id: String(chatId) });
-      await tgAnswerCb(cb.id, '➕ Новый исходник');
+      await tgAnswerCb(cb.id, '➕ Новый аватар');
 
       const result = botLogic.handleNewAvatar(String(chatId));
       // Не трогаем предыдущее сообщение, просто отправляем новое
@@ -1590,7 +1590,7 @@ async function handleUpdate(update) {
 
   // ------ В состоянии ожидания фото — если текст, просим фото ------
   if (convState.state === 'awaiting_photos') {
-    await tgSend(chatId, '📸 Отправь свои фото, и я создам твой цифровой исходник!');
+    await tgSend(chatId, '📸 Отправь свои фото, и я создам твой аватар!');
     return;
   }
 

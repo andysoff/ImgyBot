@@ -285,12 +285,12 @@ function handleOnboardingLearnMore(telegramId) {
     text: 'Вот как это работает 👇\n\n'
       + '1️⃣ <b>Загрузи фото</b>\n'
       + 'Можно прислать одно, но лучше несколько. Выбирай самые качественные и любимые.\n\n'
-      + '2️⃣ <b>Создание исходника</b>\n'
-      + 'После загрузки я создам твой цифровой исходник, и можно приступать к созданию новых фото.\n\n'
+      + '2️⃣ <b>Создание аватара</b>\n'
+      + 'После загрузки я создам твой цифровой аватар, и можно приступать к созданию новых фото.\n\n'
       + '3️⃣ <b>Генерация фото</b>\n'
       + 'Можно создавать фото с использованием готовых стилей или написать детальное описание самому (промпт).\n\n'
-      + '4️⃣ <b>Несколько исходников</b>\n'
-      + 'При желании можно создать несколько исходников и делать фото для близких и друзей.\n\n'
+      + '4️⃣ <b>Несколько аватаров</b>\n'
+      + 'При желании можно создать несколько аватаров и делать фото для близких и друзей.\n\n'
       + 'Готов попробовать? 👇',
     parse_mode: 'HTML',
     reply_markup: {
@@ -326,7 +326,7 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName, language =
   }
 
   if (!filePaths || filePaths.length === 0) {
-    return { text: 'Пожалуйста, отправь фото. Нужны твои фотографии для создания исходника.' };
+    return { text: 'Пожалуйста, отправь фото. Нужны твои фотографии для создания аватара.' };
   }
 
   if (filePaths.length > 10) {
@@ -545,13 +545,13 @@ function handleShowAvatar(telegramId, avatarId) {
 
   const allAvatars = readJSON(AVATARS_FILE);
   const avatar = allAvatars.find(a => a.id === avatarId);
-  if (!avatar) return { error: 'Исходник не найден' };
+  if (!avatar) return { error: 'Аватар не найден' };
 
-  if (!user.avatars.includes(avatarId)) return { error: 'Это не твой исходник' };
+  if (!user.avatars.includes(avatarId)) return { error: 'Это не твой аватар' };
 
   const photos = (avatar.photos || []).map(rel => path.join(__dirname, '..', rel)).filter(p => fs.existsSync(p));
 
-  if (photos.length === 0) return { error: 'Фото исходника не найдены на диске' };
+  if (photos.length === 0) return { error: 'Фото аватара не найдены на диске' };
 
   return { photos, avatarName: avatar.name };
 }
@@ -567,7 +567,7 @@ function deleteAvatar(telegramId, avatarId) {
 
   const allAvatars = readJSON(AVATARS_FILE);
   const idx = allAvatars.findIndex(a => a.id === avatarId);
-  if (idx === -1) return { error: 'Исходник не найден' };
+  if (idx === -1) return { error: 'Аватар не найден' };
 
   const avatar = allAvatars[idx];
 
@@ -633,7 +633,7 @@ function handleNewAvatar(telegramId) {
   resetConversation(telegramId);
   setConversation(telegramId, 'awaiting_photos', {});
   return {
-    text: '📸 Отправь новые фото для нового исходника.\nМожно 1-3 фото одним сообщением.'
+    text: '📸 Отправь новые фото для нового аватара.\nМожно 1-3 фото одним сообщением.'
   };
 }
 
@@ -644,7 +644,7 @@ function handleAvatars(telegramId) {
   const user = findUserByTelegram(telegramId);
   if (!user) {
     return {
-      text: '📸 У тебя пока нет исходников. Напиши /start, чтобы создать первый.',
+      text: '📸 У тебя пока нет аватаров. Напиши /start, чтобы создать первый.',
       reply_markup: {
         inline_keyboard: [[{ text: '🚀 Начать', callback_data: 'new_avatar' }]]
       }
@@ -658,12 +658,12 @@ function handleAvatars(telegramId) {
     // Пользователь есть, но аватаров нет — предлагаем создать
     if (user.generationsRemaining <= 0) {
       return {
-        text: '😔 У тебя нет исходников, а генерации закончились. Пополни баланс, чтобы создать новый исходник.',
+        text: '😔 У тебя нет аватаров, а генерации закончились. Пополни баланс, чтобы создать новый аватар.',
         reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] }
       };
     }
     return {
-      text: `📸 У тебя пока нет исходников. Загрузи фото, чтобы создать первый!
+      text: `📸 У тебя пока нет аватаров. Загрузи фото, чтобы создать первый!
 
 🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
       parse_mode: 'HTML',
@@ -682,11 +682,11 @@ function handleAvatars(telegramId) {
     const isCurrent = av.id === currentAvatarId;
     keyboard.push([
       {
-        text: (isCurrent ? '✅ ' : '') + av.name + ' (' + av.photos.length + ' фото)',
+        text: (isCurrent ? '✅ ' : '') + av.name,
         callback_data: 'avatar:' + av.id
       },
       {
-        text: '👁 Показать',
+        text: '👁',
         callback_data: 'show_avatar:' + av.id
       },
       {
@@ -696,17 +696,14 @@ function handleAvatars(telegramId) {
     ]);
   }
 
-  // Добавляем кнопку "Новый исходник" внизу списка
+  // Добавляем кнопку "Новый аватар" внизу списка
   keyboard.push([{
-    text: '➕ Новый исходник',
+    text: '➕ Новый аватар',
     callback_data: 'new_avatar'
   }]);
 
   return {
-    text: '👤 Твои исходники:\n' + userAvatars.map(av => {
-      const isCurrent = av.id === currentAvatarId;
-      return (isCurrent ? '✅ ' : '') + av.name + ' — ' + av.photos.length + ' фото';
-    }).join('\n') + '\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
+    text: '👤 Твои аватары',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -748,7 +745,7 @@ function handleStyles(telegramId) {
     // Пользователь есть и есть генерации, но нет аватаров
     if (user.generationsRemaining > 0) {
       return {
-        text: `📸 Сначала загрузи фото, чтобы создать исходник!
+        text: `📸 Сначала загрузи фото, чтобы создать аватар!
 
 🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
         parse_mode: 'HTML',
@@ -808,7 +805,7 @@ function handleGodMode(telegramId) {
   if (!currentAvatarId) {
     // Пользователь есть, есть генерации, но нет аватаров
     return {
-      text: `📸 Сначала загрузи фото, чтобы создать исходник!
+      text: `📸 Сначала загрузи фото, чтобы создать аватар!
 
 🌀 У тебя <b>${user.generationsRemaining}</b> ${pluralGen(user.generationsRemaining)} на счету.`,
       parse_mode: 'HTML',
@@ -1204,12 +1201,12 @@ function handleHelpInstructions() {
     text: '🤖 <b>Imgy Bot</b> — твой персональный AI-фотограф 📸\n\n<b>Как это работает:</b>\n\n'
       + '1️⃣ <b>Загрузи фото</b>\n'
       + 'Можно прислать одно, но лучше несколько. Выбирай самые качественные и любимые.\n\n'
-      + '2️⃣ <b>Создание исходника</b>\n'
-      + 'После загрузки я создам твой цифровой исходник, и можно приступать к созданию новых фото.\n\n'
+      + '2️⃣ <b>Создание аватара</b>\n'
+      + 'После загрузки я создам твой цифровой аватар, и можно приступать к созданию новых фото.\n\n'
       + '3️⃣ <b>Генерация фото</b>\n'
       + 'Можно создавать фото с использованием готовых стилей или написать детальное описание самому (промпт).\n\n'
-      + '4️⃣ <b>Несколько исходников</b>\n'
-      + 'При желании можно создать несколько исходников и делать фото для близких и друзей.',
+      + '4️⃣ <b>Несколько аватаров</b>\n'
+      + 'При желании можно создать несколько аватаров и делать фото для близких и друзей.',
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
