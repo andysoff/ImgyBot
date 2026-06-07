@@ -1874,7 +1874,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
           botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', conv.data);
         }
 
-        await tgSend(chatId, '✍️ Что дальше?', {
+        await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [
@@ -1942,7 +1943,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       }
 
       // Показываем inline кнопки: Повторить / Выйти
-      await tgSend(chatId, '✍️ Что дальше?', {
+      await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
@@ -1966,7 +1968,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     } else {
       await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
     }
-    await tgSend(chatId, '✍️ Что дальше?', {
+    await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
