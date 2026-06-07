@@ -690,12 +690,12 @@ async function handleUpdate(update) {
       const value = data.replace('set_model:', '');
       metrics.track('settings:model_changed', { telegram_id: String(chatId), value });
 
-      // Проверяем — если 'Без аватара', Про модель не работает
+      // Проверяем — если 'Без аватара', Flash 2.5 не работает
       if (value === 'gemini-2.5-flash-image') {
         const checkConv = botLogic.getConversation(String(chatId));
         if (checkConv?.data?.avatarId === 'no_avatar') {
-          await tgAnswerCb(cb.id, '❌ Про модель не работает без фото');
-          const warnText = '⚠️ <b>Про модель</b> (gemini-2.5-flash-image) требует фото пользователя и несовместима с режимом «Без аватара».\n\nСначала выбери аватар в 👤 Аватар или смени на ⚡ Базовую модель.';
+          await tgAnswerCb(cb.id, '❌ Flash 2.5 не работает без фото');
+          const warnText = '⚠️ <b>Flash 2.5</b> (gemini-2.5-flash-image) требует фото пользователя и несовместима с режимом «Без аватара».\n\nСначала выбери аватар в 👤 Аватар или смени на ⚡ Базовую модель.';
           await tgSend(chatId, warnText, { parse_mode: 'HTML' });
           return;
         }
