@@ -702,19 +702,17 @@ async function handleUpdate(update) {
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
       metrics.track('avatar:selected', { telegram_id: String(chatId), avatar_id: avatarId });
-      await tgAnswerCb(cb.id, `🖼 Аватар выбран`);
+      await tgAnswerCb(cb.id, '');
 
-      // Обновляем conversation с новым avatarId
-      const conv = botLogic.getConversation(String(chatId));
-      if (conv && conv.data) {
-        conv.data.avatarId = avatarId;
-        botLogic.setConversation(String(chatId), conv.state, conv.data);
+      // Показываем меню действий для аватара
+      const result = botLogic.handleAvatarMenu(String(chatId), avatarId);
+      if (!result) {
+        await tgSend(chatId, '❌ Аватар не найден');
+        return;
       }
-
-      // Показываем стили для выбранного аватара
-      const result = botLogic.handleStyles(String(chatId));
-      await tgEdit(chatId, msgId, `✅ Аватар выбран.\n\n${result.text}`, {
-        ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+      await tgSend(chatId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
       });
 
       // Проверяем/загружаем фото выбранного аватара в Gemini (проверка кеша + дозагрузка протухших)
@@ -791,6 +789,19 @@ async function handleUpdate(update) {
       const result = botLogic.handleNewAvatar(String(chatId));
       // Не трогаем предыдущее сообщение, просто отправляем новое
       await tgSend(chatId, result.text);
+      return;
+    }
+
+    if (data === 'back_to_avatars') {
+      await tgAnswerCb(cb.id, '');
+
+      const result = botLogic.handleAvatars(String(chatId));
+      if (result) {
+        await tgSend(chatId, result.text, {
+          ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
+          ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+        });
+      }
       return;
     }
 

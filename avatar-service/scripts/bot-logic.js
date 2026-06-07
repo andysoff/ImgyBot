@@ -556,6 +556,42 @@ function handleShowAvatar(telegramId, avatarId) {
   return { photos, avatarName: avatar.name };
 }
 
+/**
+ * Меню действий над аватаром — Посмотреть / Удалить / Назад
+ */
+function handleAvatarMenu(telegramId, avatarId) {
+  const user = findUserByTelegram(telegramId);
+  if (!user) return null;
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar || !user.avatars.includes(avatarId)) return null;
+
+  // Выбираем аватар (сохраняем в conversation)
+  const conv = getConversation(telegramId);
+  if (conv) {
+    conv.data.avatarId = avatarId;
+    setConversation(telegramId, conv.state, conv.data);
+  }
+
+  return {
+    text: `👤 <b>${avatar.name}</b>
+${avatar.photos.length} фото`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '👁 Посмотреть', callback_data: 'show_avatar:' + avatarId },
+          { text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }
+        ],
+        [
+          { text: '🔙 Назад', callback_data: 'back_to_avatars' }
+        ]
+      ]
+    }
+  };
+}
+
 // --- Проверка баланса (админ-утилита) ---
 
 /**
@@ -684,14 +720,6 @@ function handleAvatars(telegramId) {
       {
         text: (isCurrent ? '✅ ' : '') + av.name,
         callback_data: 'avatar:' + av.id
-      },
-      {
-        text: '👁',
-        callback_data: 'show_avatar:' + av.id
-      },
-      {
-        text: '🗑',
-        callback_data: 'del_avatar:' + av.id
       }
     ]);
   }
@@ -703,7 +731,7 @@ function handleAvatars(telegramId) {
   }]);
 
   return {
-    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
+    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -1260,6 +1288,7 @@ module.exports = {
   findUserByTelegram,
   handleStyles,
   handleAvatars,
+  handleAvatarMenu,
   handleGodMode,
   handleCustomPrompt,
   handleCancelGodMode,
