@@ -536,6 +536,26 @@ function handleUnknown(telegramId, text) {
   return { text: '❌ Не понял. Напиши /start, чтобы начать заново.' };
 }
 
+/**
+ * Показать фото аватара — вернуть массив полных путей к фото.
+ */
+function handleShowAvatar(telegramId, avatarId) {
+  const user = findUserByTelegram(telegramId);
+  if (!user) return { error: 'Пользователь не найден' };
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar) return { error: 'Исходник не найден' };
+
+  if (!user.avatars.includes(avatarId)) return { error: 'Это не твой исходник' };
+
+  const photos = (avatar.photos || []).map(rel => path.join(__dirname, '..', rel)).filter(p => fs.existsSync(p));
+
+  if (photos.length === 0) return { error: 'Фото исходника не найдены на диске' };
+
+  return { photos, avatarName: avatar.name };
+}
+
 // --- Проверка баланса (админ-утилита) ---
 
 /**
@@ -682,7 +702,7 @@ function handleAvatars(telegramId) {
     text: '👤 Твои исходники:\n' + userAvatars.map(av => {
       const isCurrent = av.id === currentAvatarId;
       return (isCurrent ? '✅ ' : '• ') + av.name + ' — ' + av.photos.length + ' фото';
-    }).join('\n') + '\n\n✅ Нажми на исходник — выбрать\n🗑 Нажми 🗑 — удалить',
+    }).join('\n') + '\n\n✅ Нажми на исходник — выбрать\n👁 Показать — посмотреть фото исходника\n🗑 Нажми 🗑 — удалить',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -1248,6 +1268,7 @@ module.exports = {
   consumeGeneration,
   addGenerations,
   setGenerationsTo100,
+  handleShowAvatar,
   buildMainKeyboard,
   buildStylesKeyboard,
   readJSON,

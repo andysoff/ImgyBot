@@ -354,11 +354,84 @@ async function tgSendPhoto(chatId, photoPath, caption = '', extra = {}) {
  * @param {Array<{type: string, media: string, caption?: string}>} media — массив объектов InputMedia
  * @returns {Promise<object>}
  */
-function tgSendMediaGroup(chatId, media) {
-  return tgApi('sendMediaGroup', {
-    chat_id: chatId,
-    media
-  }, 120000);
+/**
+ * Отправить медиа-группу (альбом) из нескольких фото с локальных путей.
+ * @param {number} chatId
+ * @param {string[]} photoPaths — массив локальных путей к файлам
+ * @returns {Promise<object>}
+ */
+async function tgSendMediaGroup(chatId, photoPaths) {
+  if (!photoPaths || photoPaths.length === 0) return { ok: false };
+
+  const boundary = `----FormBoundary${Math.random().toString(36).slice(2)}`;
+  const CRLF = '\r\n';
+
+  // Строим массив media для поля media (JSON)
+  const mediaItems = photoPaths.map((p, i) => ({
+    type: 'photo',
+    media: i === 0 ? `attach://photo_${i}` : `attach://photo_${i}`
+  }));
+  // У первого фото caption
+  mediaItems[0].caption = `📸 Фото исходника`;
+  mediaItems[0].parse_mode = 'HTML';
+
+  const parts = [];
+
+  // chat_id
+  parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}${chatId}${CRLF}`, 'utf-8'));
+
+  // media (JSON)
+  parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="media"${CRLF}Content-Type: application/json${CRLF}${CRLF}${JSON.stringify(mediaItems)}${CRLF}`, 'utf-8'));
+
+  // Каждое фото
+  for (let i = 0; i < photoPaths.length; i++) {
+    const photoData = fs.readFileSync(photoPaths[i]);
+    const fileName = path.basename(photoPaths[i]);
+    parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="photo_${i}"; filename="${fileName}"${CRLF}Content-Type: image/jpeg${CRLF}${CRLF}`, 'utf-8'));
+    parts.push(photoData);
+    parts.push(Buffer.from(CRLF, 'utf-8'));
+  }
+
+  parts.push(Buffer.from(`--${boundary}--${CRLF}`, 'utf-8'));
+
+  const bodyBuffer = Buffer.concat(parts);
+
+  const totalKB = (bodyBuffer.length / 1024).toFixed(1);
+  console.log(`📸 Отправка медиа-группы ${chatId}: ${photoPaths.length} фото (${totalKB} KB)`);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: 'api.telegram.org',
+        path: `/bot${TOKEN}/sendMediaGroup`,
+        method: 'POST',
+        headers: {
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': bodyBuffer.length
+        },
+        timeout: 120000
+      },
+      res => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.ok) {
+              console.log(`✅ tgSendMediaGroup OK, ${photoPaths.length} фото`);
+            } else {
+              console.error(`❌ tgSendMediaGroup ошибка API: ${parsed.error_code} ${parsed.description}`);
+            }
+            resolve(parsed);
+          } catch { reject(new Error(data)); }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('sendMediaGroup timeout')); });
+    req.write(bodyBuffer);
+    req.end();
+  });
 }
 
 // ===================== Загрузка фото =====================
@@ -684,6 +757,29 @@ async function handleUpdate(update) {
         }
       } else {
         await tgSend(chatId, `❌ Ошибка: ${result.error}`);
+      }
+      return;
+    }
+
+    // ------ Callback: Показать фото аватара ------
+    if (data.startsWith('show_avatar:')) {
+      const avatarId = data.replace('show_avatar:', '');
+      await tgAnswerCb(cb.id, '📸 Загружаю фото...');
+
+      const result = botLogic.handleShowAvatar(String(chatId), avatarId);
+      if (result.error) {
+        await tgSend(chatId, `❌ ${result.error}`);
+        return;
+      }
+
+      const { photos, avatarName } = result;
+
+      if (photos.length === 1) {
+        // Одно фото — отправляем как фото с подписью
+        await tgSendPhoto(chatId, photos[0], `📸 ${avatarName}`);
+      } else {
+        // Несколько фото — отправляем медиа-группой (альбомом)
+        await tgSendMediaGroup(chatId, photos);
       }
       return;
     }
