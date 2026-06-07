@@ -65,6 +65,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - Don't exfiltrate private data. Ever.
 - Don't run destructive commands without asking.
 - `trash` > `rm` (recoverable beats gone forever)
+- **Прежде чем менять логику бота — спроси.** Не исправляй и не переделывай поведение, пока Андрей не подтвердил. Сначала предложи вариант(ы), дождись ответа.
 - When in doubt, ask.
 
 ### 🔴 Особо важное — Андрей
