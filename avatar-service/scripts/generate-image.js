@@ -1293,68 +1293,6 @@ function getStyleContextPrompt(styleId) {
   return contextPrompts[styleId] || '';
 }
 
-async function generateNoAvatar(styleId, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-
-  const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
-  const contextPrompt = getStyleContextPrompt(styleId);
-  const prompt = applyQuality(
-    `Generate a beautiful, professional portrait photo of a person. ${stylePrompt}. ${contextPrompt}. Make it look like a high-quality realistic photo taken by a professional photographer.`, 
-    settings
-  );
-
-  const requestParts = [{ text: prompt }];
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  console.log(`🎨 Без аватара: генерация в стиле ${styleId}...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `noavatar_${styleId}_${Date.now()}${ext}`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  console.log(`✅ Без аватара: ${outputPath}`);
-  return { path: outputPath, prompt };
-}
-
-/**
- * Сгенерировать изображение по кастомному промпту без фото пользователя.
- * @param {string} promptText — описание пользователя
- * @param {string} outputDir
- * @param {object} settings
- * @returns {Promise<{path: string, prompt: string}>}
- */
 async function generateNoAvatarCustom(promptText, outputDir, settings) {
   if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
 
@@ -1407,4 +1345,4 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
   return { path: outputPath, prompt };
 }
 
-module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatar, generateNoAvatarCustom };
+module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatarCustom };

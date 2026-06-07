@@ -1089,21 +1089,7 @@ async function handleUpdate(update) {
           const statusMsg = `🎨 Генерирую фото в стиле «${result.style.name}»...`;
           await tgSend(chatId, statusMsg);
 
-          // Режим "Без аватара" — генерация без фото пользователя
-          if (result.isNoAvatar) {
-            const generatedResult = await generateImage.generateNoAvatar(styleId, outputDir, settings);
-            const caption = `${result.style.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-            await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-            const actualRemaining = consumeAfterGeneration(chatId, result);
-            if (actualRemaining > 0 && actualRemaining <= 3) {
-              await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
-            }
-            if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
-            } else {
-              await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
-            }
-          } else {
+          {
             // Получаем Gemini URI с проверкой кеша и дозагрузкой протухших
             const geminiFiles = await ensureGeminiFiles(avatar, avatars);
             if (geminiFiles.length === 0) {
