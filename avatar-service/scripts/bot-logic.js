@@ -33,6 +33,8 @@ const AVATARS_FILE = path.join(DATA_DIR, 'avatars.json');
 const STYLES_FILE = path.join(DATA_DIR, 'styles.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
+const detectCountry = require('./detect-country').detectCountry;
+
 function readJSON(file) { return JSON.parse(fs.readFileSync(file, 'utf-8')); }
 
 /**
@@ -277,7 +279,8 @@ function handleStart(telegramId) {
  * Шаг 3 — Узнать больше.
  * Детальное описание возможностей и шагов.
  */
-function handleOnboardingLearnMore() {
+function handleOnboardingLearnMore(telegramId) {
+  setConversation(telegramId, 'awaiting_onboarding_choice', {});
   return {
     text: 'Вот как это работает 👇\n\n'
       + '1️⃣ <b>Загрузи фото</b>\n'
@@ -316,7 +319,7 @@ function handleOnboardingTry(telegramId) {
  * filePaths:        string[] — массив путей к загруженным файлам
  * userDisplayName:  string — имя пользователя для отображения
  */
-function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
+function handlePhotosReceived(telegramId, filePaths, userDisplayName, language = '', isPremium = false) {
   const conv = getConversation(telegramId);
   if (conv.state !== 'awaiting_photos') {
     return null;
@@ -334,6 +337,9 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
   let user = findUserByTelegram(telegramId);
 
   if (!user) {
+    // Определяем страну по языку интерфейса
+    const country = detectCountry(language);
+
     // Создаём нового
     const users = readJSON(USERS_FILE);
     const userId = generateId('user_', users);
@@ -342,10 +348,21 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName) {
       name: userDisplayName || `User ${telegramId}`,
       telegram: `@${telegramId}`,
       generationsRemaining: 5,
+      language: language || '',
+      country: country,
+      isPremium: isPremium,
       avatars: []
     };
     users.push(user);
     writeJSON(USERS_FILE, users);
+  } else {
+    // Уже существующий пользователь — обновляем premium-статус
+    const usersReload = readJSON(USERS_FILE);
+    const existing = usersReload.find(u => u.id === user.id);
+    if (existing && existing.isPremium !== isPremium) {
+      existing.isPremium = isPremium;
+      writeJSON(USERS_FILE, usersReload);
+    }
   }
 
   // Создаём аватар
@@ -888,6 +905,17 @@ function addGenerations(telegramId, n) {
   writeJSON(USERS_FILE, users);
   console.log(`💰 ${user.name || user.telegram}: +${n} генераций → всего ${user.generationsRemaining}`);
   return user.generationsRemaining;
+}
+
+function updateUserPremium(telegramId, isPremium) {
+  const users = readJSON(USERS_FILE);
+  const user = users.find(u => u.telegram === `@${telegramId}`);
+  if (!user) return false;
+  if (user.isPremium === isPremium) return true; // не изменилось
+  user.isPremium = isPremium;
+  writeJSON(USERS_FILE, users);
+  console.log(`⭐ ${user.name || user.telegram}: premium=${isPremium}`);
+  return true;
 }
 
 // ======================

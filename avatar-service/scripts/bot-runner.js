@@ -79,6 +79,7 @@ if (!TOKEN) {
 const botLogic = require('./bot-logic');
 const { buildBuyKeyboard } = botLogic;
 const generateImage = require('./generate-image');
+const metrics = require('./metrics-ga4');
 
 const PHOTOS_TMP = path.join(__dirname, '..', 'photos', '_incoming');
 fs.mkdirSync(PHOTOS_TMP, { recursive: true });
@@ -255,8 +256,17 @@ async function tgEdit(chatId, messageId, text, extra = {}) {
   return res;
 }
 
-function tgAnswerCb(cbId, text, alert = false) {
-  return tgApi('answerCallbackQuery', { callback_query_id: cbId, text, show_alert: alert });
+async function tgAnswerCb(cbId, text, alert = false) {
+  try {
+    const res = await tgApi('answerCallbackQuery', { callback_query_id: cbId, text, show_alert: alert });
+    if (!res.ok) {
+      console.error(`❌ tgAnswerCb ошибка: ${res.error_code} ${res.description}`);
+    }
+    return res;
+  } catch (err) {
+    console.error(`❌ tgAnswerCb исключение: ${err.message}`);
+    return { ok: false };
+  }
 }
 
 function tgDelete(chatId, messageId) {
@@ -389,19 +399,26 @@ function getOrCreateBuffer(chatId, mediaGroupId) {
   return mediaGroups[chatId][mediaGroupId];
 }
 
-function flushMediaGroup(chatId, mediaGroupId, userName) {
+function flushMediaGroup(chatId, mediaGroupId, userName, userLang, isPremium) {
   const buf = mediaGroups[chatId]?.[mediaGroupId];
   if (!buf) return;
   clearTimeout(buf.timer);
   delete mediaGroups[chatId][mediaGroupId];
-  processPhotos(chatId, buf.photos, userName);
+  processPhotos(chatId, buf.photos, userName, userLang, isPremium);
 }
 
 // ===================== Обработка =====================
 
-async function processPhotos(chatId, filePaths, userName) {
+async function processPhotos(chatId, filePaths, userName, userLang, isPremium) {
   if (filePaths.length === 0) return;
-  const result = botLogic.handlePhotosReceived(String(chatId), filePaths, userName);
+  const isNew = botLogic.isNewUser(String(chatId)); // проверяем ДО создания
+  const result = botLogic.handlePhotosReceived(String(chatId), filePaths, userName, userLang, isPremium);
+  if (result) {
+    metrics.track(isNew ? 'onboarding:photos_uploaded' : 'photos:received', {
+      telegram_id: String(chatId),
+      photo_count: String(filePaths.length)
+    });
+  }
   if (!result) {
     await tgSend(chatId, 'Напиши /start чтобы начать');
     return;
@@ -443,11 +460,12 @@ async function handleUpdate(update) {
 
     // ------ Callback: Онбординг ------
     if (data === 'onboarding_learn') {
+      metrics.track('onboarding:learn_more', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, 'ℹ️ Узнать больше');
-      // Удаляем старое сообщение с кнопками
-      try { await tgDelete(chatId, msgId); } catch {}
-      // Отправляем шаг 3 как новое сообщение
-      const result = botLogic.handleOnboardingLearnMore();
+      // Пауза — даём Telegram стабилизироваться после callback
+      await new Promise(r => setTimeout(r, 500));
+      // Отправляем шаг 3 как отдельное сообщение (старое не удаляем)
+      const result = botLogic.handleOnboardingLearnMore(String(chatId));
       await tgSend(chatId, result.text, {
         parse_mode: result.parse_mode,
         reply_markup: result.reply_markup
@@ -456,10 +474,11 @@ async function handleUpdate(update) {
     }
 
     if (data === 'onboarding_try') {
+      metrics.track('onboarding:try', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🚀 Погнали!');
-      // Удаляем старое сообщение с кнопками
-      try { await tgDelete(chatId, msgId); } catch {}
-      // Отправляем шаг 4 как новое сообщение
+      // Пауза — даём Telegram стабилизироваться после callback
+      await new Promise(r => setTimeout(r, 500));
+      // Отправляем шаг 4 как отдельное сообщение (старое не удаляем)
       const result = botLogic.handleOnboardingTry(String(chatId));
       await tgSend(chatId, result.text, {
         parse_mode: result.parse_mode,
@@ -470,6 +489,7 @@ async function handleUpdate(update) {
 
     // ------ Callback: Выбрать стили / Своё описание (из приветствия) ------
     if (data === 'start_choose_style') {
+      metrics.track('style:show_styles_from_greeting', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🎨 Стили');
       const result = botLogic.handleStyles(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -480,6 +500,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'start_custom_prompt') {
+      metrics.track('prompt:from_greeting', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '✍️ Промпт');
       const result = botLogic.handleGodMode(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -491,6 +512,7 @@ async function handleUpdate(update) {
 
     // ------ Callback: Настройки ------
     if (data === 'settings_main') {
+      metrics.track('settings:opened', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const result = botLogic.handleSettings(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -501,12 +523,14 @@ async function handleUpdate(update) {
     }
 
     if (data === 'settings_back') {
+      metrics.track('settings:closed', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🔙 Назад');
       await tgEdit(chatId, msgId, '⚙️ Настройки закрыты. Используй кнопки ниже 👇');
       return;
     }
 
     if (data === 'settings_quality') {
+      metrics.track('settings:show_quality', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const result = botLogic.handleSettingsQuality(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -517,6 +541,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'settings_size') {
+      metrics.track('settings:show_size', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const result = botLogic.handleSettingsSize(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -527,6 +552,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'settings_aspect') {
+      metrics.track('settings:show_aspect', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const result = botLogic.handleSettingsAspect(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -537,6 +563,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'settings_model') {
+      metrics.track('settings:show_model', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const result = botLogic.handleSettingsModel(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -548,6 +575,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('set_quality:')) {
       const value = data.replace('set_quality:', '');
+      metrics.track('settings:quality_changed', { telegram_id: String(chatId), value });
       botLogic.updateSetting(String(chatId), 'quality', value);
       await tgAnswerCb(cb.id, '✅ Качество обновлено');
       // Показываем обновлённый список
@@ -561,6 +589,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('set_size:')) {
       const value = data.replace('set_size:', '');
+      metrics.track('settings:size_changed', { telegram_id: String(chatId), value });
       botLogic.updateSetting(String(chatId), 'size', value);
       await tgAnswerCb(cb.id, '✅ Размер обновлён');
       const result = botLogic.handleSettingsSize(String(chatId));
@@ -573,6 +602,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('set_aspect:')) {
       const value = data.replace('set_aspect:', '');
+      metrics.track('settings:aspect_changed', { telegram_id: String(chatId), value });
       botLogic.updateSetting(String(chatId), 'aspectRatio', value);
       await tgAnswerCb(cb.id, '✅ Соотношение обновлено');
       const result = botLogic.handleSettingsAspect(String(chatId));
@@ -585,6 +615,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('set_model:')) {
       const value = data.replace('set_model:', '');
+      metrics.track('settings:model_changed', { telegram_id: String(chatId), value });
       botLogic.updateSetting(String(chatId), 'model', value);
       await tgAnswerCb(cb.id, '✅ Модель обновлена');
       const result = botLogic.handleSettingsModel(String(chatId));
@@ -597,6 +628,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
+      metrics.track('avatar:selected', { telegram_id: String(chatId), avatar_id: avatarId });
       await tgAnswerCb(cb.id, `🖼 Выбран исходник`);
 
       // Обновляем conversation с новым avatarId
@@ -634,6 +666,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('del_avatar:')) {
       const avatarId = data.replace('del_avatar:', '');
+      metrics.track('avatar:deleted', { telegram_id: String(chatId), avatar_id: avatarId });
       await tgAnswerCb(cb.id, '🗑 Удаляю...');
 
       const result = botLogic.deleteAvatar(String(chatId), avatarId);
@@ -656,6 +689,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'new_avatar') {
+      metrics.track('avatar:new_requested', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '➕ Новый исходник');
 
       const result = botLogic.handleNewAvatar(String(chatId));
@@ -671,6 +705,7 @@ async function handleUpdate(update) {
       const packageId = data.replace('buy:', '');
       const pkg = payments.PACKAGES.find(p => p.id === packageId);
 
+      metrics.track('buy:package_selected', { telegram_id: String(chatId), package_id: packageId, price: String(pkg?.price || 0) });
       await tgAnswerCb(cb.id, '');
 
       if (!payments.isConfigured()) {
@@ -728,6 +763,8 @@ async function handleUpdate(update) {
       const paymentId = parts[1];
       const packageId = parts[2];
 
+      metrics.track('buy:payment_checked', { telegram_id: String(chatId), package_id: packageId });
+
       if (!payments.isConfigured()) {
         await tgSend(chatId, '❌ Проверка платежа временно недоступна.');
         return;
@@ -739,6 +776,7 @@ async function handleUpdate(update) {
         if (result.paid) {
           const pkg = payments.PACKAGES.find(p => p.id === packageId);
           if (pkg) {
+            metrics.track('buy:payment_completed', { telegram_id: String(chatId), package_id: packageId, generations: String(pkg.generations), amount: String(pkg.price) });
             // Начисляем генерации
             const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
 
@@ -774,6 +812,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'show_buy') {
+      metrics.track('buy:menu_opened', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
       const buyResult = botLogic.handleBuy(String(chatId));
       // Отправляем отдельным сообщением, не редактируем текущее
@@ -788,6 +827,7 @@ async function handleUpdate(update) {
 
     if (data.startsWith('style:')) {
       const styleId = data.replace('style:', '');
+      metrics.track('style:selected', { telegram_id: String(chatId), style_id: styleId });
       const result = botLogic.handleStyleSelected(String(chatId), styleId);
 
       if (!result) {
@@ -815,6 +855,7 @@ async function handleUpdate(update) {
           fs.mkdirSync(outputDir, { recursive: true });
 
           // Уведомление о старте
+          metrics.track('generation:started', { telegram_id: String(chatId), style_id: result.style?.id || styleId });
           const statusMsg = `🎨 Генерирую фото в стиле «${result.style.name}»...`;
           await tgSend(chatId, statusMsg);
 
@@ -1006,6 +1047,13 @@ async function handleUpdate(update) {
         } catch (err) {
           console.error('❌ Ошибка генерации:', err.message);
 
+          metrics.track('generation:failed', {
+            telegram_id: String(chatId),
+            style_id: styleId,
+            error: (err.message || '').slice(0, 100),
+            recovered: 'false'
+          });
+
           // Если Gemini URI протух (403), перезагружаем фото и авто-ретраим
           if (err.message && err.message.includes('do not have permission') && err.message.includes('File')) {
             try {
@@ -1029,6 +1077,7 @@ async function handleUpdate(update) {
                     JSON.stringify(avatars, null, 2) + '\n'
                   );
                   console.log(`✅ ${newGeminiFiles.length} Gemini URI обновлены для ${result.avatarId}`);
+                  metrics.track('generation:file_expired', { telegram_id: String(chatId), style_id: styleId, recovered: 'true' });
                   await tgSend(chatId, '✅ Фото обновлены! Нажми на стиль ещё раз 👇', {
                     reply_markup: result.reply_markup
                   });
@@ -1041,6 +1090,7 @@ async function handleUpdate(update) {
           }
 
           if (err.message && err.message.includes('timeout')) {
+            metrics.track('generation:retrying', { telegram_id: String(chatId), style_id: styleId });
             await tgSend(chatId, '⏳ Gemini отвечает дольше обычного. Пробую ещё раз...');
             try {
               // Retry один раз
@@ -1118,6 +1168,7 @@ async function handleUpdate(update) {
 
     // ------ Callback: Повторить / Выйти в режиме Промпт ------
     if (data === 'prompt_repeat') {
+      metrics.track('prompt:repeat', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🔄 Повторяю...');
       const conv = botLogic.getConversation(String(chatId));
       const storedPrompt = conv?.data?.lastPromptText;
@@ -1153,6 +1204,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'prompt_exit') {
+      metrics.track('prompt:exit', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '🚪 Выход из промпта');
       const cancelResult = botLogic.handleCancelGodMode(String(chatId));
       if (cancelResult) {
@@ -1165,6 +1217,7 @@ async function handleUpdate(update) {
 
     // ------ Callback: Помощь ------
     if (data === 'help_instructions') {
+      metrics.track('help:instructions', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '📖 Инструкция');
       const result = botLogic.handleHelpInstructions();
       await tgEdit(chatId, msgId, result.text, {
@@ -1175,6 +1228,7 @@ async function handleUpdate(update) {
     }
 
     if (data === 'help_support') {
+      metrics.track('help:support', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '💬 Задать вопрос');
       const result = botLogic.handleHelpSupport();
       await tgEdit(chatId, msgId, result.text, {
@@ -1202,6 +1256,8 @@ async function handleUpdate(update) {
   const chatId = msg.chat.id;
   const text = (msg.text || '').trim();
   const userName = msg.from?.first_name || msg.from?.username || `User${chatId}`;
+  const userLang = msg.from?.language_code || '';
+  const isPremium = msg.from?.is_premium === true;
 
   // /start, /cancel, /отмена
   if (text.toLowerCase() === '/start' || text.toLowerCase() === '/cancel' || text.toLowerCase() === 'отмена') {
@@ -1209,6 +1265,7 @@ async function handleUpdate(update) {
     delete mediaGroups[chatId];
     
     if (text.toLowerCase() === '/cancel') {
+      metrics.track('user:cancelled', { telegram_id: String(chatId) });
       // Сначала пробуем отменить режим бога
       const cancelResult = botLogic.handleCancelGodMode(String(chatId));
       if (cancelResult) {
@@ -1220,6 +1277,15 @@ async function handleUpdate(update) {
     
     const fn = text.toLowerCase() === '/start' ? botLogic.handleStart : botLogic.handleCancel;
     const result = fn(String(chatId));
+    
+    if (text.toLowerCase() === '/start') {
+      const isNew = botLogic.isNewUser(String(chatId));
+      // Обновляем premium-статус для существующих пользователей
+      if (!isNew) {
+        botLogic.updateUserPremium(String(chatId), isPremium);
+      }
+      metrics.track(isNew ? 'onboarding:started' : 'user:returned', { telegram_id: String(chatId) });
+    }
 
     // Отправляем только ОДНО сообщение — то, что вернул handleStart/handleCancel.
     // Если нужна клавиатура, handleStart сам её возвращает в reply_markup.
@@ -1241,6 +1307,7 @@ async function handleUpdate(update) {
 
   // /help — информация (и кнопка ❓ Помощь)
   if (text.toLowerCase() === '/help' || text === '❓ Помощь') {
+    metrics.track('help:opened', { telegram_id: String(chatId) });
     const result = botLogic.handleHelp();
     await tgSend(chatId, result.text, {
       parse_mode: result.parse_mode,
@@ -1251,6 +1318,7 @@ async function handleUpdate(update) {
 
   // /styles — показать стили (и кнопка 🖼 Стили)
   if (text.startsWith('/styles') || text === '🖼 Стили') {
+    metrics.track('style:list', { telegram_id: String(chatId) });
     const result = botLogic.handleStyles(String(chatId));
     await tgSend(chatId, result.text, {
       ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
@@ -1261,6 +1329,7 @@ async function handleUpdate(update) {
 
   // /buy — покупка генераций
   if (text.toLowerCase() === '/buy' || text.toLowerCase() === '/купить') {
+    metrics.track('buy:command', { telegram_id: String(chatId) });
     const buyResult = botLogic.handleBuy(String(chatId));
     if (buyResult) {
       await tgSend(chatId, buyResult.text, {
@@ -1273,6 +1342,7 @@ async function handleUpdate(update) {
 
   // /status, /remaining, /balance, /осталось — остаток генераций (и кнопка 💰 Баланс)
   if (['/status', '/remaining', '/balance', '/осталось'].includes(text.toLowerCase()) || text === '💰 Баланс') {
+    metrics.track('balance:checked', { telegram_id: String(chatId) });
     const remaining = botLogic.checkBalance(String(chatId));
     const payments = require('./payments');
     if (remaining === null) {
@@ -1296,6 +1366,7 @@ async function handleUpdate(update) {
 
   // ------ Reply keyboard buttons (команды) ------
   if (text.startsWith('/prompt') || text === '✍️ Промпт') {
+    metrics.track('prompt:started', { telegram_id: String(chatId) });
     const result = botLogic.handleGodMode(String(chatId));
     await tgSend(chatId, result.text, {
       ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
@@ -1305,6 +1376,7 @@ async function handleUpdate(update) {
   }
   
   if (text.startsWith('/avatar') || text === '👤 Аватар') {
+    metrics.track('avatar:list', { telegram_id: String(chatId) });
     const result = botLogic.handleAvatars(String(chatId));
     await tgSend(chatId, result.text, {
       ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
@@ -1314,6 +1386,7 @@ async function handleUpdate(update) {
   }
   
   if (text.startsWith('/settings') || text === '⚙️ Настройки') {
+    metrics.track('settings:opened', { telegram_id: String(chatId) });
     const result = botLogic.handleSettings(String(chatId));
     await tgSend(chatId, result.text, {
       parse_mode: result.parse_mode,
@@ -1365,10 +1438,10 @@ async function handleUpdate(update) {
 
       // Сбрасываем таймер — ждём 1.5 сек, пока придут остальные фото
       clearTimeout(buf.timer);
-      buf.timer = setTimeout(() => flushMediaGroup(chatId, msg.media_group_id, userName), 1500);
+      buf.timer = setTimeout(() => flushMediaGroup(chatId, msg.media_group_id, userName, userLang, isPremium), 1500);
     } else {
       // Одиночное фото — сразу процессим
-      await processPhotos(chatId, [filePath], userName);
+      await processPhotos(chatId, [filePath], userName, userLang, isPremium);
     }
     return;
   }
@@ -1376,6 +1449,7 @@ async function handleUpdate(update) {
   // ------ Промпт — пользователь ввёл описание (или фото + текст) ------
   const convState = botLogic.getConversation(String(chatId));
   if (convState.state === 'awaiting_custom_prompt') {
+    metrics.track('prompt:text_entered', { telegram_id: String(chatId) });
     // Проверяем, есть ли отложенное фото в conversation
     const pendingPhoto = convState.data?.pendingPhoto || null;
     const promptResult = botLogic.handleCustomPrompt(String(chatId), text, pendingPhoto);
@@ -1398,7 +1472,14 @@ async function handleUpdate(update) {
     return;
   }
 
+  // ------ В состоянии ожидания фото — если текст, просим фото ------
+  if (convState.state === 'awaiting_photos') {
+    await tgSend(chatId, '📸 Отправь свои фото, и я создам твой цифровой исходник!');
+    return;
+  }
+
   // ------ Всё остальное — не команда и не промпт, предлагаем действия ------
+  metrics.track('user:unknown_command', { telegram_id: String(chatId), text: text.slice(0, 50) });
   await tgSend(chatId, 'Выбери действие:', {
     reply_markup: {
       inline_keyboard: [
@@ -1421,6 +1502,10 @@ async function handleUpdate(update) {
 function consumeAfterGeneration(chatId, result) {
   try {
     const genResult = botLogic.consumeGeneration(result.userId, result.cost || 1);
+    metrics.track('generation:completed', {
+      telegram_id: String(chatId),
+      style_id: result.style?.id || 'custom_prompt'
+    });
     return genResult.remaining;
   } catch (e) {
     console.error('❌ Ошибка списания генерации:', e.message);
@@ -1473,6 +1558,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
     // Используется getModelCost для динамической стоимости
     const settings = botLogic.getSettings(String(chatId));
+    metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
     const generatedResult = await generateImage.generateCustomAvatar(geminiFiles, promptResult.promptText, outputDir, settings);
 
     const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
@@ -1514,6 +1600,11 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
   } catch (err) {
     console.error('❌ Ошибка генерации в режиме промпта:', err.message);
+    metrics.track('prompt:generation_failed', {
+      telegram_id: String(chatId),
+      error: err.message.slice(0, 100),
+      blocked: String(err.message.includes('Заблокировано'))
+    });
     if (err.message.includes('Заблокировано')) {
       await tgSend(chatId, '❌ Gemini заблокировал генерацию. Попробуй другое описание.');
     } else {
@@ -1601,6 +1692,7 @@ async function poll() {
 
 // ===================== Запуск =====================
 
+metrics.init();
 console.log('🤖 Imgy Bot запущен.');
 console.log(`📁 Временные фото: ${PHOTOS_TMP}`);
 console.log('Ожидание сообщений...');
