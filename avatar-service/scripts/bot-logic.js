@@ -1370,11 +1370,6 @@ function handleSelectAvatar(telegramId, avatarId) {
 
   // Режим "Без аватара"
   if (avatarId === 'no_avatar') {
-    // Проверяем — не стоит ли Flash 2.5 (не работает без фото)
-    const settings = getSettings(telegramId);
-    if (settings.model === 'gemini-2.5-flash-image') {
-      return { error: '⚠️ <b>Flash 2.5</b> несовместима с режимом «Без аватара».\n\nСмени модель в ⚙️ Настройки → Нейросеть на ⚡ Базовую.' };
-    }
     const conv = getConversation(telegramId);
     setConversation(telegramId, conv.state || 'idle', { ...(conv.data || {}), avatarId: 'no_avatar' });
     return { success: true, name: 'Без аватара', isNoAvatar: true };
