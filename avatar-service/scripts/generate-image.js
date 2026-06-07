@@ -1256,6 +1256,8 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
   if (!imagePart) {
     const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
     console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
+    const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
+    console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     throw new Error('Gemini не вернул изображение');
   }
 
@@ -1334,6 +1336,9 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
   if (!imagePart) {
     const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
     console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
+    // Логируем полный ответ для диагностики
+    const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
+    console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     throw new Error('Gemini не вернул изображение');
   }
 
