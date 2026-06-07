@@ -1967,11 +1967,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       error: err.message.slice(0, 100),
       blocked: String(err.message.includes('Заблокировано'))
     });
-    if (err.message.includes('Заблокировано')) {
-      await tgSend(chatId, '❌ ' + err.message.replace('Заблокировано: ', ''));
-    } else {
-      await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
-    }
+    await tgSend(chatId, '❌ ' + err.message);
     await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
       parse_mode: 'HTML',
       reply_markup: {
