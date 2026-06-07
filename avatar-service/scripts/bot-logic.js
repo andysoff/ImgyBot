@@ -389,7 +389,7 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName, language =
   const avatar = {
     id: avatarId,
     userId: user.id,
-    name: `Исходник ${existingCount + 1}`,
+    name: `Аватар ${existingCount + 1}`,
     createdAt: new Date().toISOString(),
     photos: savedPhotos,
     lastGeneratedAt: null
@@ -705,8 +705,8 @@ function handleAvatars(telegramId) {
   return {
     text: '👤 Твои исходники:\n' + userAvatars.map(av => {
       const isCurrent = av.id === currentAvatarId;
-      return (isCurrent ? '✅ ' : '• ') + av.name + ' — ' + av.photos.length + ' фото';
-    }).join('\n') + '\n\n✅ Нажми на исходник — выбрать\n👁 Показать — посмотреть фото исходника\n🗑 Нажми 🗑 — удалить',
+      return (isCurrent ? '✅ ' : '') + av.name + ' — ' + av.photos.length + ' фото';
+    }).join('\n') + '\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
