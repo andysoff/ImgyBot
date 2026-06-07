@@ -789,8 +789,9 @@ async function handleUpdate(update) {
       await tgAnswerCb(cb.id, '➕ Новый исходник');
 
       const result = botLogic.handleNewAvatar(String(chatId));
-      // Редактируем текущее сообщение
-      await tgEdit(chatId, msgId, result.text);
+      // Убираем inline кнопки со старого сообщения и отправляем новое
+      await tgEdit(chatId, msgId, '—', { reply_markup: { inline_keyboard: [] } });
+      await tgSend(chatId, result.text);
       return;
     }
 
