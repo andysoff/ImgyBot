@@ -680,11 +680,14 @@ function handleAvatars(telegramId) {
   const keyboard = [];
   for (const av of userAvatars) {
     const isCurrent = av.id === currentAvatarId;
+    // Название аватара на всю ширину, кнопки просмотра и удаления под ним
     keyboard.push([
       {
         text: (isCurrent ? '✅ ' : '') + av.name,
         callback_data: 'avatar:' + av.id
-      },
+      }
+    ]);
+    keyboard.push([
       {
         text: '👁',
         callback_data: 'show_avatar:' + av.id
