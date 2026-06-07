@@ -247,9 +247,15 @@ function handleStart(telegramId) {
     // Есть генерации и аватары — показываем меню
     const conv = getConversation(telegramId);
     const convAvatarId = conv?.data?.avatarId;
-    const savedAvatar = convAvatarId ? userAvatars.find(a => a.id === convAvatarId) : null;
-    const avatar = savedAvatar || userAvatars[userAvatars.length - 1];
-    setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
+    
+    // Сохраняем 'no_avatar' если был выбран
+    if (convAvatarId === 'no_avatar') {
+      setConversation(telegramId, 'idle', { userId: user.id, avatarId: 'no_avatar' });
+    } else {
+      const savedAvatar = convAvatarId ? userAvatars.find(a => a.id === convAvatarId) : null;
+      const avatar = savedAvatar || userAvatars[userAvatars.length - 1];
+      setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: avatar.id });
+    }
 
     const mainKB = buildMainKeyboard();
 
@@ -814,15 +820,14 @@ function handleStyles(telegramId) {
     return exhaustionMessage();
   }
 
-  // Проверяем режим "Без аватара"
+  // Если выбран "Без аватара" — просим выбрать аватар
   const conv = getConversation(telegramId);
   if (conv?.data?.avatarId === 'no_avatar') {
-    setConversation(telegramId, 'awaiting_style', { userId: user.id, avatarId: 'no_avatar' });
     return {
-      text: '🖼 Выбери стиль для фото 👇',
+      text: '⚠️ Сначала выбери аватар в меню 👤 Аватар, чтобы использовать стили.',
       parse_mode: 'Markdown',
       reply_markup: {
-        inline_keyboard: buildStylesKeyboard()
+        inline_keyboard: [[{ text: '👤 Выбрать аватар', callback_data: 'back_to_avatars' }]]
       }
     };
   }
