@@ -688,20 +688,22 @@ function handleAvatars(telegramId) {
       {
         text: '👁',
         callback_data: 'show_avatar:' + av.id
+      },
+      {
+        text: '🗑',
+        callback_data: 'del_avatar:' + av.id
       }
     ]);
   }
 
-  // Кнопка управления внизу
-  const bottomRow = [];
-  if (currentAvatarId) {
-    bottomRow.push({ text: '🗑 Удалить выбранный', callback_data: `del_avatar:${currentAvatarId}` });
-  }
-  bottomRow.push({ text: '➕ Новый аватар', callback_data: 'new_avatar' });
-  keyboard.push(bottomRow);
+  // Добавляем кнопку "Новый аватар" внизу списка
+  keyboard.push([{
+    text: '➕ Новый аватар',
+    callback_data: 'new_avatar'
+  }]);
 
   return {
-    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото',
+    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
