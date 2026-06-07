@@ -703,7 +703,7 @@ function handleAvatars(telegramId) {
   }]);
 
   return {
-    text: '👤 Твои аватары',
+    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
