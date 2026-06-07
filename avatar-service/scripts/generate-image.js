@@ -1258,6 +1258,10 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
     console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
     const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
+    const reason = candidates?.[0]?.finishReason;
+    if (reason === 'PROHIBITED_CONTENT') {
+      throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
+    }
     throw new Error('Gemini не вернул изображение');
   }
 
@@ -1339,6 +1343,10 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
     // Логируем полный ответ для диагностики
     const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
+    const reason = candidates?.[0]?.finishReason;
+    if (reason === 'PROHIBITED_CONTENT') {
+      throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
+    }
     throw new Error('Gemini не вернул изображение');
   }
 

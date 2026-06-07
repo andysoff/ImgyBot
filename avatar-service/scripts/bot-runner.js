@@ -1968,7 +1968,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       blocked: String(err.message.includes('Заблокировано'))
     });
     if (err.message.includes('Заблокировано')) {
-      await tgSend(chatId, '❌ Gemini заблокировал генерацию. Попробуй другое описание.');
+      await tgSend(chatId, '❌ ' + err.message.replace('Заблокировано: ', ''));
     } else {
       await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
     }
