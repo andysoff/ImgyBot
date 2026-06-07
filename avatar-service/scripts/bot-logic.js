@@ -680,33 +680,28 @@ function handleAvatars(telegramId) {
   const keyboard = [];
   for (const av of userAvatars) {
     const isCurrent = av.id === currentAvatarId;
-    // Название аватара на всю ширину, кнопки просмотра и удаления под ним
     keyboard.push([
       {
         text: (isCurrent ? '✅ ' : '') + av.name,
         callback_data: 'avatar:' + av.id
-      }
-    ]);
-    keyboard.push([
+      },
       {
         text: '👁',
         callback_data: 'show_avatar:' + av.id
-      },
-      {
-        text: '🗑',
-        callback_data: 'del_avatar:' + av.id
       }
     ]);
   }
 
-  // Добавляем кнопку "Новый аватар" внизу списка
-  keyboard.push([{
-    text: '➕ Новый аватар',
-    callback_data: 'new_avatar'
-  }]);
+  // Кнопка управления внизу
+  const bottomRow = [];
+  if (currentAvatarId) {
+    bottomRow.push({ text: '🗑 Удалить выбранный', callback_data: `del_avatar:${currentAvatarId}` });
+  }
+  bottomRow.push({ text: '➕ Новый аватар', callback_data: 'new_avatar' });
+  keyboard.push(bottomRow);
 
   return {
-    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
+    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
