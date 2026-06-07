@@ -330,11 +330,25 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName, language =
   }
 
   if (filePaths.length > 10) {
-    return { text: 'Слишком много фото за раз. Отправь не больше 10 штук.' };
+    return { text: 'Слишком много фото за раз. На аватар можно не больше 10 фото.' };
   }
 
   // Есть ли уже пользователь?
   let user = findUserByTelegram(telegramId);
+
+  if (user) {
+    // Проверяем лимит аватаров для существующего пользователя
+    const allAvatars = readJSON(AVATARS_FILE);
+    const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
+    if (userAvatars.length >= 4) {
+      return {
+        text: '⚠️ Максимум 4 аватара. Удали один из существующих, чтобы создать новый.',
+        reply_markup: {
+          inline_keyboard: [[{ text: '👤 Аватары', callback_data: 'back_to_avatars' }]]
+        }
+      };
+    }
+  }
 
   if (!user) {
     // Определяем страну по языку интерфейса
@@ -557,7 +571,8 @@ function handleShowAvatar(telegramId, avatarId) {
 }
 
 /**
- * Меню действий над аватаром — Посмотреть / Удалить / Назад
+ * Меню действий над аватаром — Посмотреть / Удалить / Выбрать / Назад
+ * Не выбирает аватар — только открывает подменю.
  */
 function handleAvatarMenu(telegramId, avatarId) {
   const user = findUserByTelegram(telegramId);
@@ -567,26 +582,16 @@ function handleAvatarMenu(telegramId, avatarId) {
   const avatar = allAvatars.find(a => a.id === avatarId);
   if (!avatar || !user.avatars.includes(avatarId)) return null;
 
-  // Выбираем аватар (сохраняем в conversation)
-  const conv = getConversation(telegramId);
-  if (conv) {
-    conv.data.avatarId = avatarId;
-    setConversation(telegramId, conv.state, conv.data);
-  }
-
   return {
     text: `👤 <b>${avatar.name}</b>
 ${avatar.photos.length} фото`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
-        [
-          { text: '👁 Посмотреть', callback_data: 'show_avatar:' + avatarId },
-          { text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }
-        ],
-        [
-          { text: '🔙 Назад', callback_data: 'back_to_avatars' }
-        ]
+        [{ text: '👁 Посмотреть фото', callback_data: 'show_avatar:' + avatarId }],
+        [{ text: '✏️ Переименовать', callback_data: 'rename_avatar:' + avatarId }],
+        [{ text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }],
+        [{ text: '🔙 Назад', callback_data: 'back_to_avatars' }]
       ]
     }
   };
@@ -653,6 +658,29 @@ function deleteAvatar(telegramId, avatarId) {
 }
 
 /**
+ * Показать подтверждение удаления аватара.
+ */
+function handleDeleteConfirm(telegramId, avatarId) {
+  const user = findUserByTelegram(telegramId);
+  if (!user) return null;
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar || !user.avatars.includes(avatarId)) return null;
+
+  return {
+    text: `❓ Точно удалить аватар «<b>${avatar.name}</b>»? Это действие нельзя отменить.`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🗑 Удалить', callback_data: 'confirm_del_avatar:' + avatarId }],
+        [{ text: '🔙 Назад', callback_data: 'back_to_avatar_menu:' + avatarId }]
+      ]
+    }
+  };
+}
+
+/**
  * Начать добавление нового аватара (сброс и запрос фото)
  */
 function handleNewAvatar(telegramId) {
@@ -662,6 +690,17 @@ function handleNewAvatar(telegramId) {
     return handleStart(telegramId);
   }
 
+  const allAvatars = readJSON(AVATARS_FILE);
+  const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
+  if (userAvatars.length >= 4) {
+    return {
+      text: '⚠️ Максимум 4 аватара. Удали один из существующих, чтобы создать новый.',
+      reply_markup: {
+        inline_keyboard: [[{ text: '👤 Аватары', callback_data: 'back_to_avatars' }]]
+      }
+    };
+  }
+
   if (user.generationsRemaining <= 0) {
     return exhaustionMessage();
   }
@@ -669,7 +708,7 @@ function handleNewAvatar(telegramId) {
   resetConversation(telegramId);
   setConversation(telegramId, 'awaiting_photos', {});
   return {
-    text: '📸 Отправь новые фото для нового аватара.\nМожно 1-3 фото одним сообщением.'
+    text: '📸 Отправь новые фото для нового аватара.\nМожно до 10 фото одним сообщением.'
   };
 }
 
@@ -709,7 +748,7 @@ function handleAvatars(telegramId) {
     };
   }
 
-  // Получаем текущий аватар (из conversation)
+  // Получаем текущий аватар из conversation
   const conv = getConversation(telegramId);
   const currentAvatarId = conv?.data?.avatarId;
 
@@ -720,6 +759,10 @@ function handleAvatars(telegramId) {
       {
         text: (isCurrent ? '✅ ' : '') + av.name,
         callback_data: 'avatar:' + av.id
+      },
+      {
+        text: '⚙️',
+        callback_data: 'avatar_actions:' + av.id
       }
     ]);
   }
@@ -731,7 +774,7 @@ function handleAvatars(telegramId) {
   }]);
 
   return {
-    text: '👤 Твои аватары\n\n✅ Нажми на аватар, чтобы выбрать',
+    text: '✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -1266,6 +1309,70 @@ function handleHelpSupport() {
 // Экспорт
 // ======================
 
+/**
+ * Выбрать аватар — сохраняет avatarId в conversation.
+ */
+function handleSelectAvatar(telegramId, avatarId) {
+  const user = findUserByTelegram(telegramId);
+  if (!user) return null;
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar || !user.avatars.includes(avatarId)) return null;
+
+  // Устанавливаем аватар как текущий
+  const conv = getConversation(telegramId);
+  setConversation(telegramId, conv.state || 'idle', { ...(conv.data || {}), avatarId });
+
+  return { success: true, name: avatar.name };
+}
+
+/**
+ * Запросить новое название для аватара.
+ */
+function handleStartRenameAvatar(telegramId, avatarId) {
+  const user = findUserByTelegram(telegramId);
+  if (!user) return null;
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar || !user.avatars.includes(avatarId)) return null;
+
+  setConversation(telegramId, 'awaiting_avatar_rename', { avatarId });
+
+  return {
+    text: `✏️ Напиши новое название для «${avatar.name}»:`
+  };
+}
+
+/**
+ * Сохранить новое название аватара.
+ */
+function handleRenameAvatarDone(telegramId, newName) {
+  const conv = getConversation(telegramId);
+  const avatarId = conv?.data?.avatarId;
+  if (!avatarId) return { error: 'Нет аватара для переименования' };
+
+  const user = findUserByTelegram(telegramId);
+  if (!user) return { error: 'Пользователь не найден' };
+
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: 'Имя не может быть пустым' };
+  if (trimmed.length > 40) return { error: 'Слишком длинное (макс. 40 символов)' };
+
+  const allAvatars = readJSON(AVATARS_FILE);
+  const avatar = allAvatars.find(a => a.id === avatarId);
+  if (!avatar || !user.avatars.includes(avatarId)) return { error: 'Аватар не найден' };
+
+  avatar.name = trimmed;
+  writeJSON(AVATARS_FILE, allAvatars);
+
+  // Сохраняем выбранный аватар, сбрасываем только состояние
+  setConversation(telegramId, 'idle', { avatarId });
+
+  return { success: true, name: trimmed };
+}
+
 module.exports = {
   handleHelp,
   handleHelpInstructions,
@@ -1289,11 +1396,15 @@ module.exports = {
   handleStyles,
   handleAvatars,
   handleAvatarMenu,
+  handleSelectAvatar,
+  handleStartRenameAvatar,
+  handleRenameAvatarDone,
   handleGodMode,
   handleCustomPrompt,
   handleCancelGodMode,
   handleNewAvatar,
   deleteAvatar,
+  handleDeleteConfirm,
   checkBalance,
   consumeGeneration,
   addGenerations,

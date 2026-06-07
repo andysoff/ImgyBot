@@ -699,23 +699,28 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Нажатие на название аватара → выбор (без перезагрузки!) ------
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
       metrics.track('avatar:selected', { telegram_id: String(chatId), avatar_id: avatarId });
-      await tgAnswerCb(cb.id, '');
 
-      // Показываем меню действий для аватара
-      const result = botLogic.handleAvatarMenu(String(chatId), avatarId);
+      const result = botLogic.handleSelectAvatar(String(chatId), avatarId);
       if (!result) {
-        await tgSend(chatId, '❌ Аватар не найден');
+        await tgAnswerCb(cb.id, '❌ Ошибка');
         return;
       }
-      await tgSend(chatId, result.text, {
-        parse_mode: result.parse_mode,
-        reply_markup: result.reply_markup
-      });
 
-      // Проверяем/загружаем фото выбранного аватара в Gemini (проверка кеша + дозагрузка протухших)
+      await tgAnswerCb(cb.id, '');
+
+      // Просто обновляем кнопки на месте — ✅ переезжает без моргания
+      const avatarsResult = botLogic.handleAvatars(String(chatId));
+      if (avatarsResult) {
+        await tgEdit(chatId, msgId, avatarsResult.text, {
+          reply_markup: avatarsResult.reply_markup
+        });
+      }
+
+      // Gemini-кеш в фоне
       try {
         const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
         const selectedAvatar = avatars.find(a => a.id === avatarId);
@@ -730,19 +735,102 @@ async function handleUpdate(update) {
         }
       } catch (err) {
         console.error('❌ Ошибка загрузки в Gemini при выборе аватара:', err.message);
-        // Не фатально — генерация догрузит при необходимости
+      }
+      return;
+    }
+
+    // ------ Нажатие на ⚙️ → меню действий с аватаром ------
+    if (data.startsWith('avatar_actions:')) {
+      const avatarId = data.replace('avatar_actions:', '');
+      metrics.track('avatar:actions', { telegram_id: String(chatId), avatar_id: avatarId });
+      await tgAnswerCb(cb.id, '');
+
+      const result = botLogic.handleAvatarMenu(String(chatId), avatarId);
+      if (!result) {
+        await tgSend(chatId, '❌ Аватар не найден');
+        return;
+      }
+
+      await tgDelete(chatId, msgId);
+      await tgSend(chatId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    // ------ Переименование аватара ------
+    if (data.startsWith('rename_avatar:')) {
+      const avatarId = data.replace('rename_avatar:', '');
+      metrics.track('avatar:rename_started', { telegram_id: String(chatId), avatar_id: avatarId });
+
+      const result = botLogic.handleStartRenameAvatar(String(chatId), avatarId);
+      if (!result) {
+        await tgAnswerCb(cb.id, '❌ Ошибка');
+        return;
+      }
+
+      await tgAnswerCb(cb.id, '✏️ Напиши новое название');
+      await tgSend(chatId, result.text);
+      return;
+    }
+
+    if (data.startsWith('select_avatar:')) {
+      const avatarId = data.replace('select_avatar:', '');
+      metrics.track('avatar:selected', { telegram_id: String(chatId), avatar_id: avatarId });
+
+      const result = botLogic.handleSelectAvatar(String(chatId), avatarId);
+      if (!result) {
+        await tgAnswerCb(cb.id, '❌ Ошибка');
+        await tgSend(chatId, '❌ Аватар не найден');
+        return;
+      }
+
+      await tgAnswerCb(cb.id, '✅ Выбран');
+
+      // Удаляем сообщение с подменю
+      await tgDelete(chatId, msgId);
+
+      // Показываем обновлённый список аватаров
+      const avatarsResult = botLogic.handleAvatars(String(chatId));
+      if (avatarsResult) {
+        await tgSend(chatId, avatarsResult.text, {
+          reply_markup: avatarsResult.reply_markup
+        });
       }
       return;
     }
 
     if (data.startsWith('del_avatar:')) {
       const avatarId = data.replace('del_avatar:', '');
+      await tgAnswerCb(cb.id, '');
+
+      const confirmResult = botLogic.handleDeleteConfirm(String(chatId), avatarId);
+      if (confirmResult) {
+        // Обновляем текущее сообщение на подтверждение
+        await tgEdit(chatId, msgId, confirmResult.text, {
+          parse_mode: confirmResult.parse_mode,
+          reply_markup: confirmResult.reply_markup
+        });
+      } else {
+        await tgSend(chatId, '❌ Аватар не найден');
+      }
+      return;
+    }
+
+    if (data.startsWith('confirm_del_avatar:')) {
+      const avatarId = data.replace('confirm_del_avatar:', '');
       metrics.track('avatar:deleted', { telegram_id: String(chatId), avatar_id: avatarId });
-      await tgAnswerCb(cb.id, '🗑 Удаляю...');
 
       const result = botLogic.deleteAvatar(String(chatId), avatarId);
       if (result.success) {
-        await tgEdit(chatId, msgId, `🗑 Аватар «${result.name}» удалён.`);
+        await tgAnswerCb(cb.id, '');
+
+        // Удаляем сообщение с подтверждением
+        await tgDelete(chatId, msgId);
+
+        // Сообщение об удалении
+        await tgSend(chatId, `🗑 Аватар «${result.name}» и все связанные фото удалены.`);
 
         // Показываем оставшиеся аватары или возвращаемся к старту
         const remainingResult = botLogic.handleAvatars(String(chatId));
@@ -754,6 +842,7 @@ async function handleUpdate(update) {
           await tgSend(chatId, '🆕 У тебя больше нет аватаров. Загрузи новое фото через /start');
         }
       } else {
+        await tgAnswerCb(cb.id, '❌ Ошибка');
         await tgSend(chatId, `❌ Ошибка: ${result.error}`);
       }
       return;
@@ -795,11 +884,28 @@ async function handleUpdate(update) {
     if (data === 'back_to_avatars') {
       await tgAnswerCb(cb.id, '');
 
+      // Удаляем сообщение с подменю
+      await tgDelete(chatId, msgId);
+
       const result = botLogic.handleAvatars(String(chatId));
       if (result) {
         await tgSend(chatId, result.text, {
           ...(result.parse_mode ? { parse_mode: result.parse_mode } : {}),
           ...(result.reply_markup ? { reply_markup: result.reply_markup } : {})
+        });
+      }
+      return;
+    }
+
+    if (data.startsWith('back_to_avatar_menu:')) {
+      const avatarId = data.replace('back_to_avatar_menu:', '');
+      await tgAnswerCb(cb.id, '');
+
+      const result = botLogic.handleAvatarMenu(String(chatId), avatarId);
+      if (result) {
+        await tgEdit(chatId, msgId, result.text, {
+          parse_mode: result.parse_mode,
+          reply_markup: result.reply_markup
         });
       }
       return;
@@ -1525,6 +1631,13 @@ async function handleUpdate(update) {
   // ------ Фото ------
   if (msg.photo && msg.photo.length > 0) {
     const bestFile = msg.photo.reduce((a, b) => (a.file_size > b.file_size ? a : b));
+
+    // Проверка максимального размера для одиночного фото — 5 MB
+    if (!msg.media_group_id && bestFile.file_size > 5 * 1024 * 1024) {
+      await tgSend(chatId, '⚠️ Фото слишком большое. Максимальный размер — 5 МБ.');
+      return;
+    }
+
     const filePath = await downloadFromTelegram(bestFile.file_id);
 
     // Если пользователь в режиме Промпт — обрабатываем как прикреплённое фото
@@ -1561,6 +1674,21 @@ async function handleUpdate(update) {
     // Media group?
     if (msg.media_group_id) {
       const buf = getOrCreateBuffer(chatId, msg.media_group_id);
+
+      // Суммарный размер всех фото в альбоме
+      buf.totalSize = (buf.totalSize || 0) + bestFile.file_size;
+      if (buf.totalSize > 25 * 1024 * 1024) {
+        clearTimeout(buf.timer);
+        delete mediaGroups[chatId][msg.media_group_id];
+        // Чистим все уже скачанные фото из этого альбома
+        try { fs.unlinkSync(filePath); } catch {}
+        for (const p of (buf.photos || [])) {
+          try { fs.unlinkSync(p); } catch {}
+        }
+        await tgSend(chatId, '⚠️ Общий размер всех фото в альбоме превышает 25 МБ. Отправь меньше фото или меньшего качества.');
+        return;
+      }
+
       buf.photos.push(filePath);
 
       // Сбрасываем таймер — ждём 1.5 сек, пока придут остальные фото
@@ -1570,6 +1698,29 @@ async function handleUpdate(update) {
       // Одиночное фото — сразу процессим
       await processPhotos(chatId, [filePath], userName, userLang, isPremium);
     }
+    return;
+  }
+
+  // ------ Документ (фото без сжатия) ------
+  if (msg.document && msg.document.mime_type && msg.document.mime_type.startsWith('image/')) {
+    if (msg.document.file_size > 5 * 1024 * 1024) {
+      await tgSend(chatId, '⚠️ Файл слишком большой. Максимальный размер — 5 МБ.');
+      return;
+    }
+    const filePath = await downloadFromTelegram(msg.document.file_id);
+
+    // Если в режиме промпта — обрабатываем
+    const docConvState = botLogic.getConversation(String(chatId));
+    if (docConvState.state === 'awaiting_custom_prompt') {
+      // Кладём как отложенное фото и ждём текста
+      docConvState.data.pendingPhoto = filePath;
+      botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', docConvState.data);
+      await tgSend(chatId, '✅ Фото получено. Теперь напиши описание для генерации.');
+      return;
+    }
+
+    // Иначе как обычное фото
+    await processPhotos(chatId, [filePath], userName, userLang, isPremium);
     return;
   }
 
@@ -1602,6 +1753,27 @@ async function handleUpdate(update) {
   // ------ В состоянии ожидания фото — если текст, просим фото ------
   if (convState.state === 'awaiting_photos') {
     await tgSend(chatId, '📸 Отправь свои фото, и я создам твой аватар!');
+    return;
+  }
+
+  // ------ Переименование аватара ------
+  if (convState.state === 'awaiting_avatar_rename') {
+    metrics.track('avatar:rename_done', { telegram_id: String(chatId) });
+
+    const result = botLogic.handleRenameAvatarDone(String(chatId), text);
+    if (result.error) {
+      await tgSend(chatId, `❌ ${result.error}`);
+      return;
+    }
+
+    await tgSend(chatId, `✅ Аватар переименован в «${result.name}»`);
+
+    const avatarsResult = botLogic.handleAvatars(String(chatId));
+    if (avatarsResult) {
+      await tgSend(chatId, avatarsResult.text, {
+        reply_markup: avatarsResult.reply_markup
+      });
+    }
     return;
   }
 
