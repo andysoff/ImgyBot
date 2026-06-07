@@ -1305,6 +1305,26 @@ async function handleUpdate(update) {
     return;
   }
 
+  // ===== SECRETGIFT100 — секретный код: 100 генераций, одноразово (не работает в режиме Промпт) =====
+  if (text === 'SECRETGIFT100') {
+    const conv = botLogic.getConversation(String(chatId));
+    if (conv.state !== 'awaiting_custom_prompt') {
+      const result = botLogic.setGenerationsTo100(String(chatId));
+      if (result !== null) {
+        if (result.alreadyUsed) {
+          await tgSend(chatId, '😅 Ты уже активировал этот секретный код! Он одноразовый.', { parse_mode: 'HTML' });
+        } else {
+          metrics.track('secretgift100:activated', { telegram_id: String(chatId) });
+          await tgSend(chatId, `🎉 Секретный код активирован! Теперь у тебя <b>${result.count}</b> ${botLogic.pluralGen(result.count)}.`, { parse_mode: 'HTML' });
+        }
+      } else {
+        await tgSend(chatId, '❌ Сначала напиши /start, чтобы зарегистрироваться.');
+      }
+      return;
+    }
+    // В режиме Промпт — пропускаем, обработается как обычный текст промпта
+  }
+
   // /help — информация (и кнопка ❓ Помощь)
   if (text.toLowerCase() === '/help' || text === '❓ Помощь') {
     metrics.track('help:opened', { telegram_id: String(chatId) });

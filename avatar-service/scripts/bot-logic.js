@@ -907,6 +907,28 @@ function addGenerations(telegramId, n) {
   return user.generationsRemaining;
 }
 
+/**
+ * Секретный код SECRETGIFT100 — одноразовое начисление 100 генераций.
+ * @returns {{ count: number } | null} — объект с новым количеством, или null если пользователь не найден
+ */
+function setGenerationsTo100(telegramId) {
+  const users = readJSON(USERS_FILE);
+  const user = users.find(u => u.telegram === `@${telegramId}`);
+  if (!user) return null;
+
+  // Проверка: код уже использован?
+  if (!user.usedCodes) user.usedCodes = [];
+  if (user.usedCodes.includes('SECRETGIFT100')) {
+    return { count: user.generationsRemaining, alreadyUsed: true };
+  }
+
+  user.generationsRemaining += 100;
+  user.usedCodes.push('SECRETGIFT100');
+  writeJSON(USERS_FILE, users);
+  console.log(`🎉 SECRETGIFT100 ${user.name || user.telegram}: +100 → ${user.generationsRemaining}`);
+  return { count: user.generationsRemaining, alreadyUsed: false };
+}
+
 function updateUserPremium(telegramId, isPremium) {
   const users = readJSON(USERS_FILE);
   const user = users.find(u => u.telegram === `@${telegramId}`);
@@ -1208,6 +1230,7 @@ module.exports = {
   checkBalance,
   consumeGeneration,
   addGenerations,
+  setGenerationsTo100,
   buildMainKeyboard,
   buildStylesKeyboard,
   readJSON,
