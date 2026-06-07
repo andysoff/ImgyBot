@@ -1259,8 +1259,13 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
     const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
+    const finishMsg = candidates?.[0]?.finishMessage || '';
     if (reason === 'PROHIBITED_CONTENT') {
       throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
+    }
+    if (reason === 'IMAGE_OTHER') {
+      const hint = finishMsg ? finishMsg.replace(/\[.*?\]\(.*?\)/g, '').trim() : '';
+      throw new Error('Заблокировано: модель не смогла сгенерировать изображение по твоему описанию. ' + (hint || 'Попробуй переформулировать.'));
     }
     throw new Error('Gemini не вернул изображение');
   }
@@ -1344,8 +1349,13 @@ async function generateNoAvatarCustom(promptText, outputDir, settings) {
     const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
+    const finishMsg = candidates?.[0]?.finishMessage || '';
     if (reason === 'PROHIBITED_CONTENT') {
       throw new Error('Заблокировано: контент отклонён safety-фильтром Gemini. Попробуй другое описание.');
+    }
+    if (reason === 'IMAGE_OTHER') {
+      const hint = finishMsg ? finishMsg.replace(/\[.*?\]\(.*?\)/g, '').trim() : '';
+      throw new Error('Заблокировано: модель не смогла сгенерировать изображение по твоему описанию. ' + (hint || 'Попробуй переформулировать.'));
     }
     throw new Error('Gemini не вернул изображение');
   }
