@@ -199,6 +199,8 @@ function handleBuy(telegramId) {
     text += '\n';
   }
 
+  text += '\n🔹 Оплата производится через сервис <b>ЮKassa</b>.';
+
   return {
     text,
     parse_mode: 'HTML',
@@ -1432,6 +1434,73 @@ function handleRenameAvatarDone(telegramId, newName) {
   return { success: true, name: trimmed };
 }
 
+// ======================
+// Payments (отдельное хранилище от conversations)
+// ======================
+
+const PAYMENTS_FILE = path.join(DATA_DIR, 'payments.json');
+
+function _readPayments() {
+  try { return JSON.parse(fs.readFileSync(PAYMENTS_FILE, 'utf-8')); }
+  catch { return {}; }
+}
+
+function _writePayments(data) {
+  writeJSON(PAYMENTS_FILE, data);
+}
+
+/**
+ * Получить список pending-платежей для пользователя
+ */
+function getPendingPayments(telegramId) {
+  const all = _readPayments();
+  return all[telegramId] || [];
+}
+
+/**
+ * Добавить платёж в список ожидания
+ */
+function addPendingPayment(telegramId, paymentId, packageId) {
+  const all = _readPayments();
+  if (!all[telegramId]) all[telegramId] = [];
+  if (!all[telegramId].find(p => p.paymentId === paymentId)) {
+    all[telegramId].push({
+      paymentId,
+      packageId,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  _writePayments(all);
+}
+
+/**
+ * Удалить платёж (по оплате или отмене)
+ */
+function removePendingPayment(telegramId, paymentId) {
+  const all = _readPayments();
+  if (all[telegramId]) {
+    all[telegramId] = all[telegramId].filter(p => p.paymentId !== paymentId);
+    if (all[telegramId].length === 0) delete all[telegramId];
+  }
+  _writePayments(all);
+}
+
+/**
+ * Получить все pending-платежи всех пользователей (для восстановления watcher'ов)
+ */
+function getAllPendingPayments() {
+  const all = _readPayments();
+  const result = [];
+  for (const [telegramId, list] of Object.entries(all)) {
+    for (const pp of list) {
+      result.push({ telegramId, ...pp });
+    }
+  }
+  return result;
+}
+
 module.exports = {
   handleHelp,
   handleHelpInstructions,
@@ -1489,5 +1558,9 @@ module.exports = {
   MODEL_OPTIONS,
   getModelCost,
   MODEL_COST,
-  pluralGen
+  pluralGen,
+  getPendingPayments,
+  addPendingPayment,
+  removePendingPayment,
+  getAllPendingPayments
 };

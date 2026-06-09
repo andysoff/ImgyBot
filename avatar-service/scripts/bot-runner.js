@@ -80,6 +80,7 @@ const botLogic = require('./bot-logic');
 const { buildBuyKeyboard } = botLogic;
 const generateImage = require('./generate-image');
 const metrics = require('./metrics-ga4');
+const payments = require('./payments');
 
 const PHOTOS_TMP = path.join(__dirname, '..', 'photos', '_incoming');
 fs.mkdirSync(PHOTOS_TMP, { recursive: true });
@@ -946,37 +947,122 @@ async function handleUpdate(update) {
       try {
         const payment = await payments.createPayment(chatId, packageId);
 
-        // Сохраняем paymentId в conversation для последующей проверки
-        const conv = botLogic.getConversation(String(chatId));
-        botLogic.setConversation(String(chatId), conv.state, {
-          ...conv.data,
-          pendingPaymentId: payment.paymentId,
-          pendingPackageId: packageId,
-        });
+        // Сохраняем платёж в отдельное хранилище
+        botLogic.addPendingPayment(String(chatId), payment.paymentId, packageId);
 
         const isDemoMode = payments.isDemoMode && payments.isDemoMode();
 
-        await tgEdit(chatId, msgId,
-          `💳 <b>${pkg.label}</b> — ${pkg.price}₽\n\n`
-          + (isDemoMode
-            ? '🔄 <i>Демо-режим</i>. Оплата не подключена.\nПросто нажми «✅ Я оплатил» — генерации начислятся сразу.\n\n'
-            : 'Нажми кнопку ниже, чтобы перейти к оплате.\nПосле оплаты нажми «✅ Я оплатил» — мы проверим и начислим генерации.\n\n'),
-          {
+        if (isDemoMode) {
+          // Демо: сразу начисляем
+          await tgEdit(chatId, msgId,
+            `💳 <b>${pkg.label}</b> — ${pkg.price}₽\n\n`
+            + '🔄 <i>Демо-режим</i>. Генерации начисляются...',
+            { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'show_buy' }]] } }
+          );
+          setTimeout(async () => {
+            try {
+              const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
+              await tgEdit(chatId, msgId,
+                `✅ <b>Демо-режим</b> — генерации начислены!\n\n`
+                + `Тебе начислено <b>${pkg.generations}</b> ${botLogic.pluralGen(pkg.generations)}.\n`
+                + `Теперь у тебя <b>${newTotal}</b> ${botLogic.pluralGen(newTotal)}.`,
+                { parse_mode: 'HTML' }
+              );
+              const conv = botLogic.getConversation(String(chatId));
+              botLogic.setConversation(String(chatId), conv.state, {});
+            } catch (e) {
+              console.error('❌ Ошибка демо-начисления:', e.message);
+            }
+          }, 2000);
+        } else {
+          await tgEdit(chatId, msgId,
+            `💳 <b>${pkg.label}</b> — ${pkg.price}₽`, {
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
                 [{ text: `💳 Оплатить ${pkg.price}₽`, url: payment.confirmationUrl }],
-                [{ text: '✅ Я оплатил', callback_data: `check_payment:${payment.paymentId}:${packageId}` }],
                 [{ text: '🔙 Назад', callback_data: 'show_buy' }]
               ]
             }
-          }
-        );
+          });
+
+          // Автоматическая проверка платежа в фоне
+          startPaymentWatcher(chatId, msgId, payment.paymentId, packageId);
+        }
       } catch (err) {
         console.error('❌ Ошибка создания платежа:', err.message);
         await tgSend(chatId, `❌ Не удалось создать платёж: ${err.message}`);
       }
       return;
+    }
+
+    /**
+     * Показать меню покупки с URL-кнопками на ЮKassa.
+     * Создаёт платежи для всех пакетов сразу, кладёт прямые ссылки в кнопки.
+     */
+    async function handleBuyMenu(chatId) {
+      const payments = require('./payments');
+
+      const user = botLogic.findUserByTelegram(String(chatId));
+      if (!user) {
+        await tgSend(chatId, '❌ Сначала напиши /start, чтобы зарегистрироваться.');
+        return;
+      }
+
+      const isDemo = payments.isDemoMode && payments.isDemoMode();
+
+      // Текст с ценами
+      let text = '💳 <b>Пополнение баланса</b>\n\n';
+      text += 'Выбери количество генераций:\n\n';
+      for (const pkg of payments.PACKAGES) {
+        text += `${pkg.label} — <b>${pkg.price}₽</b>`;
+        if (pkg.savingsPercent > 0) text += ` (скидка ${pkg.savingsPercent}%)`;
+        text += '\n';
+      }
+
+      text += '\n🔹 Оплата производится через сервис <b>ЮKassa</b>.';
+
+      if (isDemo) {
+        // Демо-режим: обычные callback-кнопки
+        const keyboard = payments.PACKAGES.map(pkg => ([{ text: `🎁 ${pkg.generations} (демо)`, callback_data: `buy:${pkg.id}` }]));
+        keyboard.push([{ text: '🔙 Назад', callback_data: 'back_to_menu' }]);
+        await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
+        return;
+      }
+
+      // Создаём платежи для ВСЕХ пакетов параллельно
+      const results = await Promise.allSettled(
+        payments.PACKAGES.map(pkg => payments.createPayment(chatId, pkg.id))
+      );
+
+      // Сохраняем созданные платежи для авто-проверки
+      const pendingPayments = [];
+
+      const keyboard = [];
+      for (let i = 0; i < payments.PACKAGES.length; i++) {
+        const result = results[i];
+        const pkg = payments.PACKAGES[i];
+
+        if (result.status === 'fulfilled') {
+          keyboard.push([{ text: `💳 Купить ${pkg.generations} — ${pkg.price}₽`, url: result.value.confirmationUrl }]);
+          pendingPayments.push({ paymentId: result.value.paymentId, packageId: pkg.id });
+          // Сохраняем в отдельное хранилище
+          botLogic.addPendingPayment(String(chatId), result.value.paymentId, pkg.id);
+        } else {
+          console.error(`❌ Не удалось создать платёж для ${pkg.id}:`, result.reason?.message);
+          keyboard.push([{ text: `⚠️ ${pkg.generations} (ошибка)`, callback_data: 'buy_error' }]);
+        }
+      }
+      keyboard.push([{ text: '🔙 Назад', callback_data: 'back_to_menu' }]);
+
+      const sentMsg = await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
+      const sentMsgId = sentMsg.ok ? sentMsg.result?.message_id : null;
+
+      // Запускаем фоновую проверку для каждого платежа
+      for (const pp of pendingPayments) {
+        // Запускаем без ожидания
+        startPaymentWatcher(chatId, sentMsgId, pp.paymentId, pp.packageId);
+      }
     }
 
     if (data.startsWith('check_payment:')) {
@@ -1013,9 +1099,8 @@ async function handleUpdate(update) {
               { parse_mode: 'HTML' }
             );
 
-            // Сбрасываем pendingPaymentId из conversation
-            const conv = botLogic.getConversation(String(chatId));
-            botLogic.setConversation(String(chatId), conv.state, {});
+            // Удаляем платёж из хранилища
+            botLogic.removePendingPayment(String(chatId), paymentId);
           }
         } else if (result.status === 'pending') {
           await tgSend(chatId, '⏳ Платёж ещё не завершён. Попробуй оплатить или нажми «✅ Я оплатил» через несколько секунд.');
@@ -1037,14 +1122,15 @@ async function handleUpdate(update) {
     if (data === 'show_buy') {
       metrics.track('buy:menu_opened', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
-      const buyResult = botLogic.handleBuy(String(chatId));
-      // Отправляем отдельным сообщением, не редактируем текущее
-      if (buyResult) {
-        await tgSend(chatId, buyResult.text, {
-          parse_mode: buyResult.parse_mode,
-          reply_markup: buyResult.reply_markup
-        });
-      }
+      await handleBuyMenu(chatId);
+      return;
+    }
+
+    // Кнопка «🔙 Назад» из меню покупки — удаляем сообщение с ценами
+    if (data === 'back_to_menu') {
+      metrics.track('buy:menu_closed', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      await tgDelete(chatId, msgId);
       return;
     }
 
@@ -1596,13 +1682,7 @@ async function handleUpdate(update) {
   // /buy — покупка генераций
   if (text.toLowerCase() === '/buy' || text.toLowerCase() === '/купить') {
     metrics.track('buy:command', { telegram_id: String(chatId) });
-    const buyResult = botLogic.handleBuy(String(chatId));
-    if (buyResult) {
-      await tgSend(chatId, buyResult.text, {
-        parse_mode: buyResult.parse_mode,
-        reply_markup: buyResult.reply_markup
-      });
-    }
+    await handleBuyMenu(chatId);
     return;
   }
 
@@ -1610,7 +1690,6 @@ async function handleUpdate(update) {
   if (['/status', '/remaining', '/balance', '/осталось'].includes(text.toLowerCase()) || text === '💰 Баланс') {
     metrics.track('balance:checked', { telegram_id: String(chatId) });
     const remaining = botLogic.checkBalance(String(chatId));
-    const payments = require('./payments');
     if (remaining === null) {
       await tgSend(chatId, '❌ Ты ещё не загружал фото. Напиши /start чтобы начать.');
       return;
@@ -2017,6 +2096,56 @@ let currentReq = null;
 
 console.log(`📡 offset загружен: ${offset}`);
 
+/**
+ * Фоновая проверка статуса платежа.
+ * msgId может быть null (при восстановлении после рестарта).
+ */
+function startPaymentWatcher(chatId, msgId, paymentId, packageId) {
+  const maxAttempts = 225; // ~30 минут (225 × 8 сек)
+  let attempts = 0;
+
+  const check = async () => {
+    attempts++;
+    try {
+      const result = await payments.checkPayment(paymentId);
+      if (result.paid) {
+        const pkg = payments.PACKAGES.find(p => p.id === packageId);
+        if (pkg) {
+          metrics.track('buy:payment_completed_auto', { telegram_id: String(chatId), package_id: packageId, generations: String(pkg.generations), amount: String(pkg.price) });
+          const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
+          try {
+            await tgSend(chatId,
+              '✅ <b>Оплата подтверждена!</b> 🎉\n\n'
+              + 'Тебе начислено <b>' + pkg.generations + '</b> ' + botLogic.pluralGen(pkg.generations) + '.\n'
+              + 'Теперь у тебя <b>' + newTotal + '</b> ' + botLogic.pluralGen(newTotal) + '.',
+              { parse_mode: 'HTML' }
+            );
+          } catch {}
+          // Удаляем выполненный платёж из хранилища
+          botLogic.removePendingPayment(String(chatId), paymentId);
+        }
+        return;
+      }
+      if (result.status === 'canceled') {
+        try {
+          await tgSend(chatId, '❌ Платёж был отменён.');
+        } catch {}
+        // Удаляем отменённый платёж из хранилища
+        botLogic.removePendingPayment(String(chatId), paymentId);
+        return;
+      }
+    } catch (err) {
+      console.error('⚠️ Ошибка авто-проверки платежа (' + attempts + '/' + maxAttempts + '):', err.message);
+    }
+
+    if (attempts < maxAttempts) {
+      setTimeout(check, 8000);
+    }
+  };
+
+  setTimeout(check, 8000);
+}
+
 async function poll() {
   try {
     // Отменяем предыдущий запрос, если он ещё висит
@@ -2068,5 +2197,49 @@ async function poll() {
 metrics.init();
 console.log('🤖 Imgy Bot запущен.');
 console.log(`📁 Временные фото: ${PHOTOS_TMP}`);
+
+// Восстановление watcher'ов для незавершённых платежей (из payments.json)
+(async () => {
+  try {
+    let restored = 0;
+    const allPending = botLogic.getAllPendingPayments();
+    for (const pp of allPending) {
+      const { telegramId, paymentId, packageId } = pp;
+      if (!paymentId || !packageId) continue;
+      try {
+        const result = await payments.checkPayment(paymentId);
+        if (result.paid) {
+          for (const pkg of payments.PACKAGES) {
+            if (pkg.id === packageId) {
+              const newTotal = botLogic.addGenerations(telegramId, pkg.generations);
+              try { await tgSend(Number(telegramId), '✅ <b>Оплата подтверждена!</b> 🎉\n\nТебе начислено <b>' + pkg.generations + '</b> ' + botLogic.pluralGen(pkg.generations) + '.\nТеперь у тебя <b>' + newTotal + '</b> ' + botLogic.pluralGen(newTotal) + '.', { parse_mode: 'HTML' }); } catch {}
+              botLogic.removePendingPayment(telegramId, paymentId);
+              console.log('♻️ Восстановлен платёж ' + paymentId + ' для ' + telegramId + ': оплачен ✅');
+              restored++;
+              break;
+            }
+          }
+          continue;
+        }
+        if (result.status === 'canceled') {
+          console.log('♻️ Платёж ' + paymentId + ' для ' + telegramId + ' отменён, удаляем');
+          botLogic.removePendingPayment(telegramId, paymentId);
+          continue;
+        }
+      } catch (e) {
+        console.error('⚠️ Ошибка проверки платежа ' + paymentId + ' при восстановлении:', e.message);
+      }
+      startPaymentWatcher(Number(telegramId), null, paymentId, packageId);
+      console.log('♻️ Восстановлен watcher для платежа ' + paymentId + ' (' + telegramId + ')');
+      restored++;
+    }
+    if (restored > 0) {
+      console.log('♻️ Восстановлено ' + restored + ' платежных watcher\'ов');
+    }
+  } catch (e) {
+    console.error('⚠️ Ошибка восстановления watcher\'ов:', e.message);
+  }
+})();
+
 console.log('Ожидание сообщений...');
 poll();
