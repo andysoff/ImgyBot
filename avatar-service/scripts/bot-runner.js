@@ -1312,6 +1312,33 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Профессия — выбор из списка ------
+    if (data.startsWith('professions_page:')) {
+      const page = parseInt(data.replace('professions_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showProfessionsMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('professions_select:')) {
+      const index = parseInt(data.replace('professions_select:', ''), 10);
+      const profession = generateImage.getProfessionByIndex(index);
+      if (!profession) {
+        await tgAnswerCb(cb.id, '❌ Профессия не найдена', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `👨‍💼 ${profession.name.replace(/^[^\s]+\s/, '')}`);
+      await generateProfessionsPhoto(chatId, profession, cb);
+      return;
+    }
+
+    if (data === 'professions_random') {
+      const profession = generateImage.getRandomProfession();
+      await tgAnswerCb(cb.id, `👨‍💼 Случайно: ${profession.name.replace(/^[^\s]+\s/, '')}`);
+      await generateProfessionsPhoto(chatId, profession, cb);
+      return;
+    }
+
     if (data === 'back_to_styles') {
       const user = botLogic.findUserByTelegram(String(chatId));
       if (user) {
@@ -1390,6 +1417,12 @@ async function handleUpdate(update) {
         // ==== Рассказ — подменю литературных произведений ====
         if (styleId === 'literature') {
           await showLiteratureMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== Профессия — подменю профессий ====
+        if (styleId === 'professions') {
+          await showProfessionsMenu(chatId, msgId, 0);
           return;
         }
 
@@ -3441,6 +3474,110 @@ async function generateLiteraturePhoto(chatId, work, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации литературы:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Профессий
+// ======================================================================
+const PROFESSIONS_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу профессий для выбора.
+ */
+async function showProfessionsMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getProfessionsPage(page, PROFESSIONS_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * PROFESSIONS_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `professions_select:${startIndex}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `professions_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `professions_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'professions_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `👨‍💼 <b>Профессия</b>
+Выбери профессию для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранной профессии.
+ */
+async function generateProfessionsPhoto(chatId, profession, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id });
+    const statusMsg = `👨‍💼 Генерирую «${profession.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateProfessionAvatar([], profession, outputDir, settings);
+      const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'professions' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:professions' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
+    const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'professions' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:professions' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации профессии:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
     await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
   }
 }
