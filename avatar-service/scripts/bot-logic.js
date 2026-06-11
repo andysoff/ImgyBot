@@ -1168,7 +1168,6 @@ const MODEL_COST = {
 const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
-  size: 'medium',
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
   portraitType: 'headshot'
@@ -1178,12 +1177,6 @@ const QUALITY_OPTIONS = {
   economy:  { label: '🟢 Эконом', prompt: 'low quality, fast generation, compressed' },
   standard: { label: '👍 Стандарт', prompt: 'standard quality, balanced' },
   premium:  { label: '🔥 Премиум', prompt: 'ultra high quality, maximum detail, 8K, professional photography grade' }
-};
-
-const SIZE_OPTIONS = {
-  small:  { label: '🟢 Маленький', prompt: 'close-up portrait, head and shoulders, faster generation' },
-  medium: { label: '🟡 Средний', prompt: 'balanced portrait, half body' },
-  large:  { label: '🔴 Большой', prompt: 'maximum detail, full body, ultra high resolution composition' }
 };
 
 const ASPECT_OPTIONS = {
@@ -1246,12 +1239,10 @@ function handleSettings(telegramId) {
   if (isAdmin) {
     // Админ — полное меню
     const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
-    const sizeLabel = SIZE_OPTIONS[s.size]?.label || '🟡 Средний';
     const debugLabel = s.debug ? '🔧 Вкл' : '🔧 Выкл';
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
 
     keyboard = [
-      [{ text: '🖼 Размер: ' + sizeLabel, callback_data: 'settings_size' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
@@ -1260,7 +1251,7 @@ function handleSettings(telegramId) {
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔧 Отладка: ' + debugLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔧 Отладка: ' + debugLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
@@ -1396,21 +1387,6 @@ function handleSettingsModel(telegramId) {
   };
 }
 
-function handleSettingsSize(telegramId) {
-  const s = getSettings(telegramId);
-  const keyboard = Object.entries(SIZE_OPTIONS).map(([key, opt]) => ({
-    text: (s.size === key ? '✅ ' : '') + opt.label,
-    callback_data: 'set_size:' + key
-  })).map(btn => [btn]);
-  keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
-
-  return {
-    text: '🖼 <b>Размер изображения</b>\n\n🟢 <b>Маленький</b> — быстрая генерация, крупный план\n🟡 <b>Средний</b> — сбалансированный, поясной портрет\n🔴 <b>Большой</b> — максимальная детализация, полный рост\n\nВыбери 👇',
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: keyboard }
-  };
-}
-
 /**
  * Получить quality prompt-суффикс.
  */
@@ -1425,14 +1401,6 @@ function getQualityPrompt(telegramId) {
 function getAspectRatio(telegramId) {
   const s = getSettings(telegramId);
   return s.aspectRatio;
-}
-
-/**
- * Получить size prompt-суффикс.
- */
-function getSizePrompt(telegramId) {
-  const s = getSettings(telegramId);
-  return SIZE_OPTIONS[s.size]?.prompt || '';
 }
 
 // ======================
@@ -1687,7 +1655,6 @@ module.exports = {
   handleSettings,
   handleSettingsQuality,
   handleSettingsAspect,
-  handleSettingsSize,
   handleSettingsModel,
   handleSettingsDebug,
   getDebugEnabled,
@@ -1696,10 +1663,8 @@ module.exports = {
   PORTRAIT_TYPE_OPTIONS,
   getQualityPrompt,
   getAspectRatio,
-  getSizePrompt,
   QUALITY_OPTIONS,
   ASPECT_OPTIONS,
-  SIZE_OPTIONS,
   MODEL_OPTIONS,
   getModelCost,
   MODEL_COST,

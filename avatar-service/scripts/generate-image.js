@@ -149,12 +149,6 @@ const QUALITY_HINTS = {
   premium: ', ultra high quality, maximum detail, 8K, professional photography grade, magazine quality'
 };
 
-const SIZE_HINTS = {
-  small: ', close-up portrait, head and shoulders composition, tighter framing',
-  medium: '',
-  large: ', full body shot, wide angle composition, maximum detail'
-};
-
 const PORTRAIT_TYPE_HINTS = {
   headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
   bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
@@ -169,8 +163,6 @@ function applyQuality(prompt, settings, styleMode = false) {
   let result = prompt;
   const qualityHint = QUALITY_HINTS[settings?.quality] || '';
   result += qualityHint;
-  const sizeHint = SIZE_HINTS[settings?.size] || '';
-  result += sizeHint;
   return result;
 }
 
@@ -196,6 +188,7 @@ async function generateAvatar(files, styleId, outputDir, settings) {
   requestParts.push({ text: prompt });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const payload = JSON.stringify({
@@ -302,6 +295,7 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
   console.log(`🎨 Gemini: генерация профессии «${profession.name}»...`);
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
   const result = await apiCall(payload, extraConfig);
   const candidates = result?.candidates;
@@ -472,6 +466,7 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
   });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
   const genStart = Date.now();
   _callLabel = 'generateSportAvatar:' + sport.id;
@@ -582,6 +577,7 @@ async function generateOfficeAvatar(files, work, outputDir, settings) {
     });
 
 const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -885,6 +881,7 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
   });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -967,6 +964,7 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
   });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -1053,6 +1051,7 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
   });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -1257,6 +1256,7 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
   });
 
   const extraConfig = {};
+  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();

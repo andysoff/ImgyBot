@@ -614,17 +614,6 @@ async function handleUpdate(update) {
       return;
     }
 
-    if (data === 'settings_size') {
-      metrics.track('settings:show_size', { telegram_id: String(chatId) });
-      await tgAnswerCb(cb.id, '');
-      const result = botLogic.handleSettingsSize(String(chatId));
-      await tgEdit(chatId, msgId, result.text, {
-        parse_mode: result.parse_mode,
-        reply_markup: result.reply_markup
-      });
-      return;
-    }
-
     if (data === 'settings_aspect') {
       metrics.track('settings:show_aspect', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
@@ -654,19 +643,6 @@ async function handleUpdate(update) {
       await tgAnswerCb(cb.id, '✅ Качество обновлено');
       // Показываем обновлённый список
       const result = botLogic.handleSettingsQuality(String(chatId));
-      await tgEdit(chatId, msgId, result.text, {
-        parse_mode: result.parse_mode,
-        reply_markup: result.reply_markup
-      });
-      return;
-    }
-
-    if (data.startsWith('set_size:')) {
-      const value = data.replace('set_size:', '');
-      metrics.track('settings:size_changed', { telegram_id: String(chatId), value });
-      botLogic.updateSetting(String(chatId), 'size', value);
-      await tgAnswerCb(cb.id, '✅ Размер обновлён');
-      const result = botLogic.handleSettingsSize(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
         parse_mode: result.parse_mode,
         reply_markup: result.reply_markup
@@ -1630,6 +1606,7 @@ async function handleUpdate(update) {
                 } else {
                   await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
               }
+            }
             } catch (retryErr) {
               console.error('❌ Retry тоже не удался:', retryErr.message);
               await tgSend(chatId, `❌ Не удалось сгенерировать даже после повтора: ${retryErr.message}`);
@@ -2195,7 +2172,6 @@ async function sendDebugInfo(chatId, settings, prompt) {
 
   const modelLabel = botLogic.MODEL_OPTIONS[settings.model]?.label || settings.model;
   const qualityLabel = botLogic.QUALITY_OPTIONS[settings.quality]?.label || settings.quality;
-  const sizeLabel = botLogic.SIZE_OPTIONS[settings.size]?.label || settings.size;
   const aspectLabel = botLogic.ASPECT_OPTIONS[settings.aspectRatio]?.label || settings.aspectRatio;
   const portraitLabel = botLogic.PORTRAIT_TYPE_OPTIONS[settings.portraitType]?.label || '—';
 
@@ -2205,7 +2181,6 @@ async function sendDebugInfo(chatId, settings, prompt) {
     + '</code>\n\n'
     + '<b>Модель:</b> ' + modelLabel + '\n'
     + '<b>Качество:</b> ' + qualityLabel + '\n'
-    + '<b>Размер:</b> ' + sizeLabel + '\n'
     + '<b>Формат:</b> ' + aspectLabel + '\n'
     + '<b>Тип портрета:</b> ' + portraitLabel;
 
