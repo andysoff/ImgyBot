@@ -1177,7 +1177,7 @@ const DEFAULT_SETTINGS = {
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
   portraitType: 'headshot',
-  faceTurn: 'front'
+  faceTurn: 'three_quarter'
 };
 
 const QUALITY_OPTIONS = {
