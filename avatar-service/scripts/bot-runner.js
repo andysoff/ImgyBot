@@ -1252,7 +1252,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1278,7 +1284,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1304,7 +1316,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1330,7 +1348,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1356,7 +1380,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1382,7 +1412,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1409,7 +1445,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1432,7 +1474,13 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+              const repeatKeyboard = {
+                inline_keyboard: [
+                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
+                ...result.reply_markup.inline_keyboard
+                ]
+              };
+              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1533,10 +1581,18 @@ async function handleUpdate(update) {
                   await tgSend(chatId, `⚠️ Осталось всего ${retryRemaining} ${botLogic.pluralGen(retryRemaining)}`);
                 }
                 if (retryRemaining > 0) {
-                  await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: result.reply_markup });
+                  await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                          { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                        ]
+                      ]
+                    }
+                  });
                 } else {
                   await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
-                }
               }
             } catch (retryErr) {
               console.error('❌ Retry тоже не удался:', retryErr.message);
@@ -1610,6 +1666,123 @@ async function handleUpdate(update) {
         await tgSend(chatId, cancelResult.text);
       } else {
         await tgSend(chatId, 'Промпт завершён. Выбери другой режим 👇');
+      }
+      return;
+    }
+
+    // ------ Callback: Повторить стиль ------
+    if (data.startsWith('repeat_style:')) {
+      const repeatStyleId = data.replace('repeat_style:', '');
+      metrics.track('style:repeat', { telegram_id: String(chatId), style_id: repeatStyleId });
+      await tgAnswerCb(cb.id, '🔄 Повторяю...');
+
+      const user = botLogic.findUserByTelegram(String(chatId));
+      if (!user) {
+        await tgEdit(chatId, msgId, '❌ Пользователь не найден. Напиши /start.');
+        return;
+      }
+
+      const cost = botLogic.getModelCost ? botLogic.getModelCost(String(chatId)) : 1;
+      if (user.generationsRemaining < cost) {
+        await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: botLogic.buildBuyKeyboard() });
+        return;
+      }
+
+      const result = botLogic.handleStyleSelected(String(chatId), repeatStyleId);
+
+      if (!result || !result.readyToGenerate) {
+        await tgSend(chatId, '❌ Ошибка: фото не готовы. Загрузи новые через /start');
+        return;
+      }
+
+      await tgSend(chatId, `🔄 Повторяю в стиле «${result.style?.name || repeatStyleId}»...`);
+
+      // ---- Генерация ----
+      const settings = botLogic.getSettings(String(chatId));
+      try {
+        const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+        const avatar = avatars.find(a => a.id === result.avatarId);
+        const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+        fs.mkdirSync(outputDir, { recursive: true });
+
+        const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+        if (geminiFiles.length === 0) {
+          await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+          return;
+        }
+
+        metrics.track('generation:started', { telegram_id: String(chatId), style_id: repeatStyleId });
+
+        let generatedResult;
+        if (repeatStyleId === 'professions') {
+          const profession = require('./generate-image').getRandomProfession();
+          generatedResult = await require('./generate-image').generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
+          const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'sport') {
+          const sport = require('./generate-image').getRandomSport();
+          generatedResult = await require('./generate-image').generateSportAvatar(geminiFiles, sport, outputDir, settings);
+          const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'in_office') {
+          const office = require('./generate-image').getRandomOffice();
+          generatedResult = await require('./generate-image').generateOfficeAvatar(geminiFiles, office, outputDir, settings);
+          const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'location') {
+          const location = require('./generate-image').getRandomLocation();
+          generatedResult = await require('./generate-image').generateLocationAvatar(geminiFiles, location, outputDir, settings);
+          const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'history') {
+          const era = require('./generate-image').getRandomHistory();
+          generatedResult = await require('./generate-image').generateHistoryAvatar(geminiFiles, era, outputDir, settings);
+          const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'literature') {
+          const work = require('./generate-image').getRandomLiterature();
+          generatedResult = await require('./generate-image').generateLiteratureAvatar(geminiFiles, work, outputDir, settings);
+          const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'cinema') {
+          const movie = require('./generate-image').getRandomMovie();
+          generatedResult = await require('./generate-image').generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
+          const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else {
+          generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings);
+          const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        }
+
+        await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+        const actualRemaining = consumeAfterGeneration(chatId, result);
+        metrics.track('generation:completed', { telegram_id: String(chatId), style_id: repeatStyleId, model: settings?.model || '', cost: String(result.cost || 1) });
+
+        if (actualRemaining > 0 && actualRemaining <= 3) {
+          await tgSend(chatId, `⚠️ Осталось всего ${actualRemaining} ${botLogic.pluralGen(actualRemaining)}`);
+        }
+
+        if (actualRemaining > 0) {
+          const repeatKeyboard = {
+            inline_keyboard: [
+              [{ text: '🔄 Повторить', callback_data: `repeat_style:${repeatStyleId}` }],
+              ...result.reply_markup.inline_keyboard
+            ]
+          };
+          await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+        } else {
+          await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
+        }
+      } catch (err) {
+        console.error('❌ Ошибка repeat генерации:', err.message);
+        await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+        if (result.remaining > 0) {
+          await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
+        } else {
+          await tgSend(chatId, '😔 Бесплатные генерации закончились. Приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
+        }
       }
       return;
     }

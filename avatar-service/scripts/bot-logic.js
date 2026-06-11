@@ -1196,8 +1196,8 @@ const ASPECT_OPTIONS = {
 
 const PORTRAIT_TYPE_OPTIONS = {
   headshot:  { label: 'Головной (анфас)',  hint: 'headshot, face forward, tightly framed head and shoulders, passport photo style' },
-  bust:      { label: 'Погрудный',          hint: 'bust portrait, face with shoulders and upper chest visible, focus on face with some shoulder context' },
   shoulder:  { label: 'Поплечный',          hint: 'shoulder-length portrait, face, neck and shoulders visible, emphasis on expression and gaze' },
+  bust:      { label: 'Погрудный',          hint: 'bust portrait, face with shoulders and upper chest visible, focus on face with some shoulder context' },
   waist:     { label: 'Поясной',            hint: 'waist-length portrait, from head to waist, allows postural expression and arm positioning' },
   full_body: { label: 'Ростовой',           hint: 'full body portrait, entire body from head to toe' },
   close_up:  { label: 'Крупный план',       hint: 'extreme close-up portrait, intense focus on facial features, eyes, nose, mouth, skin texture detail' }
@@ -1332,7 +1332,7 @@ function handleSettingsPortraitType(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   return {
-    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования для стиля <b>Портрет</b>:\n\n👤 <b>Головной (анфас)</b> — классический, обязательно лицо\n🧑 <b>Погрудный</b> — лицо, плечи и грудь\n👔 <b>Поплечный</b> — лицо, шея и плечи\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
+    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования для стиля <b>Классика</b>:\n\n👤 <b>Головной (анфас)</b> — классический, обязательно лицо\n🧑 <b>Поплечный</b> — лицо, шея и плечи\n👔 <b>Погрудный</b> — лицо, плечи и грудь\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
