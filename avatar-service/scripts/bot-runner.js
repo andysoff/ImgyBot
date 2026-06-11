@@ -1626,8 +1626,8 @@ async function handleUpdate(update) {
 
   // /help — информация (и кнопка 💬 Поддержка)
   if (text.toLowerCase() === '/help' || text === '💬 Поддержка') {
-    metrics.track('help:support', { telegram_id: String(chatId) });
-    const result = botLogic.handleHelpSupport();
+    metrics.track('help:opened', { telegram_id: String(chatId) });
+    const result = botLogic.handleHelp();
     await tgSend(chatId, result.text, {
       parse_mode: result.parse_mode,
       reply_markup: result.reply_markup
