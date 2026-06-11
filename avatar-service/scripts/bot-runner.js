@@ -726,6 +726,31 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Тип портретного фото ------
+    if (data === 'settings_portrait_type') {
+      metrics.track('settings:show_portrait_type', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      const result = botLogic.handleSettingsPortraitType(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('set_portrait_type:')) {
+      const value = data.replace('set_portrait_type:', '');
+      metrics.track('settings:portrait_type_changed', { telegram_id: String(chatId), value });
+      botLogic.updateSetting(String(chatId), 'portraitType', value);
+      await tgAnswerCb(cb.id, '✅ Тип портрета обновлён');
+      const result = botLogic.handleSettingsPortraitType(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
     // ------ Нажатие на название аватара → выбор (без перезагрузки!) ------
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
@@ -1960,6 +1985,7 @@ async function sendDebugInfo(chatId, settings, prompt) {
   const qualityLabel = botLogic.QUALITY_OPTIONS[settings.quality]?.label || settings.quality;
   const sizeLabel = botLogic.SIZE_OPTIONS[settings.size]?.label || settings.size;
   const aspectLabel = botLogic.ASPECT_OPTIONS[settings.aspectRatio]?.label || settings.aspectRatio;
+  const portraitLabel = botLogic.PORTRAIT_TYPE_OPTIONS[settings.portraitType]?.label || '—';
 
   const debugText = '🔧 <b>Отладка</b>\n\n'
     + '<b>Промпт:</b>\n<code>'
@@ -1968,7 +1994,8 @@ async function sendDebugInfo(chatId, settings, prompt) {
     + '<b>Модель:</b> ' + modelLabel + '\n'
     + '<b>Качество:</b> ' + qualityLabel + '\n'
     + '<b>Размер:</b> ' + sizeLabel + '\n'
-    + '<b>Формат:</b> ' + aspectLabel;
+    + '<b>Формат:</b> ' + aspectLabel + '\n'
+    + '<b>Тип портрета:</b> ' + portraitLabel;
 
   try {
     await tgSend(chatId, debugText, { parse_mode: 'HTML' });

@@ -154,6 +154,15 @@ const SIZE_HINTS = {
   large: ', full body shot, wide angle composition, maximum detail'
 };
 
+const PORTRAIT_TYPE_HINTS = {
+  headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
+  bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
+  shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression',
+  waist:     ', waist-length portrait composition, from head to waist, person\'s posture and arms visible',
+  full_body: ', full body portrait composition, entire body from head to toe, fashion photography style',
+  close_up:  ', extreme close-up composition, intense focus on facial features, eyes, nose, mouth, skin texture'
+};
+
 function applyQuality(prompt, settings, styleMode = false) {
   if (styleMode) return prompt;
   let result = prompt;
@@ -170,9 +179,16 @@ async function generateAvatar(files, styleId, outputDir, settings) {
 
   const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
   const count = files.length;
+
+  // Добавляем подсказку типа портретного фото для стилей Портрет
+  const isPortraitStyle = styleId === 'portrait' || styleId.startsWith('portrait_');
+  const portraitTypeHint = isPortraitStyle && settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
+
   const promptBase = count === 1
-    ? `Transform this person into an avatar with the following style: ${stylePrompt}. Keep the face recognizable, make it look like a high-quality professional photo.`
-    : `Transform this person into an avatar with the following style: ${stylePrompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
+    ? `Transform this person into an avatar with the following style: ${stylePrompt}${portraitTypeHint}. Keep the face recognizable, make it look like a high-quality professional photo.`
+    : `Transform this person into an avatar with the following style: ${stylePrompt}${portraitTypeHint}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
   const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
@@ -1463,4 +1479,4 @@ function finishReasonMessage(reason, settings) {
   return null;
 }
 
-module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatarCustom };
+module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatarCustom, PORTRAIT_TYPE_HINTS };
