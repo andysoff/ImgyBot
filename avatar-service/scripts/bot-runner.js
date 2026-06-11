@@ -2581,7 +2581,7 @@ async function showCinemaMenu(chatId, msgId, page) {
   }
 
   // Случайно в отдельной строке
-  keyboard.push([{ text: '🎲 Случайно', callback_data: 'cinema_random' }]);
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'cinema_random' }]);
 
   // Стрелки пагинации
   const navRow = [];
