@@ -23,6 +23,15 @@ const QUALITY_HINTS = {
 };
 
 // Типы портретного кадрирования
+const FACE_TURN_HINTS = {
+  front:                ', face directly facing camera, looking straight into the lens, both eyes and face symmetry fully visible',
+  three_quarter:        ', face turned about 45 degrees from camera, three-quarter view, one eye closer to camera than the other, adds depth to the portrait',
+  half_profile:         ', face turned about 75 degrees from camera, half-profile view, one side of face more prominent, dramatic look',
+  profile:              ', face fully turned 90 degrees from camera, profile view, only one side of face visible, nose and chin in silhouette',
+  three_quarter_back:   ', face turned about 135 degrees away from camera, three-quarter rear view, partially visible face looking back, intriguing and dynamic',
+  over_shoulder:        ', person facing away from camera but looking back over shoulder, only partial face visible, creating a mysterious look over the shoulder'
+};
+
 const PORTRAIT_TYPE_HINTS = {
   headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
   bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
@@ -431,8 +440,11 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
 
-  const desc = `into an avatar with the following style: ${stylePrompt}${portraitTypeHint}`;
+  const desc = `into an avatar with the following style: ${stylePrompt}${portraitTypeHint}${faceTurnHint}`;
   const prompt = _buildPhotoPrompt(desc, files.length);
 
   return _callGemini({
@@ -450,8 +462,11 @@ async function generateProfessionAvatar(files, profession, outputDir, settings, 
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.${portraitTypeHint}`,
+    `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -473,8 +488,11 @@ async function generateSportAvatar(files, sport, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.${portraitTypeHint}`,
+    `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -496,8 +514,11 @@ async function generateOfficeAvatar(files, work, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.${portraitTypeHint}`,
+    `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -519,7 +540,10 @@ async function generateCinemaAvatar(files, movie, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.${portraitTypeHint}`;
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
+  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.${portraitTypeHint}${faceTurnHint}`;
 
   const desc = `into a character from the movie "${movie.titleEn}". ${stylePrompt}`;
   const prompt = _buildPhotoPrompt(desc, files.length);
@@ -544,8 +568,11 @@ async function generateLocationAvatar(files, location, outputDir, settings, chat
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.${portraitTypeHint}`,
+    `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -567,8 +594,11 @@ async function generateHistoryAvatar(files, era, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.${portraitTypeHint}`,
+    `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -590,8 +620,11 @@ async function generateLiteratureAvatar(files, work, outputDir, settings, chatId
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.${portraitTypeHint}`,
+    `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
 
@@ -1244,8 +1277,11 @@ async function generateCarAvatar(files, brand, model, outputDir, settings, chatI
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `${model.prompt}, front grille and headlights clearly visible, car logo and badge prominent, professional automotive photography, sharp detailed front view showing the make and model of the car, model standing next to the front hood or near the driver door, stylish streetwear fashion, urban setting bright day, high-end luxury car photo shoot, person and car both in frame, car front half fully in shot${portraitTypeHint}`,
+    `${model.prompt}, front grille and headlights clearly visible, car logo and badge prominent, professional automotive photography, sharp detailed front view showing the make and model of the car, model standing next to the front hood or near the driver door, stylish streetwear fashion, urban setting bright day, high-end luxury car photo shoot, person and car both in frame, car front half fully in shot${portraitTypeHint}${faceTurnHint}`,
     files.length
   );
   console.log(`🎨 Генерация авто: ${brand.name} ${model.name}`);
@@ -1374,5 +1410,6 @@ module.exports = {
   getModelsForBrand,
   getRandomCarModel,
   generateCarAvatar,
+  FACE_TURN_HINTS,
   PORTRAIT_TYPE_HINTS
 };

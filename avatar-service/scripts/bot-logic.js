@@ -1176,7 +1176,8 @@ const DEFAULT_SETTINGS = {
   aspectRatio: '1:1',
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
-  portraitType: 'headshot'
+  portraitType: 'headshot',
+  faceTurn: 'front'
 };
 
 const QUALITY_OPTIONS = {
@@ -1200,6 +1201,15 @@ const PORTRAIT_TYPE_OPTIONS = {
   waist:     { label: 'Поясной',            hint: 'waist-length portrait, from head to waist, allows postural expression and arm positioning' },
   full_body: { label: 'Ростовой',           hint: 'full body portrait, entire body from head to toe' },
   close_up:  { label: 'Крупный план',       hint: 'extreme close-up portrait, intense focus on facial features, eyes, nose, mouth, skin texture detail' }
+};
+
+const FACE_TURN_OPTIONS = {
+  front:          { label: 'Анфас',       hint: 'face directly facing camera, looking straight into the lens, both eyes and face symmetry fully visible' },
+  three_quarter:  { label: 'Три четверти', hint: 'face turned about 45 degrees from camera, three-quarter view, one eye closer to camera than the other, adds depth to the portrait' },
+  half_profile:   { label: 'Полупрофиль',  hint: 'face turned about 75 degrees from camera, half-profile view, one side of face more prominent, dramatic look' },
+  profile:        { label: 'Профиль',      hint: 'face fully turned 90 degrees from camera, profile view, only one side of face visible, nose and chin in silhouette' },
+  three_quarter_back: { label: 'Три четверти сзади', hint: 'face turned about 135 degrees away from camera, three-quarter rear view, partially visible face looking back, intriguing and dynamic' },
+  over_shoulder:  { label: 'Поворот спиной', hint: 'person facing away from camera but looking back over shoulder, only partial face visible, creating a mysterious look over the shoulder' }
 };
 
 const MODEL_OPTIONS = {
@@ -1247,28 +1257,32 @@ function handleSettings(telegramId) {
     const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
     const debugLabel = s.debug ? '🔧 Вкл' : '🔧 Выкл';
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
+    const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
 
     keyboard = [
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
+      [{ text: '🔄 Поворот: ' + faceTurnLabel, callback_data: 'settings_face_turn' }],
       [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔧 Отладка: ' + debugLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
+    const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
     keyboard = [
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
+      [{ text: '🔄 Поворот: ' + faceTurnLabel, callback_data: 'settings_face_turn' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
       [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel;
   }
 
   return {
@@ -1336,11 +1350,34 @@ function handleSettingsPortraitType(telegramId) {
 }
 
 /**
+ * Показать выбор поворота лица.
+ */
+function handleSettingsFaceTurn(telegramId) {
+  const s = getSettings(telegramId);
+  const keyboard = Object.entries(FACE_TURN_OPTIONS).map(([key, opt]) => ({
+    text: (s.faceTurn === key ? '✅ ' : '') + opt.label,
+    callback_data: 'set_face_turn:' + key
+  })).map(btn => [btn]);
+  keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
+
+  return {
+    text: '🔄 <b>Поворот лица</b>\n\nВыбери положение лица относительно камеры — будет применяться ко <b>всем стилям</b>:\n\n👤 <b>Анфас</b> — лицо прямо в объектив\n🔄 <b>Три четверти</b> — поворот ~45°, глубина\n🎭 <b>Полупрофиль</b> — ~75°, драматичный эффект\n横 <b>Профиль</b> — 90°, чёткие черты лица\n👀 <b>Три четверти сзади</b> — ~135°, интрига\n💫 <b>Поворот спиной</b> — взгляд через плечо\n\nСейчас: <b>' + FACE_TURN_OPTIONS[s.faceTurn]?.label + '</b>',
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  };
+}
+
+/**
  * Показать выбор модели.
  */
 function getPortraitTypePrompt(telegramId) {
   const s = getSettings(telegramId);
   return PORTRAIT_TYPE_OPTIONS[s.portraitType]?.hint || PORTRAIT_TYPE_OPTIONS.headshot.hint;
+}
+
+function getFaceTurnPrompt(telegramId) {
+  const s = getSettings(telegramId);
+  return FACE_TURN_OPTIONS[s.faceTurn]?.hint || FACE_TURN_OPTIONS.front.hint;
 }
 
 function getDebugEnabled(telegramId) {
@@ -1666,7 +1703,10 @@ module.exports = {
   getDebugEnabled,
   getPortraitTypePrompt,
   handleSettingsPortraitType,
+  getFaceTurnPrompt,
+  handleSettingsFaceTurn,
   PORTRAIT_TYPE_OPTIONS,
+  FACE_TURN_OPTIONS,
   getQualityPrompt,
   getAspectRatio,
   QUALITY_OPTIONS,

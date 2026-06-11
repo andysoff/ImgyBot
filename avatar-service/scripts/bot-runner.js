@@ -739,6 +739,31 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Поворот лица ------
+    if (data === 'settings_face_turn') {
+      metrics.track('settings:show_face_turn', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      const result = botLogic.handleSettingsFaceTurn(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('set_face_turn:')) {
+      const value = data.replace('set_face_turn:', '');
+      metrics.track('settings:face_turn_changed', { telegram_id: String(chatId), value });
+      botLogic.updateSetting(String(chatId), 'faceTurn', value);
+      await tgAnswerCb(cb.id, '✅ Поворот лица обновлён');
+      const result = botLogic.handleSettingsFaceTurn(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
     // ------ Нажатие на название аватара → выбор (без перезагрузки!) ------
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
