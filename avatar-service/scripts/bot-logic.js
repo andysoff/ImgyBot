@@ -600,18 +600,24 @@ function handleAvatarMenu(telegramId, avatarId) {
   const avatar = allAvatars.find(a => a.id === avatarId);
   if (!avatar || !user.avatars.includes(avatarId)) return null;
 
+  const inlineKeyboard = [];
+  if (avatar.photos.length > 1) {
+    inlineKeyboard.push([{ text: '👁 Посмотреть все фото', callback_data: 'show_avatar:' + avatarId }]);
+  }
+  inlineKeyboard.push(
+    [{ text: '✏️ Переименовать', callback_data: 'rename_avatar:' + avatarId }],
+    [{ text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }],
+    [{ text: '🔙 Назад', callback_data: 'back_to_avatars' }]
+  );
+
   return {
     text: `👤 <b>${avatar.name}</b>
 ${avatar.photos.length} фото`,
     parse_mode: 'HTML',
     reply_markup: {
-      inline_keyboard: [
-        [{ text: '👁 Посмотреть фото', callback_data: 'show_avatar:' + avatarId }],
-        [{ text: '✏️ Переименовать', callback_data: 'rename_avatar:' + avatarId }],
-        [{ text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }],
-        [{ text: '🔙 Назад', callback_data: 'back_to_avatars' }]
-      ]
-    }
+      inline_keyboard: inlineKeyboard
+    },
+    photo: avatar.photos[0] || null
   };
 }
 
@@ -799,7 +805,7 @@ function handleAvatars(telegramId) {
   }]);
 
   return {
-    text: '✅ Нажми на аватар, чтобы выбрать\n👁 — посмотреть фото\n🗑 — удалить аватар (вместе с фото)\n❌ Без аватара — генерация без твоих фото',
+    text: '👤 Твои аватары\n\n👉 Нажми на аватар, чтобы выбрать\n⚙️ Доп. действия\n❌ Без аватара — генерация без твоих фото',
     reply_markup: { inline_keyboard: keyboard }
   };
 }
@@ -1537,6 +1543,7 @@ module.exports = {
   consumeGeneration,
   addGenerations,
   setGenerationsTo100,
+  updateUserPremium,
   handleShowAvatar,
   buildMainKeyboard,
   buildStylesKeyboard,
