@@ -15,6 +15,23 @@ const metrics = require('./metrics-ga4');
 const API_KEY = process.env.GEMINI_API_KEY;
 const MODEL = 'gemini-2.5-flash-image';
 
+// Настройки для разных качеств
+const QUALITY_HINTS = {
+  economy: ', low quality, compressed, fast rendering',
+  standard: '',
+  premium: ', ultra high quality, maximum detail, 8K, professional photography grade, magazine quality'
+};
+
+// Типы портретного кадрирования
+const PORTRAIT_TYPE_HINTS = {
+  headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
+  bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
+  shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression',
+  waist:     ', waist-length portrait composition, from head to waist, person\'s posture and arms visible',
+  full_body: ', full body portrait composition, entire body from head to toe, fashion photography style',
+  close_up:  ', extreme close-up composition, intense focus on facial features, eyes, nose, mouth, skin texture'
+};
+
 // Стили → промпты
 const STYLE_PROMPTS = {
   portrait: 'professional studio portrait photo, high quality, soft lighting, clean background, focus on face, magazine quality, realistic',
@@ -29,10 +46,144 @@ const STYLE_PROMPTS = {
   cinema: 'cinematic movie still portrait, dramatic film lighting, anamorphic look, cinematic color grading, shallow depth of field, Hollywood movie scene aesthetic, widescreen composition, realistic photo, high quality'
 };
 
+// Shared variable for apiCall
+let _callLabel = 'unknown';
+
+// ======================================================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ======================================================================
+
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.png': return 'image/png';
+    case '.webp': return 'image/webp';
+    case '.gif': return 'image/gif';
+    case '.bmp': return 'image/bmp';
+    default: return 'image/jpeg';
+  }
+}
+
+function finishReasonMessage(reason, settings) {
+  if (reason === 'NO_IMAGE') {
+    return 'Не смогли сгенерировать изображение, попробуйте еще раз.';
+  }
+  if (reason) {
+    const isPro = settings?.model === 'gemini-3-pro-image-preview';
+    if (isPro) {
+      return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос.';
+    }
+    return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос или использовать нейросеть Про.';
+  }
+  return null;
+}
+
+/**
+ * Применить quality-хинты к промпту (для custom/no-avatar режимов).
+ */
+function applyQuality(prompt, settings, styleMode = false) {
+  if (styleMode) return prompt;
+  let result = prompt;
+  const qualityHint = QUALITY_HINTS[settings?.quality] || '';
+  result += qualityHint;
+  return result;
+}
+
+/**
+ * Получить контекстный промпт для стиля (режим без фото).
+ */
+function getStyleContextPrompt(styleId) {
+  const contextPrompts = {
+    sport: 'The person is engaged in an athletic activity. Choose a popular sport.',
+    in_office: 'The person is in a professional office environment.',
+    professions: 'The person is dressed in a professional role (doctor, chef, pilot, engineer, etc.).',
+    in_car: 'The person is sitting in a modern car, driver or passenger seat.',
+    cinema: 'Cinematic movie still quality, dramatic lighting, like a scene from a Hollywood film.',
+    location: 'The person is at a famous travel destination or scenic location.',
+    history: 'The person is dressed in clothing from a historical era.',
+    literature: 'The person looks like a character from a famous literary work.',
+    portrait: 'Classic portrait, neutral background, professional studio lighting.',
+  };
+  return contextPrompts[styleId] || '';
+}
+
+// ======================================================================
+// GEMINI API
+// ======================================================================
+
+function apiCall(payload, extraConfig) {
+  const callStart = Date.now();
+  const callLabel = _callLabel;
+  let modelName = MODEL;
+  if (extraConfig) {
+    const { model: extraModel, ...restConfig } = extraConfig;
+    if (extraModel) modelName = extraModel;
+    const parsed = JSON.parse(payload);
+    if (parsed.generationConfig) {
+      parsed.generationConfig = { ...parsed.generationConfig, ...restConfig };
+    } else {
+      parsed.generationConfig = restConfig;
+    }
+    payload = JSON.stringify(parsed);
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`);
+    url.searchParams.set('key', API_KEY);
+
+    const req = https.request(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 300000
+      },
+      (res) => {
+        let data = '';
+        console.log(`📥 Gemini HTTP ${res.statusCode}`);
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          const duration = Date.now() - callStart;
+          try {
+            if (res.statusCode !== 200) {
+              console.error(`❌ Gemini HTTP ${res.statusCode}: ${data.slice(0, 500)}`);
+              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel });
+            }
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: (parsed.error.message || '').slice(0, 100) });
+              reject(new Error(`Gemini API: ${parsed.error.message} (${parsed.error.code})`));
+            } else {
+              const finishReason = parsed?.candidates?.[0]?.finishReason || '';
+              metrics.track('gemini:api_success', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, finish_reason: finishReason });
+              resolve(parsed);
+            }
+          } catch {
+            metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: 'parse_error' });
+            reject(new Error(`Gemini API parse error: ${data.slice(0, 300)}`));
+          }
+        });
+      }
+    );
+
+    req.on('error', (err) => {
+      const duration = Date.now() - callStart;
+      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: (err.message || '').slice(0, 100) });
+      reject(err);
+    });
+    req.on('timeout', () => {
+      const duration = Date.now() - callStart;
+      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: 'timeout' });
+      req.destroy();
+      reject(new Error('Gemini API timeout (>5 min)'));
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
 /**
  * Загрузить фото в Gemini File API.
- * @param {string} photoPath  — путь к файлу
- * @returns {Promise<{name: string, uri: string, mimeType: string}>}
  */
 async function uploadPhoto(photoPath) {
   if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
@@ -45,7 +196,6 @@ async function uploadPhoto(photoPath) {
   const fileSizeKB = (stats.size / 1024).toFixed(1);
   console.log(`📤 Gemini File API: загрузка ${fileName} (${fileSizeKB} KB)`);
 
-  // === Шаг 1: Initiate resumable upload ===
   const initUrl = new URL('https://generativelanguage.googleapis.com/upload/v1beta/files');
   initUrl.searchParams.set('key', API_KEY);
 
@@ -75,14 +225,12 @@ async function uploadPhoto(photoPath) {
         resolve({ uploadUrl });
       }
     );
-    // В теле можно отправить метаданные (опционально)
     req.write(JSON.stringify({ file: { displayName: fileName } }));
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('File API init timeout')); });
     req.end();
   });
 
-  // === Шаг 2: Upload file bytes ===
   const fileData = fs.readFileSync(photoPath);
 
   const fileInfo = await new Promise((resolve, reject) => {
@@ -128,95 +276,17 @@ async function uploadPhoto(photoPath) {
   const uploadDuration = Date.now() - startTime;
   metrics.track('gemini:file_upload', { file_name: fileName, file_size_kb: fileSizeKB, duration_ms: String(uploadDuration), mime_type: mimeType });
   console.log(`✅ Gemini File URI: ${fileInfo.uri || fileInfo.name}`);
-  return {
-    name: fileInfo.name,
-    uri: fileInfo.uri,
-    mimeType
-  };
+  return { name: fileInfo.name, uri: fileInfo.uri, mimeType };
 }
+
+// ======================================================================
+// ЕДИНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ
+// ======================================================================
 
 /**
- * Сгенерировать аватарку, используя ранее загруженные фото (file URI).
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {string} styleId     — id стиля
- * @param {string} outputDir   — куда сохранить результат
- * @returns {Promise<string>}  — путь к сгенерированному изображению
+ * Извлечь изображение из ответа Gemini, сохранить на диск.
  */
-const QUALITY_HINTS = {
-  economy: ', low quality, compressed, fast rendering',
-  standard: '',
-  premium: ', ultra high quality, maximum detail, 8K, professional photography grade, magazine quality'
-};
-
-const PORTRAIT_TYPE_HINTS = {
-  headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
-  bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
-  shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression',
-  waist:     ', waist-length portrait composition, from head to waist, person\'s posture and arms visible',
-  full_body: ', full body portrait composition, entire body from head to toe, fashion photography style',
-  close_up:  ', extreme close-up composition, intense focus on facial features, eyes, nose, mouth, skin texture'
-};
-
-function applyQuality(prompt, settings, styleMode = false) {
-  if (styleMode) return prompt;
-  let result = prompt;
-  const qualityHint = QUALITY_HINTS[settings?.quality] || '';
-  result += qualityHint;
-  return result;
-}
-
-async function generateAvatar(files, styleId, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
-  const count = files.length;
-
-  // Добавляем подсказку типа портретного фото для стилей Портрет
-  const isPortraitStyle = styleId === 'portrait' || styleId.startsWith('portrait_');
-  const portraitTypeHint = isPortraitStyle && settings?.portraitType
-    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
-    : '';
-
-  const promptBase = count === 1
-    ? `Transform this person into an avatar with the following style: ${stylePrompt}${portraitTypeHint}. Keep the face recognizable, make it look like a high-quality professional photo.`
-    : `Transform this person into an avatar with the following style: ${stylePrompt}${portraitTypeHint}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const payload = JSON.stringify({
-    contents: [{
-      parts: requestParts
-    }],
-    generationConfig: {
-      responseModalities: ['Image', 'Text'],
-      temperature: 1,
-      topK: 32,
-      topP: 1
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  console.log(`🎨 Gemini: генерация в стиле ${styleId}...`);
-
-  const genStart = Date.now();
-  _callLabel = 'generateAvatar:' + styleId;
-
-  const result = await apiCall(payload, extraConfig);
-
-  // Извлекаем изображение из ответа
+function _extractImage(result, outputDir, filenameBase) {
   const candidates = result?.candidates;
   if (!candidates || candidates.length === 0) {
     const blocked = result?.promptFeedback?.blockReason;
@@ -231,53 +301,49 @@ async function generateAvatar(files, styleId, outputDir, settings) {
   if (!imagePart) {
     const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
     console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
+    const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
+    console.error(`🔍 Полный candidate: ${candidateSnippet}`);
+    const reason = candidates?.[0]?.finishReason;
+    throw new Error(finishReasonMessage(reason, {}) || 'Gemini не вернул изображение');
   }
 
-  // Сохраняем изображение
   const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `generated_${Date.now()}${ext}`);
+  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}${ext}`);
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
-  const totalDuration = Date.now() - genStart;
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  console.log(`✅ Генерация завершена: ${outputPath} (${imgSizeKB} KB)`);
-
-  metrics.track('gemini:generation_success', { label: _callLabel, style: styleId, model: extraConfig?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
+  return { path: outputPath, buffer: imgBuffer };
 }
 
-
 /**
- * Сгенерировать набор аватарок для всех профессий.
- * Каждая профессия — отдельный запрос к Gemini.
+ * Выполнить запрос к Gemini API и получить изображение.
  *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {string} outputDir   — куда сохранить результат
- * @returns {Promise<Array<{id: string, name: string, path: string}>>}
+ * @param {Object} opts
+ * @param {Array<{uri:string,mimeType:string}>} [opts.files] - URI загруженных фото
+ * @param {string} opts.prompt - промпт
+ * @param {string} opts.outputDir - куда сохранить
+ * @param {Object} opts.settings - настройки пользователя
+ * @param {string} opts.metricsLabel - метка для метрик
+ * @param {string} [opts.metricsStyle] - id стиля
+ * @param {string} [opts.metricsSub] - подкатегория (profession id, movie title…)
+ * @param {string} [opts.logMessage] - сообщение в консоль
+ * @param {string} [opts.filenameBase] - префикс для имени файла (без даты и расширения)
+ * @returns {Promise<{path:string, prompt:string}>}
  */
-/**
- * Сгенерировать аватарку для случайной профессии.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} profession  — объект профессии из PROFESSIONS
- * @param {string} outputDir
- * @returns {Promise<string>}  — путь к сгенерированному изображению
- */
-async function generateProfessionAvatar(files, profession, outputDir, settings) {
+async function _callGemini(opts) {
   if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
+  fs.mkdirSync(opts.outputDir, { recursive: true });
 
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Transform this person into the following professional role: ${profession.prompt}. Keep the face recognizable, make it look like a high-quality professional photo. The person should be the main subject dressed for this role.`
-    : `Transform this person into the following professional role: ${profession.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo. The person should be the main subject dressed for this role.`;
-  const prompt = applyQuality(promptBase, settings, true);
+  const { files, prompt, outputDir, settings, metricsLabel, metricsStyle, metricsSub, logMessage, filenameBase } = opts;
+  const label = metricsLabel || 'generate';
+  const fnameBase = filenameBase || 'generated';
 
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
+  // Собираем части запроса
+  const requestParts = files
+    ? [...files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } })), { text: prompt }]
+    : [{ text: prompt }];
 
+  // Пэйлоад
   const payload = JSON.stringify({
     contents: [{ parts: requestParts }],
     generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
@@ -289,53 +355,257 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
     ]
   });
 
-  const genStart = Date.now();
-  _callLabel = 'generateProfessionAvatar:' + profession.id;
-
-  console.log(`🎨 Gemini: генерация профессии «${profession.name}»...`);
-
+  // extra config
   const extraConfig = {};
   if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
+
+  _callLabel = label;
+  console.log(`🎨 Gemini${logMessage ? ': ' + logMessage : ''}`);
+
+  const genStart = Date.now();
   const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
 
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+  // Извлекаем изображение
+  const { path: outputPath, buffer } = _extractImage(result, outputDir, fnameBase);
 
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `profession_${profession.id}_${Date.now()}${ext}`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
   const totalDuration = Date.now() - genStart;
-  console.log(`✅ Профессия «${profession.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'professions', sub: profession.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
+  const imgSizeKB = (buffer.length / 1024).toFixed(1);
+  console.log(`✅ Готово: ${outputPath} (${imgSizeKB} KB)`);
+
+  metrics.track('gemini:generation_success', {
+    label,
+    style: metricsStyle || '',
+    sub: metricsSub || '',
+    model: settings?.model || MODEL,
+    duration_ms: String(totalDuration),
+    img_size_kb: imgSizeKB
+  });
+
   return { path: outputPath, prompt };
 }
 
+// ======================================================================
+// ВСПОМОГАТЕЛЬНАЯ: построение промптов
+// ======================================================================
+
 /**
- * Выбрать случайную профессию из списка.
- * @returns {{id: string, name: string, prompt: string}}
+ * Построить промпт для фото-стилей (все случаи, где есть файлы пользователя).
+ * @param {string}   description - что сделать с человеком (стиль, роль, локация…)
+ * @param {number}   count       - количество фото
+ * @param {Object}   [extra]     - дополнительные опции
+ * @param {string}   [extra.suffix] - суффикс после стандартного окончания
+ * @returns {string} полный промпт
  */
-function getRandomProfession() {
-  return PROFESSIONS[Math.floor(Math.random() * PROFESSIONS.length)];
+function _buildPhotoPrompt(description, count, extra = {}) {
+  const base = count === 1
+    ? `Transform this person ${description}. Keep the face recognizable, make it look like a high-quality professional photo.`
+    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
+  return base + (extra.suffix || '');
 }
 
-// Профессии для стиля «Профессия» — ~30 самых известных профессий мира
+// ======================================================================
+// ПУБЛИЧНЫЕ ФУНКЦИИ (тонкие обёртки над _callGemini)
+// ======================================================================
+
+/**
+ * Сгенерировать аватарку по стилю.
+ */
+async function generateAvatar(files, styleId, outputDir, settings) {
+  const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
+  const isPortraitStyle = styleId === 'portrait' || styleId.startsWith('portrait_');
+  const portraitTypeHint = isPortraitStyle && settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
+
+  const desc = `into an avatar with the following style: ${stylePrompt}${portraitTypeHint}`;
+  const prompt = _buildPhotoPrompt(desc, files.length);
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateAvatar:' + styleId,
+    metricsStyle: styleId,
+    logMessage: `генерация в стиле «${styleId}»`
+  });
+}
+
+/**
+ * Сгенерировать аватарку для случайной профессии.
+ */
+async function generateProfessionAvatar(files, profession, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateProfessionAvatar:' + profession.id,
+    metricsStyle: 'professions',
+    metricsSub: profession.id,
+    logMessage: `генерация профессии «${profession.name}»`,
+    filenameBase: 'profession_' + profession.id
+  });
+}
+
+/**
+ * Сгенерировать аватарку для случайного вида спорта.
+ */
+async function generateSportAvatar(files, sport, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateSportAvatar:' + sport.id,
+    metricsStyle: 'sport',
+    metricsSub: sport.id,
+    logMessage: `генерация спорта «${sport.name}»`,
+    filenameBase: 'sport_' + sport.id
+  });
+}
+
+/**
+ * Сгенерировать аватарку для офисной роли.
+ */
+async function generateOfficeAvatar(files, work, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateOfficeAvatar:' + work.id,
+    metricsStyle: 'in_office',
+    metricsSub: work.id,
+    logMessage: `генерация офисной роли «${work.name}»`,
+    filenameBase: 'office_' + work.id
+  });
+}
+
+/**
+ * Сгенерировать аватарку в стиле фильма.
+ */
+async function generateCinemaAvatar(files, movie, outputDir, settings) {
+  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.`;
+
+  const desc = `into a character from the movie "${movie.titleEn}". ${stylePrompt}`;
+  const prompt = _buildPhotoPrompt(desc, files.length);
+
+  const filenameBase = 'cinema_' + movie.titleEn.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateCinemaAvatar:' + movie.titleEn,
+    metricsStyle: 'cinema',
+    metricsSub: movie.titleEn,
+    logMessage: `генерация в стиле фильма «${movie.title}»`,
+    filenameBase
+  });
+}
+
+/**
+ * Сгенерировать аватарку на фоне знаменитой локации.
+ */
+async function generateLocationAvatar(files, location, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateLocationAvatar:' + location.id,
+    metricsStyle: 'location',
+    metricsSub: location.id,
+    logMessage: `генерация локации «${location.name}»`,
+    filenameBase: 'location_' + location.id
+  });
+}
+
+/**
+ * Сгенерировать аватарку в стиле исторической эпохи.
+ */
+async function generateHistoryAvatar(files, era, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateHistoryAvatar:' + era.id,
+    metricsStyle: 'history',
+    metricsSub: era.id,
+    logMessage: `генерация эпохи «${era.name}»`,
+    filenameBase: 'history_' + era.id
+  });
+}
+
+/**
+ * Сгенерировать аватарку в стиле литературного произведения.
+ */
+async function generateLiteratureAvatar(files, work, outputDir, settings) {
+  const prompt = _buildPhotoPrompt(
+    `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`,
+    files.length
+  );
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateLiteratureAvatar:' + work.id,
+    metricsStyle: 'literature',
+    metricsSub: work.id,
+    logMessage: `генерация литературы «${work.name}»`,
+    filenameBase: 'literature_' + work.id
+  });
+}
+
+/**
+ * Режим бога — генерация по кастомному описанию с использованием фото.
+ */
+async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
+  const count = files.length;
+  const promptBase = count === 1
+    ? `Transform this person's photo according to this description: ${customPrompt}. Keep the face recognizable, make it look like a high-quality professional photo.`
+    : `Transform this person's photo according to this description: ${customPrompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
+  const prompt = applyQuality(promptBase, settings);
+
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateCustomAvatar',
+    metricsStyle: 'custom_prompt',
+    logMessage: `режим бога: «${customPrompt.slice(0, 80)}»`,
+    filenameBase: 'godmode'
+  });
+}
+
+/**
+ * Генерация без фото пользователя (режим «Без аватара»).
+ */
+async function generateNoAvatarCustom(promptText, outputDir, settings) {
+  const prompt = applyQuality(
+    `<start_of_image_generation>\n${promptText}\n<end_of_image_generation>\n\nMake it look like a high-quality realistic photo, photorealistic, professional photography.`,
+    settings
+  );
+
+  return _callGemini({
+    prompt, outputDir, settings,
+    metricsLabel: 'generateNoAvatarCustom',
+    metricsStyle: 'no_avatar_custom',
+    logMessage: `без аватара: «${promptText.slice(0, 80)}»`,
+    filenameBase: 'noavatar_prompt'
+  });
+}
+
+// ======================================================================
+// ДАННЫЕ ДЛЯ СТИЛЕЙ
+// ======================================================================
+
+// Профессии
 const PROFESSIONS = [
   { id: 'doctor', name: '👨‍⚕️ Врач', prompt: 'person dressed as a doctor in white medical coat with stethoscope, medical clinic background' },
   { id: 'chef', name: '👨‍🍳 Шеф-повар', prompt: 'person dressed as a chef in white kitchen uniform and chef hat, professional kitchen' },
@@ -371,7 +641,11 @@ const PROFESSIONS = [
   { id: 'astronomer', name: '🔭 Астроном', prompt: 'person dressed as an astronomer in casual wear, observatory with telescope under starry sky' }
 ];
 
-// Спорт — список видов спорта для стиля «Спорт»
+function getRandomProfession() {
+  return PROFESSIONS[Math.floor(Math.random() * PROFESSIONS.length)];
+}
+
+// Спорт
 const SPORTS = [
   { id: 'football', name: '⚽ Футбол', prompt: 'person as a football/soccer player in team jersey, action on the pitch, stadium crowd' },
   { id: 'basketball', name: '🏀 Баскетбол', prompt: 'person as a basketball player in jersey, indoor court, jumping for a dunk' },
@@ -425,85 +699,11 @@ const SPORTS = [
   { id: 'esports', name: '🎮 Киберспорт', prompt: 'person as an esports player with gaming headset, at RGB-lit gaming setup' }
 ];
 
-/**
- * Выбрать случайный вид спорта из списка.
- * @returns {{id: string, name: string, prompt: string}}
- */
 function getRandomSport() {
   return SPORTS[Math.floor(Math.random() * SPORTS.length)];
 }
 
-/**
- * Сгенерировать аватарку для случайного вида спорта.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} sport  — объект вида спорта из SPORTS
- * @param {string} outputDir
- * @returns {Promise<string>}  — путь к сгенерированному изображению
- */
-async function generateSportAvatar(files, sport, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Transform this person into a professional athlete in the following sport: ${sport.prompt}. Keep the face recognizable, make it look like a high-quality sports action photo. The person should be the main subject playing this sport.`
-    : `Transform this person into a professional athlete in the following sport: ${sport.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality sports action photo. The person should be the main subject playing this sport.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-  const genStart = Date.now();
-  _callLabel = 'generateSportAvatar:' + sport.id;
-
-  console.log(`🎨 Gemini: генерация спорта «${sport.name}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `sport_${sport.id}_${Date.now()}${ext}`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Спорт «${sport.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'sport', sub: sport.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-// Работа — список интересных рабочих мест и обстановок
+// Офисные роли
 const OFFICE = [
   { id: 'ceo', name: '👔 Генеральный директор', prompt: 'person as a confident CEO in expensive suit, corner office with city view, luxury executive desk' },
   { id: 'developer', name: '💻 Разработчик', prompt: 'person working as a software developer, multiple monitors with code, ergonomic chair, tech office' },
@@ -516,7 +716,7 @@ const OFFICE = [
   { id: 'secretary', name: '📞 Секретарь', prompt: 'person as an administrative assistant at reception desk, phone and planner, modern lobby' },
   { id: 'marketer', name: '📈 Маркетолог', prompt: 'person as a marketing specialist with analytics dashboard, creative agency office' },
   { id: 'recruiter', name: '🔍 Рекрутер', prompt: 'person as a recruiter reviewing resumes on laptop, bright talent acquisition office' },
-  { id: 'support', name: '🎧 Саппорт-специалист', prompt: 'person as a customer support agent with headset, dual monitors, call center setting' },
+  { id: 'support', name: '🎧 Саппорт', prompt: 'person as a customer support agent with headset, dual monitors, call center setting' },
   { id: 'sales', name: '📞 Менеджер по продажам', prompt: 'person as a sales manager on phone, CRM dashboard, energetic open office' },
   { id: 'sysadmin', name: '🖥️ Системный администратор', prompt: 'person as a sysadmin in server room, multiple screens with terminal, IT infrastructure' },
   { id: 'product_owner', name: '📱 Продакт-менеджер', prompt: 'person as a product owner with sticky notes on wall, user stories, agile office setup' },
@@ -536,86 +736,11 @@ const OFFICE = [
   { id: 'startup_founder', name: '🚀 Основатель стартапа', prompt: 'person as a startup founder in hoodie, pitching ideas, lean startup office with whiteboard' }
 ];
 
-/**
- * Выбрать случайное рабочее место из списка.
- * @returns {{id: string, name: string, prompt: string}}
- */
 function getRandomOffice() {
   return OFFICE[Math.floor(Math.random() * OFFICE.length)];
 }
 
-/**
- * Сгенерировать аватарку для случайного рабочего места.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} work  — объект рабочего места из WORKS
- * @param {string} outputDir
- * @returns {Promise<string>}  — путь к сгенерированному изображению
- */
-async function generateOfficeAvatar(files, work, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Show this person in an office setting: ${work.prompt}. Keep the face recognizable, make it look like a high-quality realistic office photo. The person should be the main subject in this office environment.`
-    : `Show this person in an office setting: ${work.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality realistic office photo. The person should be the main subject in this office environment.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-    });
-
-const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const genStart = Date.now();
-  _callLabel = 'generateOfficeAvatar:' + work.id;
-
-  console.log(`🎨 Gemini: генерация офисной роли «${work.name}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `office_${work.id}_${Date.now()}${ext}`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Офис «${work.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'in_office', sub: work.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-// Кино — список культовых фильмов из IMDB Top 250
+// Кино
 const MOVIES = [
   { title: 'Побег из Шоушенка', titleEn: 'The Shawshank Redemption', year: 1994,
     prompt: 'prison drama aesthetic, warm amber tones, stone walls, hope and redemption atmosphere, realistic character portrait' },
@@ -833,352 +958,31 @@ const MOVIES = [
     prompt: 'psychological thriller aesthetic, red sweater, cold breath visible, dim indoor lighting, M. Night Shyamalan eerie atmospheric style' }
 ];
 
-/**
- * Выбрать случайный фильм из списка.
- * @returns {{title: string, titleEn: string, year: number, prompt: string}}
- */
 function getRandomMovie() {
   return MOVIES[Math.floor(Math.random() * MOVIES.length)];
 }
 
-/**
- * Сгенерировать аватарку в стиле конкретного фильма.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} movie  — объект фильма из MOVIES
- * @param {string} outputDir
- * @returns {Promise<string>}  — путь к сгенерированному изображению
- */
-async function generateCinemaAvatar(files, movie, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.`;
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Transform this person into a character from the movie "${movie.titleEn}". ${stylePrompt}`
-    : `Transform this person into a character from the movie "${movie.titleEn}". I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. ${stylePrompt}`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: {
-      responseModalities: ['Image', 'Text'],
-      temperature: 1,
-      topK: 32,
-      topP: 1
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const genStart = Date.now();
-  _callLabel = 'generateCinemaAvatar:' + movie.titleEn;
-
-  console.log(`🎬 Gemini: генерация в стиле фильма «${movie.title}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `cinema_${movie.titleEn.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}${ext}`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Кино «${movie.title}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'cinema', sub: movie.titleEn, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-// Локации — 100 знаменитых мировых мест
+// Локации
 const { LOCATIONS } = require('./locations-data');
-
-/**
- * Выбрать случайную локацию из списка.
- * @returns {{id: string, name: string, prompt: string}}
- */
 function getRandomLocation() {
   return LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
 }
 
-/**
- * Сгенерировать аватарку на фоне знаменитой локации.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} location  — объект локации
- * @param {string} outputDir
- * @returns {Promise<string>}
- */
-async function generateLocationAvatar(files, location, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Place this person as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place. Keep the face recognizable, high quality realistic travel photo, natural lighting.`
-    : `Place this person as a tourist at this famous location: ${location.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Make it look like they are actually visiting this place. Keep the face recognizable, high quality realistic travel photo, natural lighting.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const genStart = Date.now();
-  _callLabel = 'generateLocationAvatar:' + location.id;
-
-  console.log(`🌍 Gemini: генерация локации «${location.name}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `location_${location.id}_${Date.now()}.jpg`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Локация «${location.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'location', sub: location.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-// История — исторические эпохи
+// Исторические эпохи
 const { HISTORY } = require('./history-data');
-
-/**
- * Выбрать случайную историческую эпоху из списка.
- * @returns {{id: string, name: string, prompt: string}}
- */
 function getRandomHistory() {
   return HISTORY[Math.floor(Math.random() * HISTORY.length)];
 }
 
-/**
- * Сгенерировать аватарку в стиле исторической эпохи.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} era  — объект эпохи
- * @param {string} outputDir
- * @returns {Promise<string>}
- */
-async function generateHistoryAvatar(files, era, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Transport this person into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.`
-    : `Transport this person into the historical era: ${era.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photos.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: {
-      responseModalities: ['Image', 'Text'],
-      temperature: 1,
-      topK: 32,
-      topP: 1
-    },
-    safetySettings: [
-
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const genStart = Date.now();
-  _callLabel = 'generateHistoryAvatar:' + era.id;
-
-  console.log(`🎬 Gemini: генерация эпохи «${era.name}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `history_${era.id}_${Date.now()}.jpg`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ История «${era.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'history', sub: era.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
+// Литературные произведения
+const { LITERATURE } = require('./literature-data');
+function getRandomLiterature() {
+  return LITERATURE[Math.floor(Math.random() * LITERATURE.length)];
 }
 
-// ===================== Вспомогательное =====================
-
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  switch (ext) {
-    case '.png': return 'image/png';
-    case '.webp': return 'image/webp';
-    case '.gif': return 'image/gif';
-    case '.bmp': return 'image/bmp';
-    default: return 'image/jpeg';
-  }
-}
-
-// Shared variable for apiCall to use when called from generator functions
-let _callLabel = 'unknown';
-
-function apiCall(payload, extraConfig) {
-  const callStart = Date.now();
-  const callLabel = _callLabel;
-  // Если есть extra config (model, aspectRatio и т.п.) — встраиваем
-  let modelName = MODEL;
-  if (extraConfig) {
-    const { model: extraModel, ...restConfig } = extraConfig;
-    if (extraModel) modelName = extraModel;
-    const parsed = JSON.parse(payload);
-    if (parsed.generationConfig) {
-      parsed.generationConfig = { ...parsed.generationConfig, ...restConfig };
-    } else {
-      parsed.generationConfig = restConfig;
-    }
-    payload = JSON.stringify(parsed);
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`);
-    url.searchParams.set('key', API_KEY);
-
-    const req = https.request(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 300000
-      },
-      (res) => {
-        let data = '';
-        console.log(`📥 Gemini HTTP ${res.statusCode}`);
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          const duration = Date.now() - callStart;
-          try {
-            if (res.statusCode !== 200) {
-              console.error(`❌ Gemini HTTP ${res.statusCode}: ${data.slice(0, 500)}`);
-              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel });
-            }
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: (parsed.error.message || '').slice(0, 100) });
-              reject(new Error(`Gemini API: ${parsed.error.message} (${parsed.error.code})`));
-            } else {
-              const finishReason = parsed?.candidates?.[0]?.finishReason || '';
-              metrics.track('gemini:api_success', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, finish_reason: finishReason });
-              resolve(parsed);
-            }
-          } catch {
-            metrics.track('gemini:api_error', { model: modelName, status: String(res.statusCode), duration_ms: String(duration), label: callLabel, error: 'parse_error' });
-            reject(new Error(`Gemini API parse error: ${data.slice(0, 300)}`));
-          }
-        });
-      }
-    );
-
-    req.on('error', (err) => {
-      const duration = Date.now() - callStart;
-      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: (err.message || '').slice(0, 100) });
-      reject(err);
-    });
-    req.on('timeout', () => {
-      const duration = Date.now() - callStart;
-      metrics.track('gemini:api_error', { model: modelName, status: '0', duration_ms: String(duration), label: callLabel, error: 'timeout' });
-      req.destroy();
-      reject(new Error('Gemini API timeout (>5 min)'));
-    });
-    req.write(payload);
-    req.end();
-  });
-}
-
-// ===================== CLI =====================
+// ======================================================================
+// CLI
+// ======================================================================
 
 if (require.main === module) {
   const [,, command, ...args] = process.argv;
@@ -1212,272 +1016,34 @@ if (require.main === module) {
   }
 }
 
-// Литература — литературные произведения
-const { LITERATURE } = require('./literature-data');
+// ======================================================================
+// EXPORTS
+// ======================================================================
 
-/**
- * Выбрать случайное произведение из списка.
- * @returns {{id: string, name: string, prompt: string}}
- */
-function getRandomLiterature() {
-  return LITERATURE[Math.floor(Math.random() * LITERATURE.length)];
-}
-
-/**
- * Сгенерировать аватарку в стиле литературного произведения.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {object} work  — объект произведения
- * @param {string} outputDir
- * @returns {Promise<string>}
- */
-async function generateLiteratureAvatar(files, work, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `This person as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`
-    : `This person as a character from the literary work: ${work.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`;
-  const prompt = applyQuality(promptBase, settings, true);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const genStart = Date.now();
-  _callLabel = 'generateLiteratureAvatar:' + work.id;
-
-  console.log(`📚 Gemini: генерация литературы «${work.name}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `literature_${work.id}_${Date.now()}.jpg`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Литература «${work.name}»: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'literature', sub: work.id, model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-/**
- * Режим бога — генерация по кастомному описанию.
- *
- * @param {Array<{uri: string, mimeType: string}>} files — массив file URI
- * @param {string} customPrompt  — описание от пользователя (до 250 символов)
- * @param {string} outputDir     — куда сохранить результат
- * @returns {Promise<string>}    — путь к сгенерированному изображению
- */
-async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-  if (!files || files.length === 0) throw new Error('Нет фото для генерации');
-
-  const count = files.length;
-  const promptBase = count === 1
-    ? `Transform this person's photo according to this description: ${customPrompt}. Keep the face recognizable, make it look like a high-quality professional photo.`
-    : `Transform this person's photo according to this description: ${customPrompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
-  const prompt = applyQuality(promptBase, settings);
-
-  const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
-  requestParts.push({ text: prompt });
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const genStart = Date.now();
-  _callLabel = 'generateCustomAvatar';
-
-  console.log(`🎮 Режим бога: ${customPrompt.slice(0, 100)}`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
-    console.error(`🔍 Полный candidate: ${candidateSnippet}`);
-    const reason = candidates?.[0]?.finishReason;
-    const finishMsg = candidates?.[0]?.finishMessage || '';
-    const userMsg = finishReasonMessage(reason, settings);
-    if (userMsg) {
-      throw new Error(userMsg);
-    }
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `godmode_${Date.now()}.jpg`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Режим бога: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'custom_prompt', model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-// =====================
-// Генерация без фото пользователя (режим «Без аватара»)
-// =====================
-
-/**
- * Сгенерировать изображение по стилю без использования фото пользователя.
- * @param {string} styleId — id стиля
- * @param {string} outputDir
- * @param {object} settings
- * @returns {Promise<{path: string, prompt: string}>}
- */
-function getStyleContextPrompt(styleId) {
-  const contextPrompts = {
-    sport: 'The person is engaged in an athletic activity. Choose a popular sport.',
-    in_office: 'The person is in a professional office environment.',
-    professions: 'The person is dressed in a professional role (doctor, chef, pilot, engineer, etc.).',
-    in_car: 'The person is sitting in a modern car, driver or passenger seat.',
-    cinema: 'Cinematic movie still quality, dramatic lighting, like a scene from a Hollywood film.',
-    location: 'The person is at a famous travel destination or scenic location.',
-    history: 'The person is dressed in clothing from a historical era.',
-    literature: 'The person looks like a character from a famous literary work.',
-    portrait: 'Classic portrait, neutral background, professional studio lighting.',
-  };
-  return contextPrompts[styleId] || '';
-}
-
-async function generateNoAvatarCustom(promptText, outputDir, settings) {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
-
-  const prompt = applyQuality(
-    `<start_of_image_generation>\n${promptText}\n<end_of_image_generation>\n\nMake it look like a high-quality realistic photo, photorealistic, professional photography.`, 
-    settings
-  );
-
-  const requestParts = [{ text: prompt }];
-
-  const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
-  if (settings?.model) extraConfig.model = settings.model;
-
-  const payload = JSON.stringify({
-    contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 1, topK: 32, topP: 1 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
-
-  const genStart = Date.now();
-  _callLabel = 'generateNoAvatarCustom';
-
-  console.log(`✍️ Без аватара: промпт «${promptText.slice(0, 80)}»...`);
-
-  const result = await apiCall(payload, extraConfig);
-  const candidates = result?.candidates;
-  if (!candidates || candidates.length === 0) {
-    const blocked = result?.promptFeedback?.blockReason;
-    console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
-  }
-
-  const parts = candidates[0]?.content?.parts || [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const textParts = parts.filter(p => p.text).map(p => p.text).join('\n');
-    console.warn(`⚠️ Gemini вернул только текст: ${textParts.slice(0, 200)}`);
-    // Логируем полный ответ для диагностики
-    const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
-    console.error(`🔍 Полный candidate: ${candidateSnippet}`);
-    const reason = candidates?.[0]?.finishReason;
-    const finishMsg = candidates?.[0]?.finishMessage || '';
-    const userMsg = finishReasonMessage(reason, settings);
-    if (userMsg) {
-      throw new Error(userMsg);
-    }
-    throw new Error('Gemini не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `noavatar_prompt_${Date.now()}.jpg`);
-  const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  fs.writeFileSync(outputPath, imgBuffer);
-
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  const totalDuration = Date.now() - genStart;
-  console.log(`✅ Без аватара промпт: ${outputPath} (${imgSizeKB} KB)`);
-  metrics.track('gemini:generation_success', { label: _callLabel, style: 'no_avatar_custom', model: settings?.model || MODEL, duration_ms: String(totalDuration), img_size_kb: imgSizeKB });
-  return { path: outputPath, prompt };
-}
-
-/**
- * Преобразовать finishReason Gemini в короткое сообщение для пользователя.
- */
-function finishReasonMessage(reason, settings) {
-  if (reason === 'NO_IMAGE') {
-    return 'Не смогли сгенерировать изображение, попробуйте еще раз.';
-  }
-  if (reason) {
-    const isPro = settings?.model === 'gemini-3-pro-image-preview';
-    if (isPro) {
-      return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос.';
-    }
-    return 'Не смогли сгенерировать из-за ограничений нейросети. Попробуйте переформулировать запрос или использовать нейросеть Про.';
-  }
-  return null;
-}
-
-module.exports = { generateAvatar, generateProfessionAvatar, generateCinemaAvatar, generateSportAvatar, generateOfficeAvatar, generateLocationAvatar, generateHistoryAvatar, generateLiteratureAvatar, generateCustomAvatar, uploadPhoto, STYLE_PROMPTS, PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE, getRandomMovie, getRandomProfession, getRandomSport, getRandomOffice, getRandomLocation, getRandomHistory, getRandomLiterature, generateNoAvatarCustom, PORTRAIT_TYPE_HINTS };
+module.exports = {
+  // Единая генерация
+  generateAvatar,
+  generateProfessionAvatar,
+  generateCinemaAvatar,
+  generateSportAvatar,
+  generateOfficeAvatar,
+  generateLocationAvatar,
+  generateHistoryAvatar,
+  generateLiteratureAvatar,
+  generateCustomAvatar,
+  generateNoAvatarCustom,
+  // Вспомогательное
+  uploadPhoto,
+  // Данные
+  STYLE_PROMPTS,
+  PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE,
+  // Рандомайзеры
+  getRandomMovie,
+  getRandomProfession,
+  getRandomSport,
+  getRandomOffice,
+  getRandomLocation,
+  getRandomHistory,
+  getRandomLiterature,
+  PORTRAIT_TYPE_HINTS
+};
