@@ -2580,9 +2580,6 @@ async function showCinemaMenu(chatId, msgId, page) {
     keyboard.push([{ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` }]);
   }
 
-  // Случайно в отдельной строке
-  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'cinema_random' }]);
-
   // Стрелки пагинации
   const navRow = [];
   if (curPage > 0) {
@@ -2594,6 +2591,9 @@ async function showCinemaMenu(chatId, msgId, page) {
   if (navRow.length > 0) {
     keyboard.push(navRow);
   }
+
+  // Случайно под стрелками
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'cinema_random' }]);
 
   // Кнопка назад
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
