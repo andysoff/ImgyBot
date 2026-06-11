@@ -103,7 +103,7 @@ function buildMainKeyboard() {
     keyboard: [
       [{ text: '🖼 Стили' }, { text: '✍️ Промпт' }],
       [{ text: '👤 Аватар' }, { text: '💰 Баланс' }],
-      [{ text: '⚙️ Настройки' }, { text: '💬 Поддержка' }]
+      [{ text: '⚙️ Настройки' }, { text: 'ℹ️ Поддержка' }]
     ],
     resize_keyboard: true
   };

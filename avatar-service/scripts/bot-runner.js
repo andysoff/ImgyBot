@@ -1624,8 +1624,8 @@ async function handleUpdate(update) {
     // В режиме Промпт — пропускаем, обработается как обычный текст промпта
   }
 
-  // /help — информация (и кнопка 💬 Поддержка)
-  if (text.toLowerCase() === '/help' || text === '💬 Поддержка') {
+  // /help — информация (и кнопка ℹ️ Поддержка)
+  if (text.toLowerCase() === '/help' || text === 'ℹ️ Поддержка') {
     metrics.track('help:opened', { telegram_id: String(chatId) });
     const result = botLogic.handleHelp();
     await tgSend(chatId, result.text, {
