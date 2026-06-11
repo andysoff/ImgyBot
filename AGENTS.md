@@ -243,6 +243,10 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## Правило: Не спешить, спрашивать
+
+Когда Андрей говорит о проблеме — не лезь сразу править код. Сначала задавай вопросы, уточняй, что именно не так. Он не любит, когда ты переделываешь без полного понимания.
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
