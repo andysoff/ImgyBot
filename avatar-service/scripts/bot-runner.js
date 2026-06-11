@@ -1177,6 +1177,33 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Локации — выбор из списка ------
+    if (data.startsWith('location_page:')) {
+      const page = parseInt(data.replace('location_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showLocationMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('location_select:')) {
+      const index = parseInt(data.replace('location_select:', ''), 10);
+      const location = generateImage.getLocationByIndex(index);
+      if (!location) {
+        await tgAnswerCb(cb.id, '❌ Локация не найдена', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `🌍 ${location.name}`);
+      await generateLocationPhoto(chatId, location, cb);
+      return;
+    }
+
+    if (data === 'location_random') {
+      const location = generateImage.getRandomLocation();
+      await tgAnswerCb(cb.id, `🌍 Случайно: ${location.name}`);
+      await generateLocationPhoto(chatId, location, cb);
+      return;
+    }
+
     if (data === 'back_to_styles') {
       const user = botLogic.findUserByTelegram(String(chatId));
       if (user) {
@@ -1225,6 +1252,12 @@ async function handleUpdate(update) {
         // ==== Кино — показываем подменю фильмов вместо генерации ====
         if (styleId === 'cinema') {
           await showCinemaMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== Локации — показываем подменю локаций вместо генерации ====
+        if (styleId === 'location') {
+          await showLocationMenu(chatId, msgId, 0);
           return;
         }
 
@@ -2706,6 +2739,157 @@ async function generateCinemaMovie(chatId, movie, cb) {
       telegram_id: String(chatId),
       style_id: 'cinema',
       sub_id: movie.titleEn,
+      error: (err.message || '').slice(0, 100),
+      recovered: 'false'
+    });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Локаций
+// ======================================================================
+const LOCATION_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу локаций для выбора.
+ */
+async function showLocationMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getLocationsPage(page, LOCATION_PAGE_SIZE);
+  const keyboard = [];
+
+  // Кнопки локаций по одной в ряд
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * LOCATION_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `location_select:${startIndex}` }]);
+  }
+
+  // Стрелки пагинации
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `location_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `location_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  // Случайно под стрелками
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'location_random' }]);
+
+  // Кнопка назад
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `🌍 <b>Локация</b>
+Выбери место для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранной локации.
+ */
+async function generateLocationPhoto(chatId, location, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id });
+    const statusMsg = `🌍 Генерирую «${location.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    // Режим "Без аватара"
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateLocationAvatar([], location, outputDir, settings);
+      const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+
+      await sendDebugInfo(chatId, settings, result.prompt);
+
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'location' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id, model: settings?.model || '', cost: String(genCost) });
+
+      if (remaining > 0 && remaining <= 3) {
+        await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      }
+
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🔄 Повторить', callback_data: 'repeat_style:location' },
+                { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+              ]
+            ]
+          }
+        });
+      } else {
+        await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
+      }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings);
+
+    const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'location' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) {
+      await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    }
+
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Повторить', callback_data: 'repeat_style:location' },
+              { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+            ]
+          ]
+        }
+      });
+    } else {
+      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() });
+    }
+
+  } catch (err) {
+    console.error('❌ Ошибка генерации локации:', err.message);
+    metrics.track('generation:failed', {
+      telegram_id: String(chatId),
+      style_id: 'location',
+      sub_id: location.id,
       error: (err.message || '').slice(0, 100),
       recovered: 'false'
     });

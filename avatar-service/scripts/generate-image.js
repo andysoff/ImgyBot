@@ -980,6 +980,18 @@ function getRandomLocation() {
   return LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
 }
 
+function getLocationByIndex(index) {
+  return LOCATIONS[index] || null;
+}
+
+function getLocationsPage(page, pageSize = 10) {
+  const total = LOCATIONS.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = LOCATIONS.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
+}
+
 // Исторические эпохи
 const { HISTORY } = require('./history-data');
 function getRandomHistory() {
@@ -1057,6 +1069,8 @@ module.exports = {
   getRandomSport,
   getRandomOffice,
   getRandomLocation,
+  getLocationByIndex,
+  getLocationsPage,
   getRandomHistory,
   getRandomLiterature,
   PORTRAIT_TYPE_HINTS
