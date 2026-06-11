@@ -2580,16 +2580,20 @@ async function showCinemaMenu(chatId, msgId, page) {
     keyboard.push([{ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` }]);
   }
 
-  // Пагинация + Случайно
+  // Случайно в отдельной строке
+  keyboard.push([{ text: '🎲 Случайно', callback_data: 'cinema_random' }]);
+
+  // Стрелки пагинации
   const navRow = [];
   if (curPage > 0) {
     navRow.push({ text: '⬅️', callback_data: `cinema_page:${curPage - 1}` });
   }
-  navRow.push({ text: '🎲 Случайно', callback_data: 'cinema_random' });
   if (curPage < totalPages - 1) {
     navRow.push({ text: '➡️', callback_data: `cinema_page:${curPage + 1}` });
   }
-  keyboard.push(navRow);
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
 
   // Кнопка назад
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
