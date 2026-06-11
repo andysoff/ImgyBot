@@ -1195,7 +1195,7 @@ const ASPECT_OPTIONS = {
 };
 
 const PORTRAIT_TYPE_OPTIONS = {
-  headshot:  { label: 'Головной (анфас)',  hint: 'headshot, face forward, tightly framed head and shoulders, passport photo style' },
+  headshot:  { label: 'Головной',  hint: 'headshot, face forward, tightly framed head and shoulders, passport photo style' },
   shoulder:  { label: 'Поплечный',          hint: 'shoulder-length portrait, face, neck and shoulders visible, emphasis on expression and gaze' },
   bust:      { label: 'Погрудный',          hint: 'bust portrait, face with shoulders and upper chest visible, focus on face with some shoulder context' },
   waist:     { label: 'Поясной',            hint: 'waist-length portrait, from head to waist, allows postural expression and arm positioning' },
@@ -1256,7 +1256,7 @@ function handleSettings(telegramId) {
     // Админ — полное меню
     const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
     const debugLabel = s.debug ? '🔧 Вкл' : '🔧 Выкл';
-    const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
+    const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
     const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
 
     keyboard = [
@@ -1272,7 +1272,7 @@ function handleSettings(telegramId) {
     textLines = '🤖 Нейросеть: ' + modelLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
-    const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной (анфас)';
+    const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
     const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
     keyboard = [
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
@@ -1343,7 +1343,7 @@ function handleSettingsPortraitType(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   return {
-    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования — он будет применяться ко <b>всем стилям</b>:\n\n👤 <b>Головной (анфас)</b> — классический, обязательно лицо\n🧑 <b>Поплечный</b> — лицо, шея и плечи\n👔 <b>Погрудный</b> — лицо, плечи и грудь\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
+    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования — он будет применяться ко <b>всем стилям</b>:\n\n👤 <b>Головной</b> — классический, обязательно лицо\n🧑 <b>Поплечный</b> — лицо, шея и плечи\n👔 <b>Погрудный</b> — лицо, плечи и грудь\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
