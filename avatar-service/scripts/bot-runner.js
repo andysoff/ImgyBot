@@ -1339,6 +1339,62 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Около машины — выбор марки ------
+    if (data.startsWith('car_brands_page:')) {
+      const page = parseInt(data.replace('car_brands_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showCarBrandsMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('car_brand_select:')) {
+      const brandId = data.replace('car_brand_select:', '');
+      await tgAnswerCb(cb.id, '');
+      await showCarModelsMenu(chatId, msgId, brandId, 0);
+      return;
+    }
+
+    if (data.startsWith('car_models_page:')) {
+      const parts = data.replace('car_models_page:', '').split(':');
+      const brandId = parts[0];
+      const page = parseInt(parts[1], 10);
+      await tgAnswerCb(cb.id, '');
+      await showCarModelsMenu(chatId, msgId, brandId, page);
+      return;
+    }
+
+    if (data.startsWith('car_model_select:')) {
+      const parts = data.replace('car_model_select:', '').split(':');
+      const brandId = parts[0];
+      const modelId = parts[1];
+      const brand = generateImage.CAR_BRANDS.find(b => b.id === brandId);
+      if (!brand) {
+        await tgAnswerCb(cb.id, '❌ Марка не найдена', true);
+        return;
+      }
+      const model = brand.models.find(m => m.id === modelId);
+      if (!model) {
+        await tgAnswerCb(cb.id, '❌ Модель не найдена', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `🚘 ${brand.name} ${model.name}`);
+      await generateCarPhoto(chatId, brand, model, cb);
+      return;
+    }
+
+    if (data === 'car_random') {
+      const { brand, model } = generateImage.getRandomCarModel();
+      await tgAnswerCb(cb.id, `🚘 Случайно: ${brand.name} ${model.name}`);
+      await generateCarPhoto(chatId, brand, model, cb);
+      return;
+    }
+
+    if (data === 'car_back_to_brands') {
+      await tgAnswerCb(cb.id, '');
+      await showCarBrandsMenu(chatId, msgId, 0);
+      return;
+    }
+
     if (data === 'back_to_styles') {
       const user = botLogic.findUserByTelegram(String(chatId));
       if (user) {
@@ -1423,6 +1479,12 @@ async function handleUpdate(update) {
         // ==== Профессия — подменю профессий ====
         if (styleId === 'professions') {
           await showProfessionsMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== Около машины — подменю марок ====
+        if (styleId === 'near_car') {
+          await showCarBrandsMenu(chatId, msgId, 0);
           return;
         }
 
@@ -1992,6 +2054,11 @@ async function handleUpdate(update) {
           const movie = require('./generate-image').getRandomMovie();
           generatedResult = await require('./generate-image').generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
           const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+        } else if (repeatStyleId === 'near_car') {
+          const { brand, model } = require('./generate-image').getRandomCarModel();
+          generatedResult = await require('./generate-image').generateCarAvatar(geminiFiles, brand, model, outputDir, settings);
+          const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
           await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
         } else {
           generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings);
@@ -3578,6 +3645,152 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации профессии:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Около машины
+// ======================================================================
+const CAR_BRAND_PAGE_SIZE = 5;
+const CAR_MODEL_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу марок автомобилей.
+ */
+async function showCarBrandsMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getCarBrandsPage(page, CAR_BRAND_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * CAR_BRAND_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `car_brand_select:${items[i].id}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `car_brands_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `car_brands_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'car_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `🚘 <b>Около машины</b>
+Выбери марку автомобиля (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Показать страницу моделей для выбранной марки.
+ */
+async function showCarModelsMenu(chatId, msgId, brandId, page) {
+  const brand = generateImage.CAR_BRANDS.find(b => b.id === brandId);
+  if (!brand) {
+    await tgSend(chatId, '❌ Марка не найдена');
+    return;
+  }
+
+  const { items, page: curPage, totalPages, total } = generateImage.getModelsForBrand(brandId, page, CAR_MODEL_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * CAR_MODEL_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `car_model_select:${brandId}:${items[i].id}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `car_models_page:${brandId}:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `car_models_page:${brandId}:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'car_random' }]);
+  keyboard.push([{ text: '🔙 К маркам', callback_data: 'car_back_to_brands' }]);
+
+  const text = `🚘 <b>${brand.name}</b>
+Выбери модель (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранной машины.
+ */
+async function generateCarPhoto(chatId, brand, model, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id });
+    const statusMsg = `🚘 Генерирую «${brand.name} ${model.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateCarAvatar([], brand, model, outputDir, settings);
+      const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'near_car' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:near_car' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateCarAvatar(geminiFiles, brand, model, outputDir, settings);
+    const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'near_car' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:near_car' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации авто:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
     await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
   }
 }
