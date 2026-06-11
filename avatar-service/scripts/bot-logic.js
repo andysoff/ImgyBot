@@ -1176,7 +1176,7 @@ const DEFAULT_SETTINGS = {
   aspectRatio: '1:1',
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
-  portraitType: 'headshot',
+  portraitType: 'bust',
   faceTurn: 'three_quarter'
 };
 
