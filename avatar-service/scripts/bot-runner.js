@@ -1990,7 +1990,7 @@ async function handleUpdate(update) {
       const isNoAvatar = conv?.data?.avatarId === 'no_avatar';
       const promptResult = {
         promptText: storedPrompt,
-        attachedPhoto: isNoAvatar ? null : storedPhoto,
+        attachedPhoto: storedPhoto,
         avatarId: conv.data.avatarId,
         userId: conv.data.userId,
         isNoAvatar,
@@ -2575,9 +2575,61 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
     const settings = botLogic.getSettings(String(chatId));
 
-    // Режим "Без аватара" — генерация без фото пользователя
+    // Режим "Без аватара" — генерация без аватара, но может быть прикреплённое фото
     if (promptResult.isNoAvatar) {
       metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
+
+      // Если есть прикреплённое фото — загружаем его и используем обычную генерацию с фото
+      if (promptResult.attachedPhoto) {
+        let singleFile;
+        try {
+          console.log(`📤 Загружаю прикреплённое фото (no_avatar): ${promptResult.attachedPhoto}`);
+          const fileInfo = await generateImage.uploadPhoto(promptResult.attachedPhoto);
+          singleFile = { uri: fileInfo.uri, mimeType: fileInfo.mimeType };
+          console.log(`✅ Прикреплённое фото загружено: ${fileInfo.uri}`);
+        } catch (uploadErr) {
+          console.error('❌ Ошибка загрузки прикреплённого фото:', uploadErr.message);
+          await tgSend(chatId, '⚠️ Не удалось загрузить фото. Генерирую без него.');
+        }
+
+        if (singleFile) {
+          const generatedResult = await generateImage.generateCustomAvatar([singleFile], promptResult.promptText, outputDir, settings, String(chatId));
+          const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
+          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          await sendDebugInfo(chatId, settings, generatedResult.prompt);
+          const promptRemaining = consumeAfterGeneration(chatId, promptResult);
+          metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt_no_avatar_photo', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
+          if (promptRemaining <= 0) {
+            botLogic.resetConversation(String(chatId));
+            const exhMsg = botLogic.exhaustionMessage();
+            await tgSend(chatId, exhMsg.text, { reply_markup: exhMsg.reply_markup });
+          } else {
+            if (promptRemaining <= 3) {
+              await tgSend(chatId, `⚠️ Осталось всего ${promptRemaining} ${botLogic.pluralGen(promptRemaining)}`);
+            }
+            const conv = botLogic.getConversation(String(chatId));
+            if (conv?.data) {
+              delete conv.data.pendingPhoto;
+              conv.data.lastPromptText = promptResult.promptText;
+              if (promptResult.attachedPhoto) conv.data.lastAttachedPhoto = promptResult.attachedPhoto;
+              botLogic.setConversation(String(chatId), 'awaiting_custom_prompt', conv.data);
+            }
+            await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '🔄 Повторить', callback_data: 'prompt_repeat' },
+                    { text: '🚪 Выйти', callback_data: 'prompt_exit' }
+                  ]
+                ]
+              }
+            });
+          }
+          return;
+        }
+      }
+
       const generatedResult = await generateImage.generateNoAvatarCustom(promptResult.promptText, outputDir, settings, String(chatId));
 
       const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
