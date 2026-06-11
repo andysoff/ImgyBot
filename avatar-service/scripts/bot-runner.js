@@ -1624,10 +1624,10 @@ async function handleUpdate(update) {
     // В режиме Промпт — пропускаем, обработается как обычный текст промпта
   }
 
-  // /help — информация (и кнопка ❓ Помощь)
-  if (text.toLowerCase() === '/help' || text === '❓ Помощь') {
-    metrics.track('help:opened', { telegram_id: String(chatId) });
-    const result = botLogic.handleHelp();
+  // /help — информация (и кнопка 💬 Поддержка)
+  if (text.toLowerCase() === '/help' || text === '💬 Поддержка') {
+    metrics.track('help:support', { telegram_id: String(chatId) });
+    const result = botLogic.handleHelpSupport();
     await tgSend(chatId, result.text, {
       parse_mode: result.parse_mode,
       reply_markup: result.reply_markup
