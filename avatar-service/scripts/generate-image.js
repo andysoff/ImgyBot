@@ -723,6 +723,18 @@ function getRandomSport() {
   return SPORTS[Math.floor(Math.random() * SPORTS.length)];
 }
 
+function getSportByIndex(index) {
+  return SPORTS[index] || null;
+}
+
+function getSportsPage(page, pageSize = 10) {
+  const total = SPORTS.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = SPORTS.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
+}
+
 // Офисные роли
 const OFFICE = [
   { id: 'ceo', name: '👔 Генеральный директор', prompt: 'person as a confident CEO in expensive suit, corner office with city view, luxury executive desk' },
@@ -758,6 +770,18 @@ const OFFICE = [
 
 function getRandomOffice() {
   return OFFICE[Math.floor(Math.random() * OFFICE.length)];
+}
+
+function getOfficeByIndex(index) {
+  return OFFICE[index] || null;
+}
+
+function getOfficesPage(page, pageSize = 10) {
+  const total = OFFICE.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = OFFICE.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
 }
 
 // Кино
@@ -1018,10 +1042,34 @@ function getRandomHistory() {
   return HISTORY[Math.floor(Math.random() * HISTORY.length)];
 }
 
+function getHistoryByIndex(index) {
+  return HISTORY[index] || null;
+}
+
+function getHistoryPage(page, pageSize = 10) {
+  const total = HISTORY.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = HISTORY.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
+}
+
 // Литературные произведения
 const { LITERATURE } = require('./literature-data');
 function getRandomLiterature() {
   return LITERATURE[Math.floor(Math.random() * LITERATURE.length)];
+}
+
+function getLiteratureByIndex(index) {
+  return LITERATURE[index] || null;
+}
+
+function getLiteraturePage(page, pageSize = 10) {
+  const total = LITERATURE.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = LITERATURE.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
 }
 
 // ======================================================================
@@ -1087,11 +1135,19 @@ module.exports = {
   getMoviesPage,
   getRandomProfession,
   getRandomSport,
+  getSportByIndex,
+  getSportsPage,
   getRandomOffice,
+  getOfficeByIndex,
+  getOfficesPage,
   getRandomLocation,
   getLocationByIndex,
   getLocationsPage,
   getRandomHistory,
+  getHistoryByIndex,
+  getHistoryPage,
   getRandomLiterature,
+  getLiteratureByIndex,
+  getLiteraturePage,
   PORTRAIT_TYPE_HINTS
 };

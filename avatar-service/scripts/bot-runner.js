@@ -1204,6 +1204,114 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Спорт — выбор из списка ------
+    if (data.startsWith('sport_page:')) {
+      const page = parseInt(data.replace('sport_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showSportMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('sport_select:')) {
+      const index = parseInt(data.replace('sport_select:', ''), 10);
+      const sport = generateImage.getSportByIndex(index);
+      if (!sport) {
+        await tgAnswerCb(cb.id, '❌ Спорт не найден', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `🏃 ${sport.name}`);
+      await generateSportPhoto(chatId, sport, cb);
+      return;
+    }
+
+    if (data === 'sport_random') {
+      const sport = generateImage.getRandomSport();
+      await tgAnswerCb(cb.id, `🏃 Случайно: ${sport.name}`);
+      await generateSportPhoto(chatId, sport, cb);
+      return;
+    }
+
+    // ------ Callback: В офисе — выбор из списка ------
+    if (data.startsWith('office_page:')) {
+      const page = parseInt(data.replace('office_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showOfficeMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('office_select:')) {
+      const index = parseInt(data.replace('office_select:', ''), 10);
+      const office = generateImage.getOfficeByIndex(index);
+      if (!office) {
+        await tgAnswerCb(cb.id, '❌ Роль не найдена', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `💼 ${office.name}`);
+      await generateOfficePhoto(chatId, office, cb);
+      return;
+    }
+
+    if (data === 'office_random') {
+      const office = generateImage.getRandomOffice();
+      await tgAnswerCb(cb.id, `💼 Случайно: ${office.name}`);
+      await generateOfficePhoto(chatId, office, cb);
+      return;
+    }
+
+    // ------ Callback: История — выбор из списка ------
+    if (data.startsWith('history_page:')) {
+      const page = parseInt(data.replace('history_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showHistoryMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('history_select:')) {
+      const index = parseInt(data.replace('history_select:', ''), 10);
+      const era = generateImage.getHistoryByIndex(index);
+      if (!era) {
+        await tgAnswerCb(cb.id, '❌ Эпоха не найдена', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `🏛️ ${era.name}`);
+      await generateHistoryPhoto(chatId, era, cb);
+      return;
+    }
+
+    if (data === 'history_random') {
+      const era = generateImage.getRandomHistory();
+      await tgAnswerCb(cb.id, `🏛️ Случайно: ${era.name}`);
+      await generateHistoryPhoto(chatId, era, cb);
+      return;
+    }
+
+    // ------ Callback: Рассказ — выбор из списка ------
+    if (data.startsWith('literature_page:')) {
+      const page = parseInt(data.replace('literature_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showLiteratureMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('literature_select:')) {
+      const index = parseInt(data.replace('literature_select:', ''), 10);
+      const work = generateImage.getLiteratureByIndex(index);
+      if (!work) {
+        await tgAnswerCb(cb.id, '❌ Произведение не найдено', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `📖 ${work.name}`);
+      await generateLiteraturePhoto(chatId, work, cb);
+      return;
+    }
+
+    if (data === 'literature_random') {
+      const work = generateImage.getRandomLiterature();
+      await tgAnswerCb(cb.id, `📖 Случайно: ${work.name}`);
+      await generateLiteraturePhoto(chatId, work, cb);
+      return;
+    }
+
     if (data === 'back_to_styles') {
       const user = botLogic.findUserByTelegram(String(chatId));
       if (user) {
@@ -1258,6 +1366,30 @@ async function handleUpdate(update) {
         // ==== Локации — показываем подменю локаций вместо генерации ====
         if (styleId === 'location') {
           await showLocationMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== Спорт — подменю видов спорта ====
+        if (styleId === 'sport') {
+          await showSportMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== В офисе — подменю офисных ролей ====
+        if (styleId === 'in_office') {
+          await showOfficeMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== История — подменю исторических эпох ====
+        if (styleId === 'history') {
+          await showHistoryMenu(chatId, msgId, 0);
+          return;
+        }
+
+        // ==== Рассказ — подменю литературных произведений ====
+        if (styleId === 'literature') {
+          await showLiteratureMenu(chatId, msgId, 0);
           return;
         }
 
@@ -2893,6 +3025,422 @@ async function generateLocationPhoto(chatId, location, cb) {
       error: (err.message || '').slice(0, 100),
       recovered: 'false'
     });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Спорта
+// ======================================================================
+const SPORT_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу видов спорта для выбора.
+ */
+async function showSportMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getSportsPage(page, SPORT_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * SPORT_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `sport_select:${startIndex}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `sport_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `sport_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'sport_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `🏃 <b>Спорт</b>
+Выбери вид спорта для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранного вида спорта.
+ */
+async function generateSportPhoto(chatId, sport, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id });
+    const statusMsg = `🏃 Генерирую «${sport.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateSportAvatar([], sport, outputDir, settings);
+      const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'sport' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:sport' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings);
+    const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'sport' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:sport' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации спорта:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю В офисе
+// ======================================================================
+const OFFICE_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу офисных ролей для выбора.
+ */
+async function showOfficeMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getOfficesPage(page, OFFICE_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * OFFICE_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `office_select:${startIndex}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `office_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `office_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'office_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `💼 <b>В офисе</b>
+Выбери офисную роль для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранной офисной роли.
+ */
+async function generateOfficePhoto(chatId, office, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id });
+    const statusMsg = `💼 Генерирую «${office.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateOfficeAvatar([], office, outputDir, settings);
+      const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_office' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:in_office' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings);
+    const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_office' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:in_office' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации офиса:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Истории
+// ======================================================================
+const HISTORY_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу исторических эпох для выбора.
+ */
+async function showHistoryMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getHistoryPage(page, HISTORY_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * HISTORY_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `history_select:${startIndex}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `history_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `history_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'history_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `🏛️ <b>История</b>
+Выбери историческую эпоху для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранной исторической эпохи.
+ */
+async function generateHistoryPhoto(chatId, era, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id });
+    const statusMsg = `🏛️ Генерирую «${era.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateHistoryAvatar([], era, outputDir, settings);
+      const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'history' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:history' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings);
+    const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'history' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:history' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации истории:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
+
+// ======================================================================
+// Подменю Рассказа
+// ======================================================================
+const LITERATURE_PAGE_SIZE = 5;
+
+/**
+ * Показать страницу литературных произведений для выбора.
+ */
+async function showLiteratureMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getLiteraturePage(page, LITERATURE_PAGE_SIZE);
+  const keyboard = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const startIndex = page * LITERATURE_PAGE_SIZE + i;
+    keyboard.push([{ text: items[i].name, callback_data: `literature_select:${startIndex}` }]);
+  }
+
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `literature_page:${curPage - 1}` });
+  }
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `literature_page:${curPage + 1}` });
+  }
+  if (navRow.length > 0) {
+    keyboard.push(navRow);
+  }
+
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'literature_random' }]);
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `📖 <b>Рассказ</b>
+Выбери произведение для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранного литературного произведения.
+ */
+async function generateLiteraturePhoto(chatId, work, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id });
+    const statusMsg = `📖 Генерирую «${work.name}»...`;
+    await tgSend(chatId, statusMsg);
+
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateLiteratureAvatar([], work, outputDir, settings);
+      const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+      await sendDebugInfo(chatId, settings, result.prompt);
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'literature' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(genCost) });
+      if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:literature' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+      } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings);
+    const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'literature' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', { reply_markup: { inline_keyboard: [[{ text: '🔄 Повторить', callback_data: 'repeat_style:literature' }, { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }]] } });
+    } else { await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: buildBuyKeyboard() }); }
+  } catch (err) {
+    console.error('❌ Ошибка генерации литературы:', err.message);
+    metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
     await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
   }
 }
