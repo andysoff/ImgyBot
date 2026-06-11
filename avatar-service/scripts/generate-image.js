@@ -663,7 +663,7 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings, ch
  */
 async function generateNoAvatarCustom(promptText, outputDir, settings, chatId) {
   const prompt = applyQuality(
-    `<start_of_image_generation>\n${promptText}\n<end_of_image_generation>\n\nMake it look like a high-quality realistic photo, photorealistic, professional photography.`,
+    `${promptText}\n\nMake it look like a high-quality realistic photo, photorealistic, professional photography.`,
     settings
   );
 
