@@ -1169,7 +1169,8 @@ const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
   size: 'medium',
-  model: 'gemini-3.1-flash-image-preview'
+  model: 'gemini-3.1-flash-image-preview',
+  debug: false
 };
 
 const QUALITY_OPTIONS = {
@@ -1192,11 +1193,13 @@ const ASPECT_OPTIONS = {
   '9:16': { label: '📲 9:16 Телефон' }
 };
 
+
 const MODEL_OPTIONS = {
   'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
   'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
 };
+
 
 function getSettings(telegramId) {
   try {
@@ -1235,16 +1238,18 @@ function handleSettings(telegramId) {
     // Админ — полное меню
     const qualityLabel = QUALITY_OPTIONS[s.quality]?.label || '👍 Стандарт';
     const sizeLabel = SIZE_OPTIONS[s.size]?.label || '🟡 Средний';
+    const debugLabel = s.debug ? '🔧 Вкл' : '🔧 Выкл';
 
     keyboard = [
       [{ text: '🖼 Размер: ' + sizeLabel, callback_data: 'settings_size' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
       [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n🖼 Размер: ' + sizeLabel + '\n📷 Качество: ' + qualityLabel + '\n📐 Соотношение: ' + aspectLabel + '\n🔧 Отладка: ' + debugLabel;
   } else {
     // Обычные пользователи — только модель и соотношение
     keyboard = [
@@ -1305,6 +1310,35 @@ function handleSettingsAspect(telegramId) {
 /**
  * Показать выбор модели.
  */
+function getDebugEnabled(telegramId) {
+  const s = getSettings(telegramId);
+  return s.debug === true;
+}
+
+/**
+ * Показать меню отладки (только для админа).
+ */
+function handleSettingsDebug(telegramId) {
+  const s = getSettings(telegramId);
+  const isEnabled = s.debug === true;
+
+  return {
+    text: '🔧 <b>Режим отладки</b>\n\n'
+      + 'Показывает техническую информацию после каждой генерации:\n'
+      + '• Финальный промпт, отправленный нейросети\n'
+      + '• Модель, качество, размер, формат\n\n'
+      + 'Сейчас: <b>' + (isEnabled ? '✅ Включён' : '❌ Выключен') + '</b>',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: (isEnabled ? '✅ ' : '') + 'Включить', callback_data: 'set_debug:true' }],
+        [{ text: (!isEnabled ? '✅ ' : '') + 'Выключить', callback_data: 'set_debug:false' }],
+        [{ text: '🔙 Назад', callback_data: 'settings_main' }]
+      ]
+    }
+  };
+}
+
 function handleSettingsModel(telegramId) {
   const s = getSettings(telegramId);
   const options = getModelOptions(telegramId);
@@ -1619,6 +1653,8 @@ module.exports = {
   handleSettingsAspect,
   handleSettingsSize,
   handleSettingsModel,
+  handleSettingsDebug,
+  getDebugEnabled,
   getQualityPrompt,
   getAspectRatio,
   getSizePrompt,

@@ -154,7 +154,8 @@ const SIZE_HINTS = {
   large: ', full body shot, wide angle composition, maximum detail'
 };
 
-function applyQuality(prompt, settings) {
+function applyQuality(prompt, settings, styleMode = false) {
+  if (styleMode) return prompt;
   let result = prompt;
   const qualityHint = QUALITY_HINTS[settings?.quality] || '';
   result += qualityHint;
@@ -172,13 +173,12 @@ async function generateAvatar(files, styleId, outputDir, settings) {
   const promptBase = count === 1
     ? `Transform this person into an avatar with the following style: ${stylePrompt}. Keep the face recognizable, make it look like a high-quality professional photo.`
     : `Transform this person into an avatar with the following style: ${stylePrompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const payload = JSON.stringify({
@@ -263,7 +263,7 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
   const promptBase = count === 1
     ? `Transform this person into the following professional role: ${profession.prompt}. Keep the face recognizable, make it look like a high-quality professional photo. The person should be the main subject dressed for this role.`
     : `Transform this person into the following professional role: ${profession.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo. The person should be the main subject dressed for this role.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -285,7 +285,6 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
   console.log(`🎨 Gemini: генерация профессии «${profession.name}»...`);
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
   const result = await apiCall(payload, extraConfig);
   const candidates = result?.candidates;
@@ -439,7 +438,7 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
   const promptBase = count === 1
     ? `Transform this person into a professional athlete in the following sport: ${sport.prompt}. Keep the face recognizable, make it look like a high-quality sports action photo. The person should be the main subject playing this sport.`
     : `Transform this person into a professional athlete in the following sport: ${sport.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality sports action photo. The person should be the main subject playing this sport.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -456,7 +455,6 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
   });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
   const genStart = Date.now();
   _callLabel = 'generateSportAvatar:' + sport.id;
@@ -550,7 +548,7 @@ async function generateOfficeAvatar(files, work, outputDir, settings) {
   const promptBase = count === 1
     ? `Show this person in an office setting: ${work.prompt}. Keep the face recognizable, make it look like a high-quality realistic office photo. The person should be the main subject in this office environment.`
     : `Show this person in an office setting: ${work.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality realistic office photo. The person should be the main subject in this office environment.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -567,7 +565,6 @@ async function generateOfficeAvatar(files, work, outputDir, settings) {
     });
 
 const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -849,7 +846,7 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
   const promptBase = count === 1
     ? `Transform this person into a character from the movie "${movie.titleEn}". ${stylePrompt}`
     : `Transform this person into a character from the movie "${movie.titleEn}". I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. ${stylePrompt}`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -871,7 +868,6 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
   });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -937,7 +933,7 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
   const promptBase = count === 1
     ? `Place this person as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place. Keep the face recognizable, high quality realistic travel photo, natural lighting.`
     : `Place this person as a tourist at this famous location: ${location.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Make it look like they are actually visiting this place. Keep the face recognizable, high quality realistic travel photo, natural lighting.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -954,7 +950,6 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
   });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -1018,7 +1013,7 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
   const promptBase = count === 1
     ? `Transport this person into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.`
     : `Transport this person into the historical era: ${era.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photos.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -1041,7 +1036,6 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
   });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();
@@ -1229,7 +1223,7 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
   const promptBase = count === 1
     ? `This person as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`
     : `This person as a character from the literary work: ${work.prompt}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(promptBase, settings, true);
 
   const requestParts = files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } }));
   requestParts.push({ text: prompt });
@@ -1246,7 +1240,6 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
   });
 
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
   if (settings?.model) extraConfig.model = settings.model;
 
   const genStart = Date.now();

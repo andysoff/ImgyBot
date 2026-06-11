@@ -530,7 +530,7 @@ async function handleUpdate(update) {
     const cb = update.callback_query;
     const chatId = cb.message.chat.id;
     const msgId = cb.message.message_id;
-    const data = cb.data || '';
+    let data = cb.data || '';
 
     // ------ Callback: Онбординг ------
     if (data === 'onboarding_learn') {
@@ -694,6 +694,31 @@ async function handleUpdate(update) {
       botLogic.updateSetting(String(chatId), 'model', value);
       await tgAnswerCb(cb.id, '✅ Модель обновлена');
       const result = botLogic.handleSettingsModel(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    // ------ Callback: Отладка ------
+    if (data === 'settings_debug') {
+      metrics.track('settings:show_debug', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      const result = botLogic.handleSettingsDebug(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('set_debug:')) {
+      const value = data.replace('set_debug:', '') === 'true';
+      metrics.track('settings:debug_changed', { telegram_id: String(chatId), value: String(value) });
+      botLogic.updateSetting(String(chatId), 'debug', value);
+      await tgAnswerCb(cb.id, value ? '✅ Отладка включена' : '❌ Отладка выключена');
+      const result = botLogic.handleSettingsDebug(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
         parse_mode: result.parse_mode,
         reply_markup: result.reply_markup
@@ -1192,6 +1217,8 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(result.cost || 1) });
 
@@ -1215,6 +1242,8 @@ async function handleUpdate(update) {
             const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
+
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1240,6 +1269,8 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(result.cost || 1) });
 
@@ -1263,6 +1294,8 @@ async function handleUpdate(update) {
             const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
+
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1288,6 +1321,8 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(result.cost || 1) });
 
@@ -1311,6 +1346,8 @@ async function handleUpdate(update) {
             const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
+
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1337,6 +1374,8 @@ async function handleUpdate(update) {
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn, model: settings?.model || '', cost: String(result.cost || 1) });
 
@@ -1357,6 +1396,8 @@ async function handleUpdate(update) {
             const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
+
+            await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: styleId, sub_id: '', model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1910,6 +1951,33 @@ async function handleUpdate(update) {
  * Вызывается как из текстового сообщения, так и из сообщения с фото.
  */
 /**
+ * Отправить отладочную информацию после генерации (если режим отладки включён).
+ */
+async function sendDebugInfo(chatId, settings, prompt) {
+  if (!settings.debug) return;
+
+  const modelLabel = botLogic.MODEL_OPTIONS[settings.model]?.label || settings.model;
+  const qualityLabel = botLogic.QUALITY_OPTIONS[settings.quality]?.label || settings.quality;
+  const sizeLabel = botLogic.SIZE_OPTIONS[settings.size]?.label || settings.size;
+  const aspectLabel = botLogic.ASPECT_OPTIONS[settings.aspectRatio]?.label || settings.aspectRatio;
+
+  const debugText = '🔧 <b>Отладка</b>\n\n'
+    + '<b>Промпт:</b>\n<code>'
+    + prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    + '</code>\n\n'
+    + '<b>Модель:</b> ' + modelLabel + '\n'
+    + '<b>Качество:</b> ' + qualityLabel + '\n'
+    + '<b>Размер:</b> ' + sizeLabel + '\n'
+    + '<b>Формат:</b> ' + aspectLabel;
+
+  try {
+    await tgSend(chatId, debugText, { parse_mode: 'HTML' });
+  } catch (e) {
+    console.error('❌ Ошибка отправки отладки:', e.message);
+  }
+}
+
+/**
  * Списать одну генерацию после успешного создания фото.
  */
 function consumeAfterGeneration(chatId, result) {
@@ -1951,6 +2019,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
       await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+      await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
       const promptRemaining = consumeAfterGeneration(chatId, promptResult);
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt_no_avatar', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
@@ -2018,6 +2088,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
     metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
 
