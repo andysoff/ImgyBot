@@ -1015,6 +1015,8 @@ async function handleUpdate(update) {
         return;
       }
 
+      const isDemo = payments.isDemoMode && payments.isDemoMode();
+
       // Текст с ценами
       let text = '💳 <b>Пополнение баланса</b>\n\n';
       text += 'Выбери количество генераций:\n\n';
@@ -1026,10 +1028,40 @@ async function handleUpdate(update) {
 
       text += '\n🔹 Оплата производится через сервис <b>ЮKassa</b>.';
 
-      // Кнопки-ссылки создаются ТОЛЬКО при нажатии на конкретный пакет
-      const keyboard = payments.PACKAGES.map(pkg => ([{ text: `💳 ${pkg.generations} — ${pkg.price}₽`, callback_data: `buy:${pkg.id}` }]));
+      if (isDemo) {
+        const keyboard = payments.PACKAGES.map(pkg => ([{ text: `🎁 ${pkg.generations} (демо)`, callback_data: `buy:${pkg.id}` }]));
+        keyboard.push([{ text: '🔙 Назад', callback_data: 'back_to_menu' }]);
+        await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
+        return;
+      }
+
+      // Создаём платежи для ВСЕХ пакетов параллельно
+      const results = await Promise.allSettled(
+        payments.PACKAGES.map(pkg => payments.createPayment(chatId, pkg.id))
+      );
+
+      const keyboard = [];
+      for (let i = 0; i < payments.PACKAGES.length; i++) {
+        const result = results[i];
+        const pkg = payments.PACKAGES[i];
+
+        if (result.status === 'fulfilled') {
+          keyboard.push([{ text: `💳 Купить ${pkg.generations} — ${pkg.price}₽`, url: result.value.confirmationUrl }]);
+          botLogic.addPendingPayment(String(chatId), result.value.paymentId, pkg.id);
+        } else {
+          console.error(`❌ Не удалось создать платёж для ${pkg.id}:`, result.reason?.message);
+          keyboard.push([{ text: `⚠️ ${pkg.generations} (ошибка)`, callback_data: 'buy_error' }]);
+        }
+      }
       keyboard.push([{ text: '🔙 Назад', callback_data: 'back_to_menu' }]);
-      await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
+
+      const sentMsg = await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
+      const sentMsgId = sentMsg.ok ? sentMsg.result?.message_id : null;
+
+      // Запускаем фоновую проверку для каждого платежа
+      for (const pp of botLogic.getPendingPayments(String(chatId))) {
+        startPaymentWatcher(chatId, sentMsgId, pp.paymentId, pp.packageId);
+      }
     }
 
     if (data.startsWith('check_payment:')) {
