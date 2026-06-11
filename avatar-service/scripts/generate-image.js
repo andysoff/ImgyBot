@@ -18,6 +18,9 @@ const MODEL = 'gemini-2.5-flash-image';
 // Стили → промпты
 const STYLE_PROMPTS = {
   portrait: 'professional studio portrait photo, high quality, soft lighting, clean background, focus on face, magazine quality, realistic',
+  portrait_business: 'professional corporate business portrait, formal business attire (suit and tie or blazer), clean minimal background, confident professional expression, soft studio lighting, high-end corporate headshot style, magazine quality, realistic photo',
+  portrait_artistic: 'artistic creative portrait, dramatic lighting with deep shadows and highlights, artistic composition, moody atmosphere, expressive emotion, fine art photography style, textured background, painterly quality, professional photography, high quality, realistic photo',
+  portrait_casual: 'casual natural portrait, relaxed everyday setting, candid moment feeling, soft natural lighting, authentic expression, lifestyle photography style, comfortable clothing, warm cozy atmosphere, realistic photo, professional quality',
   sport: 'dynamic sporty portrait, athletic look, action pose, sportswear aesthetic, high energy, realistic photo, professional lighting',
   in_car: 'in a car, driver or passenger seat, automotive lifestyle, natural lighting through window, modern car interior, realistic photo, cinematic',
   in_office: 'professional office setting, business attire, desk and computer, natural office lighting, realistic photo',

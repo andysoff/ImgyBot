@@ -114,13 +114,64 @@ function buildStylesKeyboard() {
   const keyboard = [];
   for (let i = 0; i < styles.length; i += 2) {
     const row = [];
-    row.push({ text: styles[i].name, callback_data: `style:${styles[i].id}` });
+    const s1 = styles[i];
+    row.push({ text: s1.name, callback_data: (s1.subStyles ? `substyle_menu:${s1.id}` : `style:${s1.id}`) });
     if (styles[i + 1]) {
-      row.push({ text: styles[i + 1].name, callback_data: `style:${styles[i + 1].id}` });
+      const s2 = styles[i + 1];
+      row.push({ text: s2.name, callback_data: (s2.subStyles ? `substyle_menu:${s2.id}` : `style:${s2.id}`) });
     }
     keyboard.push(row);
   }
   return keyboard;
+}
+
+/**
+ * Показать подменю подстилей для выбранного стиля.
+ */
+function handleSubStyleMenu(telegramId, styleId) {
+  const styles = readJSON(STYLES_FILE);
+  const style = styles.find(s => s.id === styleId);
+  if (!style || !style.subStyles || style.subStyles.length === 0) {
+    return null;
+  }
+
+  const keyboard = [];
+  // Кнопки подстилей по 2 в ряд
+  for (let i = 0; i < style.subStyles.length; i += 2) {
+    const row = [];
+    row.push({ text: style.subStyles[i].name, callback_data: `substyle_select:${style.subStyles[i].id}` });
+    if (style.subStyles[i + 1]) {
+      row.push({ text: style.subStyles[i + 1].name, callback_data: `substyle_select:${style.subStyles[i + 1].id}` });
+    }
+    keyboard.push(row);
+  }
+  // Кнопка назад
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  return {
+    text: `<b>${style.name}</b> — выбери тип портрета:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  };
+}
+
+/**
+ * Обработать выбор подстиля.
+ * Ищет подстиль в subStyles родительского стиля и передаёт его id в handleStyleSelected.
+ */
+function handleSubStyleSelected(telegramId, subStyleId) {
+  // Ищем подстиль среди всех стилей
+  const styles = readJSON(STYLES_FILE);
+  for (const style of styles) {
+    if (style.subStyles) {
+      const sub = style.subStyles.find(s => s.id === subStyleId);
+      if (sub) {
+        // Создаём виртуальный стиль для handleStyleSelected
+        return handleStyleSelected(telegramId, subStyleId);
+      }
+    }
+  }
+  return { text: '❌ Такого подстиля нет. Выбери из предложенных.' };
 }
 
 function findUserByTelegram(telegramId) {
@@ -468,7 +519,17 @@ function handleStyleSelected(telegramId, styleId) {
   }
 
   const styles = readJSON(STYLES_FILE);
-  const style = styles.find(s => s.id === styleId);
+  // Ищем стиль сначала на верхнем уровне, потом в подстилях
+  let style = styles.find(s => s.id === styleId);
+  if (!style) {
+    // Ищем в подстилях
+    for (const s of styles) {
+      if (s.subStyles) {
+        style = s.subStyles.find(sub => sub.id === styleId);
+        if (style) break;
+      }
+    }
+  }
   if (!style) {
     return { text: '❌ Такого стиля нет. Выбери из предложенных.' };
   }
@@ -1516,6 +1577,8 @@ module.exports = {
   handleBuy,
   handlePhotosReceived,
   handleStyleSelected,
+  handleSubStyleMenu,
+  handleSubStyleSelected,
   handleGenerationsExhausted,
   buildBuyKeyboard,
   exhaustionMessage,

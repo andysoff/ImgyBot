@@ -1103,6 +1103,39 @@ async function handleUpdate(update) {
       return;
     }
 
+    if (data.startsWith('substyle_menu:')) {
+      const subStyleId = data.replace('substyle_menu:', '');
+      const result = botLogic.handleSubStyleMenu(String(chatId), subStyleId);
+      if (!result) {
+        await tgAnswerCb(cb.id, '❌', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, '');
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('substyle_select:')) {
+      const styleId = data.replace('substyle_select:', '');
+      // Перенаправляем в обычный обработчик стилей
+      data = 'style:' + styleId;
+    }
+
+    if (data === 'back_to_styles') {
+      const user = botLogic.findUserByTelegram(String(chatId));
+      if (user) {
+        const result = botLogic.handleStyles(String(chatId));
+        await tgAnswerCb(cb.id, '');
+        await tgEdit(chatId, msgId, result.text, {
+          reply_markup: result.reply_markup
+        });
+      }
+      return;
+    }
+
     if (data.startsWith('style:')) {
       const styleId = data.replace('style:', '');
       metrics.track('style:selected', { telegram_id: String(chatId), style_id: styleId });
