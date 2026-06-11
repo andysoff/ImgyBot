@@ -1186,6 +1186,18 @@ async function handleUpdate(update) {
       return;
     }
 
+    if (data === 'show_styles_after_generation') {
+      const user = botLogic.findUserByTelegram(String(chatId));
+      if (user) {
+        const result = botLogic.handleStyles(String(chatId));
+        await tgAnswerCb(cb.id, '');
+        await tgEdit(chatId, msgId, result.text, {
+          reply_markup: result.reply_markup
+        });
+      }
+      return;
+    }
+
     if (data.startsWith('style:')) {
       const styleId = data.replace('style:', '');
       metrics.track('style:selected', { telegram_id: String(chatId), style_id: styleId });
@@ -1252,13 +1264,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1284,13 +1299,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1316,13 +1334,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1348,13 +1369,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1380,13 +1404,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1412,13 +1439,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1445,13 +1475,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1474,13 +1507,16 @@ async function handleUpdate(update) {
             }
 
             if (actualRemaining > 0) {
-              const repeatKeyboard = {
-                inline_keyboard: [
-                  [{ text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId }],
-                ...result.reply_markup.inline_keyboard
-                ]
-              };
-              await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+              await tgSend(chatId, 'Готово! Что дальше? 👇', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔄 Повторить', callback_data: 'repeat_style:' + styleId },
+                      { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                    ]
+                  ]
+                }
+              });
             } else {
               await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
             }
@@ -1765,13 +1801,16 @@ async function handleUpdate(update) {
         }
 
         if (actualRemaining > 0) {
-          const repeatKeyboard = {
-            inline_keyboard: [
-              [{ text: '🔄 Повторить', callback_data: `repeat_style:${repeatStyleId}` }],
-              ...result.reply_markup.inline_keyboard
-            ]
-          };
-          await tgSend(chatId, 'Выбери ещё один стиль 👇', { reply_markup: repeatKeyboard });
+          await tgSend(chatId, 'Готово! Что дальше? 👇', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🔄 Повторить', callback_data: `repeat_style:${repeatStyleId}` },
+                  { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+                ]
+              ]
+            }
+          });
         } else {
           await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
         }
