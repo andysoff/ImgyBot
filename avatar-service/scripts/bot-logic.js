@@ -552,7 +552,13 @@ function handleStyleSelected(telegramId, styleId) {
   }
 
   // Не списываем генерации — они будут списаны после успешной генерации
-  setConversation(telegramId, 'awaiting_style', { userId, avatarId });
+  // Сохраняем lastGeneratedPrompt, если он был (для кнопки «Повторить»)
+  const existingData = getConversation(telegramId).data || {};
+  setConversation(telegramId, 'awaiting_style', {
+    userId,
+    avatarId,
+    lastGeneratedPrompt: existingData.lastGeneratedPrompt
+  });
 
   return {
     text: `✅ Стиль «${style.name}». Генерирую...`,

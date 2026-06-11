@@ -334,7 +334,7 @@ async function _callGemini(opts) {
   if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
   fs.mkdirSync(opts.outputDir, { recursive: true });
 
-  const { files, prompt, outputDir, settings, metricsLabel, metricsStyle, metricsSub, logMessage, filenameBase } = opts;
+  const { files, prompt, outputDir, settings, metricsLabel, metricsStyle, metricsSub, logMessage, filenameBase, chatId } = opts;
   const label = metricsLabel || 'generate';
   const fnameBase = filenameBase || 'generated';
 
@@ -382,6 +382,21 @@ async function _callGemini(opts) {
     img_size_kb: imgSizeKB
   });
 
+  // Сохраняем последний промпт для кнопки «Повторить» — единая точка, внутри вызова Gemini
+  if (chatId && prompt) {
+    try {
+      const convFile = path.join(__dirname, '..', 'data', 'conversations.json');
+      const all = JSON.parse(fs.readFileSync(convFile, 'utf-8'));
+      if (all[chatId]) {
+        all[chatId].data = all[chatId].data || {};
+        all[chatId].data.lastGeneratedPrompt = { text: prompt, styleId: metricsStyle || 'unknown' };
+        fs.writeFileSync(convFile, JSON.stringify(all, null, 2) + '\n');
+      }
+    } catch (e) {
+      console.warn('⚠️ Не удалось сохранить промпт для повтора:', e.message);
+    }
+  }
+
   return { path: outputPath, prompt };
 }
 
@@ -411,7 +426,7 @@ function _buildPhotoPrompt(description, count, extra = {}) {
 /**
  * Сгенерировать аватарку по стилю.
  */
-async function generateAvatar(files, styleId, outputDir, settings) {
+async function generateAvatar(files, styleId, outputDir, settings, chatId) {
   const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
@@ -431,7 +446,7 @@ async function generateAvatar(files, styleId, outputDir, settings) {
 /**
  * Сгенерировать аватарку для случайной профессии.
  */
-async function generateProfessionAvatar(files, profession, outputDir, settings) {
+async function generateProfessionAvatar(files, profession, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -446,14 +461,15 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
     metricsStyle: 'professions',
     metricsSub: profession.id,
     logMessage: `генерация профессии «${profession.name}»`,
-    filenameBase: 'profession_' + profession.id
+    filenameBase: 'profession_' + profession.id,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку для случайного вида спорта.
  */
-async function generateSportAvatar(files, sport, outputDir, settings) {
+async function generateSportAvatar(files, sport, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -468,14 +484,15 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
     metricsStyle: 'sport',
     metricsSub: sport.id,
     logMessage: `генерация спорта «${sport.name}»`,
-    filenameBase: 'sport_' + sport.id
+    filenameBase: 'sport_' + sport.id,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку для офисной роли.
  */
-async function generateOfficeAvatar(files, work, outputDir, settings) {
+async function generateOfficeAvatar(files, work, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -490,14 +507,15 @@ async function generateOfficeAvatar(files, work, outputDir, settings) {
     metricsStyle: 'in_office',
     metricsSub: work.id,
     logMessage: `генерация офисной роли «${work.name}»`,
-    filenameBase: 'office_' + work.id
+    filenameBase: 'office_' + work.id,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку в стиле фильма.
  */
-async function generateCinemaAvatar(files, movie, outputDir, settings) {
+async function generateCinemaAvatar(files, movie, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -514,14 +532,15 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
     metricsStyle: 'cinema',
     metricsSub: movie.titleEn,
     logMessage: `генерация в стиле фильма «${movie.title}»`,
-    filenameBase
+    filenameBase,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку на фоне знаменитой локации.
  */
-async function generateLocationAvatar(files, location, outputDir, settings) {
+async function generateLocationAvatar(files, location, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -536,14 +555,15 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
     metricsStyle: 'location',
     metricsSub: location.id,
     logMessage: `генерация локации «${location.name}»`,
-    filenameBase: 'location_' + location.id
+    filenameBase: 'location_' + location.id,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку в стиле исторической эпохи.
  */
-async function generateHistoryAvatar(files, era, outputDir, settings) {
+async function generateHistoryAvatar(files, era, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -558,14 +578,15 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
     metricsStyle: 'history',
     metricsSub: era.id,
     logMessage: `генерация эпохи «${era.name}»`,
-    filenameBase: 'history_' + era.id
+    filenameBase: 'history_' + era.id,
+    chatId
   });
 }
 
 /**
  * Сгенерировать аватарку в стиле литературного произведения.
  */
-async function generateLiteratureAvatar(files, work, outputDir, settings) {
+async function generateLiteratureAvatar(files, work, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -580,14 +601,15 @@ async function generateLiteratureAvatar(files, work, outputDir, settings) {
     metricsStyle: 'literature',
     metricsSub: work.id,
     logMessage: `генерация литературы «${work.name}»`,
-    filenameBase: 'literature_' + work.id
+    filenameBase: 'literature_' + work.id,
+    chatId
   });
 }
 
 /**
  * Режим бога — генерация по кастомному описанию с использованием фото.
  */
-async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
+async function generateCustomAvatar(files, customPrompt, outputDir, settings, chatId) {
   const count = files.length;
   const promptBase = count === 1
     ? `Transform this person's photo according to this description: ${customPrompt}. Keep the face recognizable, make it look like a high-quality professional photo.`
@@ -606,7 +628,7 @@ async function generateCustomAvatar(files, customPrompt, outputDir, settings) {
 /**
  * Генерация без фото пользователя (режим «Без аватара»).
  */
-async function generateNoAvatarCustom(promptText, outputDir, settings) {
+async function generateNoAvatarCustom(promptText, outputDir, settings, chatId) {
   const prompt = applyQuality(
     `<start_of_image_generation>\n${promptText}\n<end_of_image_generation>\n\nMake it look like a high-quality realistic photo, photorealistic, professional photography.`,
     settings
@@ -1218,18 +1240,24 @@ function getRandomCarModel() {
   return { brand, model };
 }
 
-async function generateCarAvatar(files, brand, model, outputDir, settings) {
-  _callLabel = 'generateCarAvatar';
+async function generateCarAvatar(files, brand, model, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
   const prompt = _buildPhotoPrompt(
-    `next to a ${model.prompt}, person leaning on the hood or standing beside the car, urban parking setting or scenic road, golden hour lighting, car enthusiast lifestyle photography, professional automotive photo style${portraitTypeHint}`,
+    `${model.prompt}, front grille and headlights clearly visible, car logo and badge prominent, professional automotive photography, sharp detailed front view showing the make and model of the car, model standing next to the front hood or near the driver door, stylish streetwear fashion, urban setting bright day, high-end luxury car photo shoot, person and car both in frame, car front half fully in shot${portraitTypeHint}`,
     files.length
   );
   console.log(`🎨 Генерация авто: ${brand.name} ${model.name}`);
-  const result = await _generate(files, prompt, outputDir, settings);
-  return result;
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateCarAvatar:' + brand.id,
+    metricsStyle: 'near_car',
+    metricsSub: brand.id + '_' + model.id,
+    logMessage: `генерация «${brand.name} ${model.name}»`,
+    filenameBase: 'car_' + brand.id + '_' + model.id,
+    chatId
+  });
 }
 
 function getLiteratureByIndex(index) {
@@ -1284,8 +1312,24 @@ if (require.main === module) {
 // EXPORTS
 // ======================================================================
 
+/**
+ * Универсальная генерация по готовому промпту.
+ * Подходит для повтора — нужен только финальный текст промпта.
+ */
+async function generateWithPrompt(files, prompt, outputDir, settings, chatId) {
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateWithPrompt',
+    metricsStyle: 'repeat',
+    logMessage: 'повтор по сохранённому промпту',
+    filenameBase: 'repeat_generated',
+    chatId
+  });
+}
+
 module.exports = {
   // Единая генерация
+  generateWithPrompt,
   generateAvatar,
   generateProfessionAvatar,
   generateCinemaAvatar,

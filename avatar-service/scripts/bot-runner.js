@@ -14,6 +14,18 @@
  *   "отмена"        → возврат в начало
  */
 
+/**
+ * Сохранить готовый промпт для повтора (универсально для всех стилей).
+ */
+function savePromptForRepeat(chatId, prompt, styleId) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv?.data) return;
+  botLogic.setConversation(String(chatId), conv.state, {
+    ...conv.data,
+    lastGeneratedPrompt: { text: prompt, styleId }
+  });
+}
+
 // ===================== PID Lock =====================
 // Защита от дублирования процессов — только один экземпляр бота.
 const PID_FILE = '/tmp/imgy-bot.pid';
@@ -1517,7 +1529,7 @@ async function handleUpdate(update) {
             const profession = generateImage.getRandomProfession();
             await tgEdit(chatId, statusMsg, `👨‍💼 Генерирую в стиле «${profession.name}»...`);
 
-            const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
+            const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings, String(chatId));
 
             const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1552,7 +1564,7 @@ async function handleUpdate(update) {
             const sport = generateImage.getRandomSport();
             await tgEdit(chatId, statusMsg, `🏃 Генерирую в стиле «${sport.name}»...`);
 
-            const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings);
+            const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings, String(chatId));
 
             const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1587,7 +1599,7 @@ async function handleUpdate(update) {
             const office = generateImage.getRandomOffice();
             await tgEdit(chatId, statusMsg, `💼 Генерирую «${office.name}»...`);
 
-            const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings);
+            const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings, String(chatId));
 
             const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1622,7 +1634,7 @@ async function handleUpdate(update) {
             const location = generateImage.getRandomLocation();
             await tgEdit(chatId, statusMsg, `🌍 Генерирую «${location.name}»...`);
 
-            const generatedResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings);
+            const generatedResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings, String(chatId));
 
             const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1657,7 +1669,7 @@ async function handleUpdate(update) {
             const era = generateImage.getRandomHistory();
             await tgEdit(chatId, statusMsg, `🎬 Генерирую «${era.name}»...`);
 
-            const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings);
+            const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings, String(chatId));
 
             const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1692,7 +1704,7 @@ async function handleUpdate(update) {
             const work = generateImage.getRandomLiterature();
             await tgEdit(chatId, statusMsg, `📚 Генерирую «${work.name}»...`);
 
-            const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings);
+            const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings, String(chatId));
 
             const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1727,7 +1739,7 @@ async function handleUpdate(update) {
             const movie = generateImage.getRandomMovie();
             await tgEdit(chatId, statusMsg, `🎬 Генерирую в стиле «${movie.title}» (${movie.year})...`);
 
-            const generatedResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
+            const generatedResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings, String(chatId));
 
             const caption = `🎬 «${movie.title}» (${movie.year})
 🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
@@ -1760,7 +1772,7 @@ async function handleUpdate(update) {
 
           } else {
             // === Обычный стиль — одно фото ===
-            const generatedResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings);
+            const generatedResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
 
             const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -1845,36 +1857,36 @@ async function handleUpdate(update) {
               let retryResult;
               if (styleId === 'professions') {
                 const profession = generateImage.getRandomProfession();
-                retryResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
+                retryResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings, String(chatId));
                 const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else if (styleId === 'sport') {
                 const sport = generateImage.getRandomSport();
-                retryResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings);
+                retryResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings, String(chatId));
                 const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else if (styleId === 'in_office') {
                 const office = generateImage.getRandomOffice();
-                retryResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings);
+                retryResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings, String(chatId));
                 const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else if (styleId === 'location') {
                 const location = generateImage.getRandomLocation();
-                retryResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings);
+                retryResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings, String(chatId));
                 const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else if (styleId === 'history') {
                 const era = generateImage.getRandomHistory();
-                retryResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings);
+                retryResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings, String(chatId));
                 const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else if (styleId === 'cinema') {
                 const movie = generateImage.getRandomMovie();
-                retryResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
+                retryResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings, String(chatId));
                 const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else {
-                retryResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings);
+                retryResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
                 const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               }
@@ -2011,60 +2023,75 @@ async function handleUpdate(update) {
         const outputDir = path.join(__dirname, '..', 'photos', 'generated');
         fs.mkdirSync(outputDir, { recursive: true });
 
-        const geminiFiles = await ensureGeminiFiles(avatar, avatars);
-        if (geminiFiles.length === 0) {
+        const isNoAvatar = result.isNoAvatar || result.avatarId === 'no_avatar';
+        const geminiFiles = isNoAvatar ? [] : await ensureGeminiFiles(avatar, avatars);
+        if (!isNoAvatar && geminiFiles.length === 0) {
           await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
           return;
         }
 
         metrics.track('generation:started', { telegram_id: String(chatId), style_id: repeatStyleId });
 
-        let generatedResult;
-        if (repeatStyleId === 'professions') {
+        // === УНИВЕРСАЛЬНЫЙ ПОВТОР: если есть сохранённый промпт для этого стиля — используем его ===
+        const repeatConv = botLogic.getConversation(String(chatId));
+        const savedPromptData = repeatConv?.data?.lastGeneratedPrompt;
+        const usingSavedPrompt = savedPromptData && savedPromptData.styleId === repeatStyleId;
+
+        let generatedResult, caption, styleLabel;
+
+        if (usingSavedPrompt) {
+          generatedResult = await generateImage.generateWithPrompt(geminiFiles, savedPromptData.text, outputDir, settings, String(chatId));
+          caption = `🔄 Повтор\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = repeatStyleId;
+        } else if (repeatStyleId === 'professions') {
           const profession = require('./generate-image').getRandomProfession();
           generatedResult = await require('./generate-image').generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
-          const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'professions';
         } else if (repeatStyleId === 'sport') {
           const sport = require('./generate-image').getRandomSport();
           generatedResult = await require('./generate-image').generateSportAvatar(geminiFiles, sport, outputDir, settings);
-          const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'sport';
         } else if (repeatStyleId === 'in_office') {
           const office = require('./generate-image').getRandomOffice();
           generatedResult = await require('./generate-image').generateOfficeAvatar(geminiFiles, office, outputDir, settings);
-          const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'in_office';
         } else if (repeatStyleId === 'location') {
           const location = require('./generate-image').getRandomLocation();
           generatedResult = await require('./generate-image').generateLocationAvatar(geminiFiles, location, outputDir, settings);
-          const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'location';
         } else if (repeatStyleId === 'history') {
           const era = require('./generate-image').getRandomHistory();
           generatedResult = await require('./generate-image').generateHistoryAvatar(geminiFiles, era, outputDir, settings);
-          const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'history';
         } else if (repeatStyleId === 'literature') {
           const work = require('./generate-image').getRandomLiterature();
           generatedResult = await require('./generate-image').generateLiteratureAvatar(geminiFiles, work, outputDir, settings);
-          const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'literature';
         } else if (repeatStyleId === 'cinema') {
           const movie = require('./generate-image').getRandomMovie();
           generatedResult = await require('./generate-image').generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
-          const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'cinema';
         } else if (repeatStyleId === 'near_car') {
-          const { brand, model } = require('./generate-image').getRandomCarModel();
-          generatedResult = await require('./generate-image').generateCarAvatar(geminiFiles, brand, model, outputDir, settings);
-          const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          const { brand, model } = generateImage.getRandomCarModel();
+          generatedResult = await generateImage.generateCarAvatar(geminiFiles, brand, model, outputDir, settings, String(chatId));
+          caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = 'near_car';
         } else {
           generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings);
-          const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
-          await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+          caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          styleLabel = repeatStyleId;
         }
+
+        await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+        // Сохраняем промпт для следующего повтора (универсально)
 
         await sendDebugInfo(chatId, settings, generatedResult.prompt);
 
@@ -2526,7 +2553,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     // Режим "Без аватара" — генерация без фото пользователя
     if (promptResult.isNoAvatar) {
       metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
-      const generatedResult = await generateImage.generateNoAvatarCustom(promptResult.promptText, outputDir, settings);
+      const generatedResult = await generateImage.generateNoAvatarCustom(promptResult.promptText, outputDir, settings, String(chatId));
 
       const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
@@ -2595,7 +2622,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
     // Используется getModelCost для динамической стоимости
     metrics.track('prompt:generation_started', { telegram_id: String(chatId) });
-    const generatedResult = await generateImage.generateCustomAvatar(geminiFiles, promptResult.promptText, outputDir, settings);
+    const generatedResult = await generateImage.generateCustomAvatar(geminiFiles, promptResult.promptText, outputDir, settings, String(chatId));
 
     const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
 
@@ -2897,7 +2924,7 @@ async function generateCinemaMovie(chatId, movie, cb) {
 
     // Режим "Без аватара"
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateCinemaAvatar([], movie, outputDir, settings);
+      const result = await generateImage.generateCinemaAvatar([], movie, outputDir, settings, String(chatId));
       const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
 
@@ -2934,7 +2961,7 @@ async function generateCinemaMovie(chatId, movie, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
+    const generatedResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings, String(chatId));
 
     const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -3048,7 +3075,7 @@ async function generateLocationPhoto(chatId, location, cb) {
 
     // Режим "Без аватара"
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateLocationAvatar([], location, outputDir, settings);
+      const result = await generateImage.generateLocationAvatar([], location, outputDir, settings, String(chatId));
       const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
 
@@ -3085,7 +3112,7 @@ async function generateLocationPhoto(chatId, location, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings);
+    const generatedResult = await generateImage.generateLocationAvatar(geminiFiles, location, outputDir, settings, String(chatId));
 
     const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
@@ -3193,7 +3220,7 @@ async function generateSportPhoto(chatId, sport, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateSportAvatar([], sport, outputDir, settings);
+      const result = await generateImage.generateSportAvatar([], sport, outputDir, settings, String(chatId));
       const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3213,7 +3240,7 @@ async function generateSportPhoto(chatId, sport, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings);
+    const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings, String(chatId));
     const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
@@ -3297,7 +3324,7 @@ async function generateOfficePhoto(chatId, office, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateOfficeAvatar([], office, outputDir, settings);
+      const result = await generateImage.generateOfficeAvatar([], office, outputDir, settings, String(chatId));
       const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3317,7 +3344,7 @@ async function generateOfficePhoto(chatId, office, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings);
+    const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings, String(chatId));
     const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
@@ -3401,7 +3428,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateHistoryAvatar([], era, outputDir, settings);
+      const result = await generateImage.generateHistoryAvatar([], era, outputDir, settings, String(chatId));
       const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3421,7 +3448,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings);
+    const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings, String(chatId));
     const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
@@ -3505,7 +3532,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateLiteratureAvatar([], work, outputDir, settings);
+      const result = await generateImage.generateLiteratureAvatar([], work, outputDir, settings, String(chatId));
       const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3525,7 +3552,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings);
+    const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings, String(chatId));
     const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
@@ -3609,7 +3636,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateProfessionAvatar([], profession, outputDir, settings);
+      const result = await generateImage.generateProfessionAvatar([], profession, outputDir, settings, String(chatId));
       const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3629,7 +3656,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings);
+    const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings, String(chatId));
     const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
@@ -3755,7 +3782,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
     await tgSend(chatId, statusMsg);
 
     if (avatarId === 'no_avatar') {
-      const result = await generateImage.generateCarAvatar([], brand, model, outputDir, settings);
+      const result = await generateImage.generateCarAvatar([], brand, model, outputDir, settings, String(chatId));
       const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
       await sendDebugInfo(chatId, settings, result.prompt);
@@ -3775,7 +3802,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
       return;
     }
 
-    const generatedResult = await generateImage.generateCarAvatar(geminiFiles, brand, model, outputDir, settings);
+    const generatedResult = await generateImage.generateCarAvatar(geminiFiles, brand, model, outputDir, settings, String(chatId));
     const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
     await sendDebugInfo(chatId, settings, generatedResult.prompt);
