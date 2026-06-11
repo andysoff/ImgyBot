@@ -962,6 +962,18 @@ function getRandomMovie() {
   return MOVIES[Math.floor(Math.random() * MOVIES.length)];
 }
 
+function getMovieByIndex(index) {
+  return MOVIES[index] || null;
+}
+
+function getMoviesPage(page, pageSize = 10) {
+  const total = MOVIES.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = page * pageSize;
+  const items = MOVIES.slice(start, start + pageSize);
+  return { items, page, totalPages, total };
+}
+
 // Локации
 const { LOCATIONS } = require('./locations-data');
 function getRandomLocation() {
@@ -1039,6 +1051,8 @@ module.exports = {
   PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE,
   // Рандомайзеры
   getRandomMovie,
+  getMovieByIndex,
+  getMoviesPage,
   getRandomProfession,
   getRandomSport,
   getRandomOffice,

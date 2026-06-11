@@ -1150,6 +1150,33 @@ async function handleUpdate(update) {
       data = 'style:' + styleId;
     }
 
+    // ------ Callback: Кино — выбор фильма из списка ------
+    if (data.startsWith('cinema_page:')) {
+      const page = parseInt(data.replace('cinema_page:', ''), 10);
+      await tgAnswerCb(cb.id, '');
+      await showCinemaMenu(chatId, msgId, page);
+      return;
+    }
+
+    if (data.startsWith('cinema_select:')) {
+      const index = parseInt(data.replace('cinema_select:', ''), 10);
+      const movie = generateImage.getMovieByIndex(index);
+      if (!movie) {
+        await tgAnswerCb(cb.id, '❌ Фильм не найден', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, `🎬 «${movie.title}»`);
+      await generateCinemaMovie(chatId, movie, cb);
+      return;
+    }
+
+    if (data === 'cinema_random') {
+      const movie = generateImage.getRandomMovie();
+      await tgAnswerCb(cb.id, `🎬 Случайно: «${movie.title}»`);
+      await generateCinemaMovie(chatId, movie, cb);
+      return;
+    }
+
     if (data === 'back_to_styles') {
       const user = botLogic.findUserByTelegram(String(chatId));
       if (user) {
@@ -1194,6 +1221,12 @@ async function handleUpdate(update) {
           : `✅ Стиль: «${result.style.name}»\nГенерации закончились`;
 
         await tgEdit(chatId, msgId, statusText);
+
+        // ==== Кино — показываем подменю фильмов вместо генерации ====
+        if (styleId === 'cinema') {
+          await showCinemaMenu(chatId, msgId, 0);
+          return;
+        }
 
         // ==== Генерация изображения ====
         const settings = botLogic.getSettings(String(chatId));
@@ -2528,6 +2561,158 @@ console.log(`📁 Временные фото: ${PHOTOS_TMP}`);
     console.error('⚠️ Ошибка восстановления watcher\'ов:', e.message);
   }
 })();
+
+// ======================================================================
+// Подменю Кино
+// ======================================================================
+const CINEMA_PAGE_SIZE = 10;
+
+/**
+ * Показать страницу фильмов для выбора.
+ */
+async function showCinemaMenu(chatId, msgId, page) {
+  const { items, page: curPage, totalPages, total } = generateImage.getMoviesPage(page, CINEMA_PAGE_SIZE);
+  const keyboard = [];
+
+  // Кнопки фильмов по 2 в ряд
+  for (let i = 0; i < items.length; i += 2) {
+    const row = [];
+    const startIndex = page * CINEMA_PAGE_SIZE + i;
+    row.push({ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` });
+    if (items[i + 1]) {
+      row.push({ text: `🎬 ${items[i + 1].title}`, callback_data: `cinema_select:${startIndex + 1}` });
+    }
+    keyboard.push(row);
+  }
+
+  // Пагинация + Случайно
+  const navRow = [];
+  if (curPage > 0) {
+    navRow.push({ text: '⬅️', callback_data: `cinema_page:${curPage - 1}` });
+  }
+  navRow.push({ text: '🎲 Случайно', callback_data: 'cinema_random' });
+  if (curPage < totalPages - 1) {
+    navRow.push({ text: '➡️', callback_data: `cinema_page:${curPage + 1}` });
+  }
+  keyboard.push(navRow);
+
+  // Кнопка назад
+  keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+  const text = `🎬 <b>Кино</b>
+Выбери фильм для генерации (стр. ${curPage + 1}/${totalPages}):`;
+
+  await tgEdit(chatId, msgId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+/**
+ * Сгенерировать фото в стиле выбранного фильма.
+ */
+async function generateCinemaMovie(chatId, movie, cb) {
+  const conv = botLogic.getConversation(String(chatId));
+  if (!conv || !conv.data || !conv.data.userId) {
+    await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
+    return;
+  }
+
+  const { userId, avatarId } = conv.data;
+  const settings = botLogic.getSettings(String(chatId));
+
+  try {
+    const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
+    const avatar = avatars.find(a => a.id === avatarId);
+    const outputDir = path.join(__dirname, '..', 'photos', 'generated');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    metrics.track('generation:started', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn });
+    const statusMsg = `🎬 Генерирую в стиле «${movie.title}» (${movie.year})...`;
+    await tgSend(chatId, statusMsg);
+
+    // Режим "Без аватара"
+    if (avatarId === 'no_avatar') {
+      const result = await generateImage.generateCinemaAvatar([], movie, outputDir, settings);
+      const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+      await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
+
+      await sendDebugInfo(chatId, settings, result.prompt);
+
+      const genCost = botLogic.getModelCost(String(chatId));
+      const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'cinema' } });
+      metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn, model: settings?.model || '', cost: String(genCost) });
+
+      if (remaining > 0 && remaining <= 3) {
+        await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+      }
+
+      if (remaining > 0) {
+        await tgSend(chatId, 'Готово! Что дальше? 👇', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🔄 Повторить', callback_data: 'repeat_style:cinema' },
+                { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+              ]
+            ]
+          }
+        });
+      } else {
+        await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
+      }
+      return;
+    }
+
+    const geminiFiles = await ensureGeminiFiles(avatar, avatars);
+    if (geminiFiles.length === 0) {
+      await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
+      return;
+    }
+
+    const generatedResult = await generateImage.generateCinemaAvatar(geminiFiles, movie, outputDir, settings);
+
+    const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+
+    await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
+
+    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+
+    const genCost = botLogic.getModelCost(String(chatId));
+    const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'cinema' } });
+    metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn, model: settings?.model || '', cost: String(genCost) });
+
+    if (remaining > 0 && remaining <= 3) {
+      await tgSend(chatId, `⚠️ Осталось всего ${remaining} ${botLogic.pluralGen(remaining)}`);
+    }
+
+    if (remaining > 0) {
+      await tgSend(chatId, 'Готово! Что дальше? 👇', {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Повторить', callback_data: 'repeat_style:cinema' },
+              { text: '🎨 Другой стиль', callback_data: 'show_styles_after_generation' }
+            ]
+          ]
+        }
+      });
+    } else {
+      await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', { reply_markup: { inline_keyboard: [[{ text: '💳 Пополнить', callback_data: 'show_buy' }]] } });
+    }
+
+  } catch (err) {
+    console.error('❌ Ошибка генерации кино:', err.message);
+    metrics.track('generation:failed', {
+      telegram_id: String(chatId),
+      style_id: 'cinema',
+      sub_id: movie.titleEn,
+      error: (err.message || '').slice(0, 100),
+      recovered: 'false'
+    });
+    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+  }
+}
 
 console.log('Ожидание сообщений...');
 poll();
