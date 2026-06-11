@@ -413,8 +413,7 @@ function _buildPhotoPrompt(description, count, extra = {}) {
  */
 async function generateAvatar(files, styleId, outputDir, settings) {
   const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
-  const isPortraitStyle = styleId === 'portrait' || styleId.startsWith('portrait_');
-  const portraitTypeHint = isPortraitStyle && settings?.portraitType
+  const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
 
@@ -433,8 +432,11 @@ async function generateAvatar(files, styleId, outputDir, settings) {
  * Сгенерировать аватарку для случайной профессии.
  */
 async function generateProfessionAvatar(files, profession, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.`,
+    `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.${portraitTypeHint}`,
     files.length
   );
 
@@ -452,8 +454,11 @@ async function generateProfessionAvatar(files, profession, outputDir, settings) 
  * Сгенерировать аватарку для случайного вида спорта.
  */
 async function generateSportAvatar(files, sport, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.`,
+    `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.${portraitTypeHint}`,
     files.length
   );
 
@@ -471,8 +476,11 @@ async function generateSportAvatar(files, sport, outputDir, settings) {
  * Сгенерировать аватарку для офисной роли.
  */
 async function generateOfficeAvatar(files, work, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.`,
+    `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.${portraitTypeHint}`,
     files.length
   );
 
@@ -490,7 +498,10 @@ async function generateOfficeAvatar(files, work, outputDir, settings) {
  * Сгенерировать аватарку в стиле фильма.
  */
 async function generateCinemaAvatar(files, movie, outputDir, settings) {
-  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.`;
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
+  const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.${portraitTypeHint}`;
 
   const desc = `into a character from the movie "${movie.titleEn}". ${stylePrompt}`;
   const prompt = _buildPhotoPrompt(desc, files.length);
@@ -511,8 +522,11 @@ async function generateCinemaAvatar(files, movie, outputDir, settings) {
  * Сгенерировать аватарку на фоне знаменитой локации.
  */
 async function generateLocationAvatar(files, location, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.`,
+    `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.${portraitTypeHint}`,
     files.length
   );
 
@@ -530,8 +544,11 @@ async function generateLocationAvatar(files, location, outputDir, settings) {
  * Сгенерировать аватарку в стиле исторической эпохи.
  */
 async function generateHistoryAvatar(files, era, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.`,
+    `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.${portraitTypeHint}`,
     files.length
   );
 
@@ -549,8 +566,11 @@ async function generateHistoryAvatar(files, era, outputDir, settings) {
  * Сгенерировать аватарку в стиле литературного произведения.
  */
 async function generateLiteratureAvatar(files, work, outputDir, settings) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
   const prompt = _buildPhotoPrompt(
-    `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.`,
+    `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.${portraitTypeHint}`,
     files.length
   );
 
