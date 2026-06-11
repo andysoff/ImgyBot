@@ -2574,15 +2574,10 @@ async function showCinemaMenu(chatId, msgId, page) {
   const { items, page: curPage, totalPages, total } = generateImage.getMoviesPage(page, CINEMA_PAGE_SIZE);
   const keyboard = [];
 
-  // Кнопки фильмов по 2 в ряд
-  for (let i = 0; i < items.length; i += 2) {
-    const row = [];
+  // Кнопки фильмов по одной в ряд
+  for (let i = 0; i < items.length; i++) {
     const startIndex = page * CINEMA_PAGE_SIZE + i;
-    row.push({ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` });
-    if (items[i + 1]) {
-      row.push({ text: `🎬 ${items[i + 1].title}`, callback_data: `cinema_select:${startIndex + 1}` });
-    }
-    keyboard.push(row);
+    keyboard.push([{ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` }]);
   }
 
   // Пагинация + Случайно
