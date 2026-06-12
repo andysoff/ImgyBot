@@ -99,10 +99,98 @@
     ]
   },
   {
+    "id": "retro",
+    "name": "🎞️ Ретро",
+    "nameEn": "Retro",
+    "description": "Фото в стиле разных эпох: меняется одежда, цветокоррекция, текстура снимка",
+    "subStyles": [
+      {
+        "id": "retro_gatsby",
+        "name": "1920-е / Гэтсби 🕵️",
+        "description": "Гангстерский Чикаго, эпоха джаза, костюмы-тройки, сепия"
+      },
+      {
+        "id": "retro_rockabilly",
+        "name": "1950-е / Рок-н-ролл 🎸",
+        "description": "Американа, кожаные куртки, кока-кола, ретро-авто"
+      },
+      {
+        "id": "retro_hippie",
+        "name": "1960-е / Хиппи ✌️",
+        "description": "Вудсток, фенечки, tie-dye, длинные волосы"
+      },
+      {
+        "id": "retro_disco",
+        "name": "1970-е / Диско 🪩",
+        "description": "Клёши, блёстки, афро, диско-шар"
+      },
+      {
+        "id": "retro_synthwave",
+        "name": "1980-е / Синтвейв 🌆",
+        "description": "Неон, плечи, большие очки, ретро-футуризм"
+      },
+      {
+        "id": "retro_90s",
+        "name": "1990-е / VHS 📼",
+        "description": "Гранж, фланель, плёночный шум, тёплые тона"
+      },
+      {
+        "id": "retro_vintage",
+        "name": "Старая фотография 📜",
+        "description": "XIX — нач. XX века, дагеротип, сепия, винтаж"
+      },
+      {
+        "id": "retro_soviet",
+        "name": "СССР / Пионерия 🔴",
+        "description": "Советская эпоха, пионер, рабочий, космонавт"
+      }
+    ]
+  },
+  {
+    "id": "fashion",
+    "name": "💎 Глянцевый журнал",
+    "nameEn": "Fashion",
+    "description": "Студийная съёмка как для модного журнала",
+    "subStyles": [
+      {
+        "id": "fashion_editorial",
+        "name": "Обложка Vogue 🖤",
+        "description": "Драматичный editorial, high fashion, magazine cover"
+      },
+      {
+        "id": "fashion_street",
+        "name": "Уличный стиль 🧥",
+        "description": "Мода на улице, casual luxury, как с недели моды"
+      },
+      {
+        "id": "fashion_beauty",
+        "name": "Яркий макияж 💄",
+        "description": "Крупный план, flawless кожа, акцент на макияж"
+      },
+      {
+        "id": "fashion_glamour",
+        "name": "Гламур ✨",
+        "description": "Вечерние платья, блеск, голливудский шик"
+      },
+      {
+        "id": "fashion_avantgarde",
+        "name": "Авангард 🎭",
+        "description": "Экспериментальные силуэты, артовый подход"
+      }
+    ]
+  },
+  {
+    "id": "location",
+    "name": "🌍 Локация",
+    "nameEn": "Location",
+    "description": "Случайное место из 100 знаменитых локаций мира"
+  },
+  {
     "id": "sport",
     "name": "⚽ Спорт",
     "nameEn": "Sport",
-    "description": "Спортивный образ, динамика"
+    "description": "Спортивный образ, динамика",
+    "hidden": true
   },
   {
     "id": "in_car",
@@ -126,8 +214,8 @@
   },
   {
     "id": "near_car",
-    "name": "🚘 Около машины",
-    "nameEn": "Near Car",
+    "name": "🚘 Авто",
+    "nameEn": "Auto",
     "description": "Фото у автомобиля известных марок"
   },
   {
@@ -137,20 +225,15 @@
     "description": "Кинематографичный образ, как кадр из фильма"
   },
   {
-    "id": "location",
-    "name": "🌍 Локация",
-    "nameEn": "Location",
-    "description": "Случайное место из 100 знаменитых локаций мира"
-  },
-  {
     "id": "history",
     "name": "🏛️ История",
     "nameEn": "History",
-    "description": "Случайная историческая эпоха, как кадр из кино"
+    "description": "Случайная историческая эпоха, как кадр из кино",
+    "hidden": true
   },
   {
     "id": "literature",
-    "name": "📖 Рассказ",
+    "name": "📖 Герой книги",
     "nameEn": "Literature",
     "description": "Случайное произведение из 100 известнейших книг мира"
   }
