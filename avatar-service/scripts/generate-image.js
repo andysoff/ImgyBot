@@ -1217,7 +1217,7 @@ function getMoviesPage(page, pageSize = 10) {
 const { LOCATIONS } = require('./locations-data');
 
 // Автомобильные бренды и модели
-const { CAR_BRANDS } = require('./cars-data');
+const { CAR_BRANDS, getCarBrandByIndex, getCarBrandsPage, getModelsForBrand, getRandomCarModel } = require('./cars-data');
 function getRandomLocation() {
   return LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
 }
@@ -1259,33 +1259,6 @@ function getRandomLiterature() {
 }
 
 // Около машины
-function getCarBrandByIndex(index) {
-  return CAR_BRANDS[index] || null;
-}
-
-function getCarBrandsPage(page, pageSize = 10) {
-  const total = CAR_BRANDS.length;
-  const totalPages = Math.ceil(total / pageSize);
-  const start = page * pageSize;
-  const items = CAR_BRANDS.slice(start, start + pageSize);
-  return { items, page, totalPages, total };
-}
-
-function getModelsForBrand(brandId, page, pageSize = 10) {
-  const brand = CAR_BRANDS.find(b => b.id === brandId);
-  if (!brand) return { items: [], page: 0, totalPages: 0, total: 0, brand: null };
-  const total = brand.models.length;
-  const totalPages = Math.ceil(total / pageSize);
-  const start = page * pageSize;
-  const items = brand.models.slice(start, start + pageSize);
-  return { items, page, totalPages, total, brand };
-}
-
-function getRandomCarModel() {
-  const brand = CAR_BRANDS[Math.floor(Math.random() * CAR_BRANDS.length)];
-  const model = brand.models[Math.floor(Math.random() * brand.models.length)];
-  return { brand, model };
-}
 
 async function generateCarAvatar(files, brand, model, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
