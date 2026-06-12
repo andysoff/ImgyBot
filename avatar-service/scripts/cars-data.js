@@ -2320,6 +2320,175 @@ const CAR_BRANDS = [
         "prompt": "Hongqi LS7, ultra-luxury full-size SUV"
       }
     ]
+  },
+  {
+    "id": "toyota",
+    "name": "Toyota",
+    "prompt": "Toyota, Japanese automotive giant",
+    "models": [
+      {
+        "id": "supra_mk4_1993",
+        "name": "Supra Mk4 (1993)",
+        "year": 1993,
+        "prompt": "Toyota Supra Mk4, iconic Japanese sports car"
+      },
+      {
+        "id": "century_v12_1997",
+        "name": "Century V12 (1997)",
+        "year": 1997,
+        "prompt": "Toyota Century V12, Japanese Rolls-Royce"
+      },
+      {
+        "id": "land_cruiser_200_2007",
+        "name": "Land Cruiser 200 (2007)",
+        "year": 2007,
+        "prompt": "Toyota Land Cruiser 200, legendary luxury SUV"
+      },
+      {
+        "id": "gt86_2012",
+        "name": "GT86 (2012)",
+        "year": 2012,
+        "prompt": "Toyota GT86, rear-wheel drive sports coupe"
+      },
+      {
+        "id": "gr_supra_2019",
+        "name": "GR Supra (2019)",
+        "year": 2019,
+        "prompt": "Toyota GR Supra, revived sports car legend"
+      },
+      {
+        "id": "gr_yaris_2020",
+        "name": "GR Yaris (2020)",
+        "year": 2020,
+        "prompt": "Toyota GR Yaris, rally-bred hot hatch"
+      },
+      {
+        "id": "land_cruiser_300_2021",
+        "name": "Land Cruiser 300 (2021)",
+        "year": 2021,
+        "prompt": "Toyota Land Cruiser 300, flagship off-road luxury SUV"
+      },
+      {
+        "id": "century_suv_2023",
+        "name": "Century SUV (2023)",
+        "year": 2023,
+        "prompt": "Toyota Century SUV, ultra-luxury Japanese SUV"
+      },
+      {
+        "id": "crown_2023",
+        "name": "Crown (2023)",
+        "year": 2023,
+        "prompt": "Toyota Crown, revived premium sedan"
+      },
+      {
+        "id": "gr_corolla_2023",
+        "name": "GR Corolla (2023)",
+        "year": 2023,
+        "prompt": "Toyota GR Corolla, turbo all-wheel drive hot hatch"
+      }
+    ]
+  },
+
+  {
+    "id": "nissan",
+    "name": "Nissan",
+    "prompt": "Nissan, Japanese automotive manufacturer",
+    "models": [
+      {
+        "id": "gt_r_r34_1999",
+        "name": "GT-R R34 (1999)",
+        "year": 1999,
+        "prompt": "Nissan GT-R R34, Godzilla legend"
+      },
+      {
+        "id": "gt_r_r35_2007",
+        "name": "GT-R R35 (2007)",
+        "year": 2007,
+        "prompt": "Nissan GT-R R35, supercar killer"
+      },
+      {
+        "id": "patrol_y62_2010",
+        "name": "Patrol Y62 (2010)",
+        "year": 2010,
+        "prompt": "Nissan Patrol Y62, full-size luxury SUV"
+      },
+      {
+        "id": "z_400z_2022",
+        "name": "Z 400Z (2022)",
+        "year": 2022,
+        "prompt": "Nissan Z 400Z, retro-modern sports car"
+      }
+    ]
+  },
+
+  {
+    "id": "infiniti",
+    "name": "Infiniti",
+    "prompt": "Infiniti, Nissan's luxury division",
+    "models": [
+      {
+        "id": "fx45_2003",
+        "name": "FX45 (2003)",
+        "year": 2003,
+        "prompt": "Infiniti FX45, sporty luxury SUV"
+      },
+      {
+        "id": "q50_2013",
+        "name": "Q50 (2013)",
+        "year": 2013,
+        "prompt": "Infiniti Q50, sport sedan"
+      },
+      {
+        "id": "q60_2016",
+        "name": "Q60 (2016)",
+        "year": 2016,
+        "prompt": "Infiniti Q60, luxury coupe"
+      },
+      {
+        "id": "qx80_2017",
+        "name": "QX80 (2017)",
+        "year": 2017,
+        "prompt": "Infiniti QX80, full-size luxury SUV"
+      }
+    ]
+  },
+
+  {
+    "id": "acura",
+    "name": "Acura",
+    "prompt": "Acura, Honda's luxury division",
+    "models": [
+      {
+        "id": "nsx_1990",
+        "name": "NSX (1990)",
+        "year": 1990,
+        "prompt": "Acura NSX, the first supercar from Japan"
+      },
+      {
+        "id": "tlx_2014",
+        "name": "TLX (2014)",
+        "year": 2014,
+        "prompt": "Acura TLX, sport luxury sedan"
+      },
+      {
+        "id": "nsx_2016",
+        "name": "NSX (2016)",
+        "year": 2016,
+        "prompt": "Acura NSX (2016), hybrid supercar"
+      },
+      {
+        "id": "mdx_2022",
+        "name": "MDX (2022)",
+        "year": 2022,
+        "prompt": "Acura MDX, premium three-row SUV"
+      },
+      {
+        "id": "integr_type_s_2023",
+        "name": "Integra Type S (2023)",
+        "year": 2023,
+        "prompt": "Acura Integra Type S, sport compact"
+      }
+    ]
   }
 ];
 
