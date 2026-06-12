@@ -393,16 +393,18 @@ function handlePhotosReceived(telegramId, filePaths, userDisplayName, language =
   let user = findUserByTelegram(telegramId);
 
   if (user) {
-    // Проверяем лимит аватаров для существующего пользователя
-    const allAvatars = readJSON(AVATARS_FILE);
-    const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
-    if (userAvatars.length >= 4) {
-      return {
-        text: '⚠️ Максимум 4 аватара. Удали один из существующих, чтобы создать новый.',
-        reply_markup: {
-          inline_keyboard: [[{ text: '👤 Аватары', callback_data: 'back_to_avatars' }]]
-        }
-      };
+    // Проверяем лимит аватаров для существующего пользователя (кроме админа)
+    if (String(telegramId) !== ADMIN_TELEGRAM_ID) {
+      const allAvatars = readJSON(AVATARS_FILE);
+      const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
+      if (userAvatars.length >= 4) {
+        return {
+          text: '⚠️ Максимум 4 аватара. Удали один из существующих, чтобы создать новый.',
+          reply_markup: {
+            inline_keyboard: [[{ text: '👤 Аватары', callback_data: 'back_to_avatars' }]]
+          }
+        };
+      }
     }
   }
 
@@ -786,7 +788,8 @@ function handleNewAvatar(telegramId) {
 
   const allAvatars = readJSON(AVATARS_FILE);
   const userAvatars = allAvatars.filter(a => user.avatars.includes(a.id));
-  if (userAvatars.length >= 4) {
+  // Для админа нет лимита аватаров
+  if (String(telegramId) !== ADMIN_TELEGRAM_ID && userAvatars.length >= 4) {
     return {
       text: '⚠️ Максимум 4 аватара. Удали один из существующих, чтобы создать новый.',
       reply_markup: {
