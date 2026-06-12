@@ -1369,6 +1369,31 @@ async function generateWithPrompt(files, prompt, outputDir, settings, chatId) {
   });
 }
 
+async function generateWheelAvatar(files, brand, outputDir, settings, chatId) {
+  const portraitTypeHint = settings?.portraitType
+    ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
+    : '';
+  const faceTurnHint = settings?.faceTurn
+    ? (FACE_TURN_HINTS[settings.faceTurn] || '')
+    : '';
+  const prompt = _buildPhotoPrompt(
+    `driving a ${brand.name}, person behind the wheel holding the steering wheel, ${brand.prompt}, car interior visible with dashboard and windshield, or exterior shot through windshield showing the driver, professional automotive lifestyle photography, dynamic driving atmosphere, realistic photo, high quality${portraitTypeHint}${faceTurnHint}`,
+    files.length,
+    {},
+    settings
+  );
+  console.log(`🎨 Генерация за рулём: ${brand.name}`);
+  return _callGemini({
+    files, prompt, outputDir, settings,
+    metricsLabel: 'generateWheelAvatar:' + brand.id,
+    metricsStyle: 'in_car',
+    metricsSub: brand.id,
+    logMessage: `генерация «${brand.name}»`,
+    filenameBase: 'wheel_' + brand.id,
+    chatId
+  });
+}
+
 module.exports = {
   // Единая генерация
   generateWithPrompt,
@@ -1416,6 +1441,7 @@ module.exports = {
   getModelsForBrand,
   getRandomCarModel,
   generateCarAvatar,
+  generateWheelAvatar,
   FACE_TURN_HINTS,
   PORTRAIT_TYPE_HINTS
 };
