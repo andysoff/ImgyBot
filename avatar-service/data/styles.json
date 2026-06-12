@@ -1,0 +1,84 @@
+[
+  {
+    "id": "portrait",
+    "name": "📸 Классика",
+    "nameEn": "Classic",
+    "description": "Классические портреты разных форматов",
+    "subStyles": [
+      {
+        "id": "portrait_business_dark",
+        "name": "Бизнес (тёмный фон)",
+        "description": "Классический бизнес-портрет на тёмном монотонном фоне"
+      },
+      {
+        "id": "portrait_business_light",
+        "name": "Бизнес (светлый фон)",
+        "description": "Классический бизнес-портрет на светлом монотонном фоне"
+      },
+      {
+        "id": "portrait_business_office",
+        "name": "Бизнес (офис)",
+        "description": "Классический бизнес-портрет на фоне офисной обстановки"
+      },
+      {
+        "id": "portrait_business_bw",
+        "name": "Бизнес (черно-белый)",
+        "description": "Классический чёрно-белый бизнес-портрет, стильная монохромная эстетика"
+      }
+    ]
+  },
+  {
+    "id": "sport",
+    "name": "⚽ Спорт",
+    "nameEn": "Sport",
+    "description": "Спортивный образ, динамика"
+  },
+  {
+    "id": "in_car",
+    "name": "🚗 В машине",
+    "nameEn": "In Car",
+    "description": "За рулём или в салоне автомобиля"
+  },
+  {
+    "id": "in_office",
+    "name": "💼 В офисе",
+    "nameEn": "In Office",
+    "description": "Случайная офисная роль или отдел"
+  },
+  {
+    "id": "professions",
+    "name": "👨‍💼 Профессия",
+    "nameEn": "Profession",
+    "description": "Случайная профессия из самых известных в мире"
+  },
+  {
+    "id": "near_car",
+    "name": "🚘 Около машины",
+    "nameEn": "Near Car",
+    "description": "Фото у автомобиля известных марок"
+  },
+  {
+    "id": "cinema",
+    "name": "🎬 Кино",
+    "nameEn": "Cinema",
+    "description": "Кинематографичный образ, как кадр из фильма"
+  },
+  {
+    "id": "location",
+    "name": "🌍 Локация",
+    "nameEn": "Location",
+    "description": "Случайное место из 100 знаменитых локаций мира"
+  },
+  {
+    "id": "history",
+    "name": "🏛️ История",
+    "nameEn": "History",
+    "description": "Случайная историческая эпоха, как кадр из кино"
+  },
+  {
+    "id": "literature",
+    "name": "📖 Рассказ",
+    "nameEn": "Literature",
+    "description": "Случайное произведение из 100 известнейших книг мира"
+  }
+]
