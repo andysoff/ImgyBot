@@ -116,9 +116,18 @@ function getMimeType(filePath) {
 }
 
 function finishReasonMessage(reason, settings) {
-  if (reason === 'NO_IMAGE') {
-    return 'Не смогли сгенерировать изображение, попробуйте еще раз.';
-  }
+  const reasons = {
+    NO_IMAGE:             '\u{1F604} Gemini не смогла создать изображение по этому запросу. Попробуй переформулировать описание или выбрать другой стиль.',
+    SAFETY:               '\u{1F6AB} Результат заблокирован фильтром безопасности Gemini. Попробуй изменить описание или выбрать другой стиль.',
+    RECITATION:           '\u{1F4DD} Нейросеть считает, что результат слишком похож на защищённый контент. Попробуй изменить описание.',
+    PROHIBITED_CONTENT:   '\u{1F6AB} Gemini обнаружила запрещённый контент в ответе. Попробуй другой стиль или менее конкретное описание.',
+    IMAGE_SAFETY:         '\u{1F6AB} Сгенерированное изображение не прошло проверку безопасности. Попробуй другой стиль или измени описание.',
+    MAX_TOKENS:           '\u{1F4CF} Слишком длинный запрос. Нейросеть не смогла обработать его целиком. Сократи описание или выбери стиль без кастомного промпта.',
+    BLOCKLIST:            '\u{1F914} Нейросеть прервала генерацию. Попробуй ещё раз или выбери другой стиль.',
+    SPII:                 '\u{1F914} Нейросеть прервала генерацию. Попробуй ещё раз или выбери другой стиль.',
+    OTHER:                '\u{1F914} Нейросеть прервала генерацию по неизвестной причине. Попробуй ещё раз или выбери другой стиль.',
+  };
+  if (reason && reasons[reason]) return reasons[reason];
   if (reason) {
     const isPro = settings?.model === 'gemini-3-pro-image-preview';
     if (isPro) {
@@ -344,7 +353,13 @@ function _extractImage(result, outputDir, filenameBase) {
     const blocked = result?.promptFeedback?.blockReason;
     console.error('⚠️ Safety ratings:', JSON.stringify(result?.promptFeedback?.safetyRatings));
     console.error('⚠️ Полный ответ:', JSON.stringify(result).slice(0, 1000));
-    throw new Error(blocked ? `Заблокировано: ${blocked}` : 'Нет кандидатов в ответе');
+    const blockMessages = {
+      SAFETY:             '🚫 Запрос заблокирован фильтром безопасности. Попробуй сделать описание менее детальным или выбрать другой стиль.',
+      PROHIBITED_CONTENT: '🚫 Запрос содержит запрещённый контент. Попробуй другой стиль.',
+      IMAGE_SAFETY:       '🚫 Фото не прошло проверку безопасности Gemini. Попробуй загрузить другие фото.',
+      BLOCKLIST:          '🚫 Запрос заблокирован. Попробуй другой стиль.',
+    };
+    throw new Error(blocked ? (blockMessages[blocked] || `🚫 Запрос заблокирован: ${blocked}`) : '🤔 Нейросеть не дала ответа на этот запрос. Попробуй ещё раз или выбери другой стиль.');
   }
 
   const parts = candidates[0]?.content?.parts || [];
@@ -356,7 +371,7 @@ function _extractImage(result, outputDir, filenameBase) {
     const candidateSnippet = candidates ? JSON.stringify(candidates[0]).slice(0, 2000) : 'null';
     console.error(`🔍 Полный candidate: ${candidateSnippet}`);
     const reason = candidates?.[0]?.finishReason;
-    throw new Error(finishReasonMessage(reason, {}) || 'Gemini не вернул изображение');
+    throw new Error(finishReasonMessage(reason, {}) || '💬 Gemini вернула описание вместо изображения. Попробуй переформулировать запрос.');
   }
 
   const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
@@ -1284,21 +1299,166 @@ const MOVIES = [
     prompt: 'classic American aesthetic, 1940s suit, snowy small town backdrop, warm nostalgic lighting, black and white, Capra wholesome style' },
   { title: 'V — значит вендетта', titleEn: 'V for Vendetta', year: 2006,
     prompt: 'dystopian aesthetic, Guy Fawkes mask, dark trench coat, London Parliament backdrop, rainy night, dark red and black palette' }
-];;
+];
 
-function getRandomMovie() {
-  return MOVIES[Math.floor(Math.random() * MOVIES.length)];
+// Российские фильмы (после 1991)
+const RUSSIAN_MOVIES = [
+  { title: 'Брат', titleEn: 'Brother', year: 1997,
+    prompt: '90s Russian crime aesthetic, leather jacket, gritty St. Petersburg streets, desaturated tones, Balabanov cult style' },
+  { title: 'Брат 2', titleEn: 'Brother 2', year: 2000,
+    prompt: '2000s Russian action aesthetic, leather jacket and sunglasses, Chicago and Moscow, bold red and blue tones, Balabanov rock style' },
+  { title: 'Утомлённые солнцем', titleEn: 'Burnt by the Sun', year: 1994,
+    prompt: 'Soviet 1930s drama aesthetic, summer white suit, dacha countryside, warm golden light, bittersweet nostalgic Nikita Mikhalkov style' },
+  { title: 'Сибирский цирюльник', titleEn: 'The Barber of Siberia', year: 1998,
+    prompt: 'Tsarist Russia epic aesthetic, 19th century military uniform, snowy Siberian landscape, grand romantic Mikhalkov style' },
+  { title: '9 рота', titleEn: 'The 9th Company', year: 2005,
+    prompt: 'Afghan war drama aesthetic, Soviet military uniform, desert mountains, gritty dusty tones, Bondarchuk epic style' },
+  { title: 'Левиафан', titleEn: 'Leviathan', year: 2014,
+    prompt: 'Northern Russian drama aesthetic, winter coat, Barents Sea coast, whale skeleton, cold blue tones, Zvyagintsev brooding style' },
+  { title: 'Нелюбовь', titleEn: 'Loveless', year: 2017,
+    prompt: 'contemporary Moscow drama aesthetic, cold modern apartment, winter forest, bleak muted palette, Zvyagintsev psychological style' },
+  { title: 'Елена', titleEn: 'Elena', year: 2011,
+    prompt: 'Moscow social drama aesthetic, middle-class apartment, grey concrete high-rises, subdued natural lighting, Zvyagintsev minimalist style' },
+  { title: 'Остров', titleEn: 'The Island', year: 2006,
+    prompt: 'Russian Orthodox monastic aesthetic, monk robe, northern island monastery, white snow and grey sea, spiritual contemplative style' },
+  { title: 'Бумер', titleEn: 'Bimmer', year: 2003,
+    prompt: '2000s Russian crime road movie aesthetic, black BMW, tracksuit vibe, night highway, neon Moscow lights, gritty urban style' },
+  { title: 'Возвращение', titleEn: 'The Return', year: 2003,
+    prompt: 'bleak Russian island aesthetic, raincoats and boots, abandoned lighthouse, grey overcast sky, Zvyagintsev stark visual poetry' },
+  { title: 'Водитель для Веры', titleEn: 'A Driver for Vera', year: 2004,
+    prompt: '1960s Soviet Crimea aesthetic, military uniform, seaside resort, warm golden tones, Chukhrai nostalgic drama style' },
+  { title: 'Стиляги', titleEn: 'Hipsters', year: 2008,
+    prompt: '1950s Soviet youth aesthetic, colorful retro suit, bright red tie, Moscow streets, vibrant musical Toddorovski style' },
+  { title: 'Горько!', titleEn: 'Gorko!', year: 2013,
+    prompt: 'Russian wedding comedy aesthetic, ridiculous formal wear, beach wedding backdrop, bright colorful party, chaotic fun style' },
+  { title: 'Легенда №17', titleEn: 'Legend No. 17', year: 2013,
+    prompt: '1970s Soviet sports aesthetic, red hockey jersey, ice rink arena, dramatic arena lighting, triumphant sports epic style' },
+  { title: 'Движение вверх', titleEn: 'Going Vertical', year: 2017,
+    prompt: '1970s Olympic basketball aesthetic, USSR red tracksuit, Munich arena, triumphant crowd, sports epic patriotic style' },
+  { title: 'Салют-7', titleEn: 'Salyut-7', year: 2017,
+    prompt: '1980s Soviet space aesthetic, cosmonaut suit, space station interior, cosmic darkness, heroic space drama style' },
+  { title: 'Т-34', titleEn: 'Tanks', year: 2018,
+    prompt: 'WWII Soviet tank aesthetic, tanker uniform, T-34 tank interior, winter battlefield, intense war action style' },
+  { title: 'Холоп', titleEn: 'Serf', year: 2019,
+    prompt: 'satirical Russian period aesthetic, 19th century peasant costume, Russian estate, countryside, comedy time-travel style' },
+  { title: 'Текст', titleEn: 'The Text', year: 2019,
+    prompt: 'modern Russian cyber drama aesthetic, smartphone screen vibes, dark Moscow apartment, tense psychological thriller style' },
+  { title: 'Купе номер 6', titleEn: 'Compartment No. 6', year: 2021,
+    prompt: 'Finnish-Russian train journey aesthetic, winter train compartment, snowy landscape through window, intimate indie drama style' },
+  { title: 'Страна глухих', titleEn: 'Land of the Deaf', year: 1998,
+    prompt: 'Moscow underground aesthetic, 90s casual wear, nightclub vibe, neon colors, bold stylish crime drama style' },
+  { title: 'Дылда', titleEn: 'Beanpole', year: 2019,
+    prompt: 'post-WWII Leningrad aesthetic, 1940s military uniform, pastel Soviet apartment, muted green tones, Balagov intimate war drama style' },
+  { title: 'Аритмия', titleEn: 'Arrhythmia', year: 2017,
+    prompt: 'Russian provincial hospital aesthetic, doctor white coat, ambulance interior, gritty realistic life drama, Khlebnikov slice-of-life style' },
+  { title: 'Сталинград', titleEn: 'Stalingrad', year: 2013,
+    prompt: 'WWII battle aesthetic, Soviet soldier uniform, ruined Stalingrad city, mud and smoke, Bondarchuk war epic style' },
+  { title: 'Белый тигр', titleEn: 'White Tiger', year: 2012,
+    prompt: 'WWII mystical war aesthetic, tank commander uniform, burning battlefield, surreal ghost tank, dark mythological war style' },
+  { title: 'Кавказский пленник', titleEn: 'Prisoner of the Mountains', year: 1996,
+    prompt: 'Chechen war aesthetic, military camouflage, Caucasian mountains, dusty village, Bodrov humanist war drama style' },
+  { title: 'Морфий', titleEn: 'Morphia', year: 2008,
+    prompt: '1917 Russian revolution aesthetic, doctor coat, dim provincial hospital, snowy dreary town, Balabanov dark psychological style' },
+  { title: 'Жмурки', titleEn: 'Zhmurki', year: 2005,
+    prompt: '90s Russian crime comedy aesthetic, 90s tracksuit and leather, abandoned factory, wild Tarantino-esque Balabanov style' },
+  { title: 'Ночной дозор', titleEn: 'Night Watch', year: 2004,
+    prompt: 'Russian dark fantasy aesthetic, trench coat, gloomy Moscow rooftops, dark blue night tones, Bekmambetov stylized action style' },
+  { title: 'Лед', titleEn: 'Ice', year: 2018,
+    prompt: 'Russian figure skating aesthetic, sparkling ice rink costume, spotlight performance, pink and blue arena lights, sports romance style' },
+  { title: 'Притяжение', titleEn: 'Attraction', year: 2017,
+    prompt: 'sci-fi Moscow aesthetic, alien spaceship over Chertanovo, hoodie and jeans, grey concrete blocks, blue alien light, Bekmambetov Russian sci-fi style' }
+];
+
+// Советские фильмы
+const SOVIET_MOVIES = [
+  { title: 'Москва слезам не верит', titleEn: 'Moscow Does Not Believe in Tears', year: 1980,
+    prompt: '1950s-70s Soviet drama aesthetic, 50s floral dress, communal apartment, Moscow cityscape, warm nostalgic Menshov Oscar-winning style' },
+  { title: 'Служебный роман', titleEn: 'Office Romance', year: 1977,
+    prompt: '1970s Soviet office aesthetic, strict business suit, Soviet statistics office, grey bureaucratic setting, Ryazanov warm comedy style' },
+  { title: 'Ирония судьбы', titleEn: 'The Irony of Fate', year: 1975,
+    prompt: '1970s Soviet New Year aesthetic, fur hat and coat, typical Soviet apartment, snowy Leningrad, Ryazanov romantic comedy style' },
+  { title: 'Бриллиантовая рука', titleEn: 'The Diamond Arm', year: 1968,
+    prompt: '1960s Soviet comedy aesthetic, striped swim trunks, resort wear, bright southern seaside, Gaidai slapstick style' },
+  { title: 'Джентльмены удачи', titleEn: 'Gentlemen of Fortune', year: 1971,
+    prompt: '1970s Soviet comedy aesthetic, thief tracksuit, desert Central Asian landscape, kindergarten setting, warm-hearted comedy style' },
+  { title: 'Иван Васильевич меняет профессию', titleEn: 'Ivan Vasilievich Changes Profession', year: 1973,
+    prompt: '1970s Soviet sci-fi comedy aesthetic, tsar robe, 70s Soviet apartment, costume chaos, Gaidai madcap time-travel style' },
+  { title: 'Кавказская пленница', titleEn: 'Kidnapping, Caucasian Style', year: 1967,
+    prompt: '1960s Soviet comedy aesthetic, Caucasian traditional hat, sunny mountain resort, vintage Soviet car, Gaidai vibrant slapstick style' },
+  { title: 'Операция Ы', titleEn: 'Operation Y', year: 1965,
+    prompt: '1960s Soviet comedy aesthetic, student uniform, construction site, bright spring colors, Gaidai classic slapstick style' },
+  { title: 'Любовь и голуби', titleEn: 'Love and Pigeons', year: 1984,
+    prompt: '1980s Soviet village aesthetic, rural house clothes, pigeon loft, Siberian village life, cozy heartfelt comedy style' },
+  { title: 'В бой идут одни старики', titleEn: 'Only Old Men Are Going to Battle', year: 1973,
+    prompt: 'WWII Soviet aviation aesthetic, pilot uniform, fighter plane, blue sky clouds, Bykov warm wartime drama style' },
+  { title: 'А зори здесь тихие', titleEn: 'The Dawns Here Are Quiet', year: 1972,
+    prompt: 'WWII Soviet front aesthetic, female soldier uniform, Karelian forest lake, black and white flashbacks, Rostotski poignant style' },
+  { title: 'Кин-дза-дза', titleEn: 'Kin-dza-dza', year: 1986,
+    prompt: 'Soviet sci-fi absurdist aesthetic, strange alien robe, desert planet, dusty yellow tones, Daneliya surreal satire style' },
+  { title: 'Сталкер', titleEn: 'Stalker', year: 1979,
+    prompt: 'Soviet metaphysical aesthetic, dark boiler suit, desolate industrial zone, sepia and color shifts, Tarkovsky meditative philosophical style' },
+  { title: 'Солярис', titleEn: 'Solaris', year: 1972,
+    prompt: 'Soviet sci-fi philosophical aesthetic, cosmonaut uniform, spaceship interior, fluid organic forms, Tarkovsky contemplative style' },
+  { title: 'Белое солнце пустыни', titleEn: 'White Sun of the Desert', year: 1970,
+    prompt: 'Russian civil war eastern aesthetic, Red Army uniform, Caspian desert landscape, golden sand dunes, Motyl adventure style' },
+  { title: 'Экипаж', titleEn: 'The Crew', year: 1979,
+    prompt: 'Soviet disaster drama aesthetic, airline pilot uniform, cockpit and airport, dramatic rescue, Mitta action style' },
+  { title: 'Калина красная', titleEn: 'The Red Viburnum', year: 1974,
+    prompt: 'Soviet village drama aesthetic, ex-convict style, Russian countryside, birch forest, Shukshin heartfelt realistic style' },
+  { title: 'Осенний марафон', titleEn: 'Autumn Marathon', year: 1979,
+    prompt: '1970s Leningrad intellectual aesthetic, tweed jacket, university courtyard, autumn park, Daneliya bittersweet comedy style' },
+  { title: 'Собачье сердце', titleEn: 'Heart of a Dog', year: 1988,
+    prompt: '1920s Moscow aesthetic, winter coat and hat, pre-revolutionary apartment, snowy street, Bortko satirical sci-fi style' },
+  { title: 'Они сражались за Родину', titleEn: 'They Fought for Their Country', year: 1975,
+    prompt: 'WWII Stalingrad aesthetic, Red Army uniform, dusty steppe battlefield, warm golden light, Bondarchuk epic war style' },
+  { title: 'Летят журавли', titleEn: 'The Cranes Are Flying', year: 1957,
+    prompt: 'WWII Soviet drama aesthetic, 1940s dress, Moscow rooftops, staircase of war, Kalatozov expressionist black and white style' },
+  { title: 'Жестокий романс', titleEn: 'A Cruel Romance', year: 1984,
+    prompt: '19th century Russian merchant aesthetic, elegant dress, Volga river town, golden sunset light, Ryazanov romantic drama style' },
+  { title: 'Двенадцать стульев', titleEn: 'The Twelve Chairs', year: 1971,
+    prompt: '1920s Soviet adventure aesthetic, worn suit and cap, Russian provincial towns, bright comedic Gaidai treasure-hunt style' },
+  { title: 'Невероятные приключения итальянцев в России', titleEn: 'The Incredible Adventures of Italians in Russia', year: 1974,
+    prompt: '1970s Soviet-Italian comedy aesthetic, tourist casual wear, Moscow and Leningrad landmarks, Gaidai action comedy style' },
+  { title: 'Карнавальная ночь', titleEn: 'Carnival Night', year: 1956,
+    prompt: '1950s Soviet comedy musical aesthetic, elegant evening dress, New Year theatre hall, bright festive colors, Ryazanov joyful style' },
+  { title: 'Место встречи изменить нельзя', titleEn: 'The Meeting Place Cannot Be Changed', year: 1979,
+    prompt: 'post-WWII Moscow noir aesthetic, 1940s detective coat and hat, dim Moscow alleys, black Volga car, Govorukhin crime thriller style' },
+  { title: 'Чучело', titleEn: 'Scarecrow', year: 1983,
+    prompt: '1980s Soviet school drama aesthetic, school uniform, provincial town, autumn leaves, Bykov intense heartbreaking style' },
+  { title: 'Курьер', titleEn: 'Courier', year: 1986,
+    prompt: '1980s Moscow youth aesthetic, casual denim jacket, Soviet courtyard, pink and teal tones, Shakhnazarov coming-of-age style' },
+  { title: 'Добро пожаловать, или Посторонним вход воспрещён', titleEn: 'Welcome, or No Trespassing', year: 1964,
+    prompt: '1960s Soviet pioneer camp aesthetic, pioneer uniform, bright summer camp, pine forest, Klimov satirical childhood style' },
+  { title: 'Мой ласковый и нежный зверь', titleEn: 'The Gentle Beast', year: 1978,
+    prompt: '19th century Russian manor aesthetic, elegant lace dress, autumn forest estate, golden warm palette, Loznitsa romantic drama style' },
+  { title: 'Баллада о солдате', titleEn: 'Ballad of a Soldier', year: 1959,
+    prompt: 'WWII Soviet home front aesthetic, soldier uniform, rural Russian landscape, warm sepia tones, Chukhrai tender war story style' },
+  { title: 'Зеркало', titleEn: 'The Mirror', year: 1975,
+    prompt: 'Soviet poetic aesthetic, 1930s rural dress, wooden house garden, colour and black and white shifts, Tarkovsky autobiographical dreamlike style' },
+  { title: 'Полёты во сне и наяву', titleEn: 'Flights in Dreams and Reality', year: 1982,
+    prompt: '1980s Soviet midlife crisis aesthetic, casual suit, Kiev cityscape, melancholic everyday life, Balayan bittersweet style' },
+  { title: 'Андрей Рублёв', titleEn: 'Andrei Rublev', year: 1966,
+    prompt: '15th century Russian medieval aesthetic, monk robe, white stone cathedral, black and white photography, Tarkovsky epic historical style' }
+];
+
+const CINEMA = { foreign: MOVIES, russian: RUSSIAN_MOVIES, soviet: SOVIET_MOVIES };
+
+function getRandomMovie(category = 'foreign') {
+  const list = CINEMA[category] || MOVIES;
+  return list[Math.floor(Math.random() * list.length)];
 }
 
-function getMovieByIndex(index) {
-  return MOVIES[index] || null;
+function getMovieByIndex(category, index) {
+  const list = CINEMA[category] || MOVIES;
+  return list[index] || null;
 }
 
-function getMoviesPage(page, pageSize = 10) {
-  const total = MOVIES.length;
+function getMoviesPage(category, page, pageSize = 10) {
+  const list = CINEMA[category] || MOVIES;
+  const total = list.length;
   const totalPages = Math.ceil(total / pageSize);
   const start = page * pageSize;
-  const items = MOVIES.slice(start, start + pageSize);
+  const items = list.slice(start, start + pageSize);
   return { items, page, totalPages, total };
 }
 
@@ -1486,7 +1646,7 @@ module.exports = {
   uploadPhoto,
   // Данные
   STYLE_PROMPTS,
-  PROFESSIONS, SPORTS, OFFICE, MOVIES, LOCATIONS, HISTORY, LITERATURE,
+  PROFESSIONS, SPORTS, OFFICE, MOVIES, RUSSIAN_MOVIES, SOVIET_MOVIES, CINEMA, LOCATIONS, HISTORY, LITERATURE,
   // Рандомайзеры
   getRandomMovie,
   getMovieByIndex,

@@ -1191,30 +1191,49 @@ async function handleUpdate(update) {
       data = 'style:' + styleId;
     }
 
+    // ------ Callback: Кино — категории ------
+    if (data.startsWith('cinema_category:')) {
+      const category = data.replace('cinema_category:', '');
+      await tgAnswerCb(cb.id, '');
+      await showCinemaMenu(chatId, msgId, category, 0);
+      return;
+    }
+
+    if (data === 'cinema_back') {
+      await tgAnswerCb(cb.id, '');
+      await showCinemaCategoryMenu(chatId, msgId);
+      return;
+    }
+
     // ------ Callback: Кино — выбор фильма из списка ------
     if (data.startsWith('cinema_page:')) {
-      const page = parseInt(data.replace('cinema_page:', ''), 10);
+      const parts = data.split(':');
+      const category = parts[1];
+      const page = parseInt(parts[2], 10);
       await tgAnswerCb(cb.id, '');
-      await showCinemaMenu(chatId, msgId, page);
+      await showCinemaMenu(chatId, msgId, category, page);
       return;
     }
 
     if (data.startsWith('cinema_select:')) {
-      const index = parseInt(data.replace('cinema_select:', ''), 10);
-      const movie = generateImage.getMovieByIndex(index);
+      const parts = data.split(':');
+      const category = parts[1];
+      const index = parseInt(parts[2], 10);
+      const movie = generateImage.getMovieByIndex(category, index);
       if (!movie) {
         await tgAnswerCb(cb.id, '❌ Фильм не найден', true);
         return;
       }
       await tgAnswerCb(cb.id, `🎬 «${movie.title}»`);
-      await generateCinemaMovie(chatId, movie, cb);
+      await generateCinemaMovie(chatId, movie, cb, category);
       return;
     }
 
-    if (data === 'cinema_random') {
-      const movie = generateImage.getRandomMovie();
+    if (data.startsWith('cinema_random:')) {
+      const category = data.replace('cinema_random:', '');
+      const movie = generateImage.getRandomMovie(category);
       await tgAnswerCb(cb.id, `🎬 Случайно: «${movie.title}»`);
-      await generateCinemaMovie(chatId, movie, cb);
+      await generateCinemaMovie(chatId, movie, cb, category);
       return;
     }
 
@@ -1510,9 +1529,9 @@ async function handleUpdate(update) {
 
         await tgEdit(chatId, msgId, statusText);
 
-        // ==== Кино — показываем подменю фильмов вместо генерации ====
+        // ==== Кино — показываем подменю категорий ====
         if (styleId === 'cinema') {
-          await showCinemaMenu(chatId, msgId, 0);
+          await showCinemaCategoryMenu(chatId, msgId);
           return;
         }
 
@@ -2991,37 +3010,67 @@ console.log(`📁 Временные фото: ${PHOTOS_TMP}`);
 const CINEMA_PAGE_SIZE = 5;
 
 /**
+ * Показать меню выбора категории кино.
+ */
+async function showCinemaCategoryMenu(chatId, msgId) {
+  const keyboard = [
+    [{ text: '🌍 Иностранные', callback_data: 'cinema_category:foreign' }],
+    [{ text: '🇷🇺 Российское', callback_data: 'cinema_category:russian' }],
+    [{ text: '🛸 Советское', callback_data: 'cinema_category:soviet' }],
+    [{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]
+  ];
+
+  const text = `🎬 <b>Кино</b>
+Выбери категорию фильмов:`;
+
+  const isEdit = typeof msgId === 'number' && msgId > 0;
+  if (isEdit) {
+    await tgEdit(chatId, msgId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+  } else {
+    await tgSend(chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+  }
+}
+
+/**
  * Показать страницу фильмов для выбора.
  */
-async function showCinemaMenu(chatId, msgId, page) {
-  const { items, page: curPage, totalPages, total } = generateImage.getMoviesPage(page, CINEMA_PAGE_SIZE);
+async function showCinemaMenu(chatId, msgId, category = 'foreign', page = 0) {
+  const { items, page: curPage, totalPages, total } = generateImage.getMoviesPage(category, page, CINEMA_PAGE_SIZE);
   const keyboard = [];
 
   // Кнопки фильмов по одной в ряд
   for (let i = 0; i < items.length; i++) {
     const startIndex = page * CINEMA_PAGE_SIZE + i;
-    keyboard.push([{ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${startIndex}` }]);
+    keyboard.push([{ text: `🎬 ${items[i].title}`, callback_data: `cinema_select:${category}:${startIndex}` }]);
   }
 
   // Стрелки пагинации
   const navRow = [];
   if (curPage > 0) {
-    navRow.push({ text: '⬅️', callback_data: `cinema_page:${curPage - 1}` });
+    navRow.push({ text: '⬅️', callback_data: `cinema_page:${category}:${curPage - 1}` });
   }
   if (curPage < totalPages - 1) {
-    navRow.push({ text: '➡️', callback_data: `cinema_page:${curPage + 1}` });
+    navRow.push({ text: '➡️', callback_data: `cinema_page:${category}:${curPage + 1}` });
   }
   if (navRow.length > 0) {
     keyboard.push(navRow);
   }
 
   // Случайно под стрелками
-  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: 'cinema_random' }]);
+  keyboard.push([{ text: '🎲 Выбрать случайный', callback_data: `cinema_random:${category}` }]);
 
-  // Кнопка назад
+  // Кнопки назад
+  keyboard.push([{ text: '🔙 Категории кино', callback_data: 'cinema_back' }]);
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
 
-  const text = `🎬 <b>Кино</b>
+  const categoryNames = { foreign: '🌍 Иностранные', russian: '🇷🇺 Российские', soviet: '🛸 Советские' };
+  const text = `🎬 <b>Кино</b> — ${categoryNames[category] || category}
 Выбери фильм для генерации (стр. ${curPage + 1}/${totalPages}):`;
 
   await tgEdit(chatId, msgId, text, {
@@ -3033,7 +3082,7 @@ async function showCinemaMenu(chatId, msgId, page) {
 /**
  * Сгенерировать фото в стиле выбранного фильма.
  */
-async function generateCinemaMovie(chatId, movie, cb) {
+async function generateCinemaMovie(chatId, movie, cb, category = 'foreign') {
   const conv = botLogic.getConversation(String(chatId));
   if (!conv || !conv.data || !conv.data.userId) {
     await tgSend(chatId, '❌ Данные сессии утеряны. Начни с /start');
