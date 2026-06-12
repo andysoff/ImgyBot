@@ -2195,6 +2195,131 @@ const CAR_BRANDS = [
         "prompt": "Lotus Emeya, all-electric GT sedan"
       }
     ]
+  },
+  {
+    "id": "byd",
+    "name": "BYD",
+    "prompt": "BYD, Chinese electric vehicle giant",
+    "models": [
+      {
+        "id": "seal_2022",
+        "name": "Seal (2022)",
+        "year": 2022,
+        "prompt": "BYD Seal, sporty electric sedan"
+      },
+      {
+        "id": "yangwang_u8_2023",
+        "name": "Yangwang U8 (2023)",
+        "year": 2023,
+        "prompt": "BYD Yangwang U8, ultra-luxury electric SUV"
+      },
+      {
+        "id": "yangwang_u9_2024",
+        "name": "Yangwang U9 (2024)",
+        "year": 2024,
+        "prompt": "BYD Yangwang U9, electric hypercar"
+      }
+    ]
+  },
+
+  {
+    "id": "nio",
+    "name": "NIO",
+    "prompt": "NIO, Chinese premium EV brand",
+    "models": [
+      {
+        "id": "et7_2021",
+        "name": "ET7 (2021)",
+        "year": 2021,
+        "prompt": "NIO ET7, flagship electric sedan"
+      },
+      {
+        "id": "et9_2024",
+        "name": "ET9 (2024)",
+        "year": 2024,
+        "prompt": "NIO ET9, ultra-luxury electric flagship"
+      }
+    ]
+  },
+
+  {
+    "id": "zeekr",
+    "name": "Zeekr",
+    "prompt": "Zeekr, Geely's premium EV brand",
+    "models": [
+      {
+        "id": "001_2021",
+        "name": "001 (2021)",
+        "year": 2021,
+        "prompt": "Zeekr 001, premium electric shooting brake"
+      },
+      {
+        "id": "009_2023",
+        "name": "009 (2023)",
+        "year": 2023,
+        "prompt": "Zeekr 009, luxury electric MPV"
+      }
+    ]
+  },
+
+  {
+    "id": "li_auto",
+    "name": "Li Auto",
+    "prompt": "Li Auto, Chinese premium SUV brand",
+    "models": [
+      {
+        "id": "l9_2022",
+        "name": "L9 (2022)",
+        "year": 2022,
+        "prompt": "Li Auto L9, full-size flagship SUV"
+      },
+      {
+        "id": "mega_2024",
+        "name": "MEGA (2024)",
+        "year": 2024,
+        "prompt": "Li Auto MEGA, all-electric flagship MPV"
+      }
+    ]
+  },
+
+  {
+    "id": "xiaomi",
+    "name": "Xiaomi",
+    "prompt": "Xiaomi, Chinese tech giant turned automaker",
+    "models": [
+      {
+        "id": "su7_2024",
+        "name": "SU7 (2024)",
+        "year": 2024,
+        "prompt": "Xiaomi SU7, performance electric sedan"
+      }
+    ]
+  },
+
+  {
+    "id": "hongqi",
+    "name": "Hongqi",
+    "prompt": "Hongqi, Chinese state luxury car brand",
+    "models": [
+      {
+        "id": "h9_2020",
+        "name": "H9 (2020)",
+        "year": 2020,
+        "prompt": "Hongqi H9, flagship luxury sedan"
+      },
+      {
+        "id": "e_hs9_2020",
+        "name": "E-HS9 (2020)",
+        "year": 2020,
+        "prompt": "Hongqi E-HS9, full-size electric luxury SUV"
+      },
+      {
+        "id": "ls7_2023",
+        "name": "LS7 (2023)",
+        "year": 2023,
+        "prompt": "Hongqi LS7, ultra-luxury full-size SUV"
+      }
+    ]
   }
 ];
 
