@@ -28,6 +28,34 @@
     ]
   },
   {
+    "id": "casual",
+    "name": "👕 Кэжуал",
+    "nameEn": "Casual",
+    "description": "Повседневные портреты в разных стилях",
+    "subStyles": [
+      {
+        "id": "casual_dark",
+        "name": "Casual (тёмный фон)",
+        "description": "Повседневный портрет на тёмном монотонном фоне"
+      },
+      {
+        "id": "casual_light",
+        "name": "Casual (светлый фон)",
+        "description": "Повседневный портрет на светлом монотонном фоне"
+      },
+      {
+        "id": "casual_interior",
+        "name": "Casual (в случайном интерьере)",
+        "description": "Повседневный портрет в интерьере квартиры или дома"
+      },
+      {
+        "id": "casual_bw",
+        "name": "Casual (черно-белая)",
+        "description": "Повседневный чёрно-белый портрет, монохромная эстетика"
+      }
+    ]
+  },
+  {
     "id": "sport",
     "name": "⚽ Спорт",
     "nameEn": "Sport",

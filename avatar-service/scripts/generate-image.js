@@ -51,6 +51,11 @@ const STYLE_PROMPTS = {
   portrait_business_office: 'professional corporate business portrait, formal business attire (suit and tie or blazer), modern office interior background with windows and furniture, natural and artificial mixed lighting, confident professional expression, executive presence, high-end corporate style, magazine quality, realistic photo, professional studio-grade lighting',
   portrait_business_bw: 'professional black and white corporate business portrait, formal business attire (suit and tie or blazer), dramatic monochrome photography, high contrast black and white, classic film noir style, timeless elegant aesthetic, confident professional expression, high-end corporate headshot style, realistic photo, impeccable studio lighting, silver gelatin print quality',
 
+  casual_dark: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), dark monochrome solid background, soft natural lighting, relaxed natural expression, modern casual style, realistic photo, high quality photography',
+  casual_light: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), light monochrome clean background, soft bright natural lighting, relaxed natural expression, modern casual style, realistic photo, high quality photography',
+  casual_interior: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), natural home interior background (living room, kitchen, bedroom, hallway), warm natural lighting through windows, relaxed candid expression, modern casual lifestyle aesthetic, realistic photo, high quality photography',
+  casual_bw: 'casual black and white lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), monochrome photography, soft natural lighting, high contrast black and white, timeless candid aesthetic, relaxed natural expression, artistic monochrome portrait, realistic photo, high quality photography, silver gelatin print quality',
+
   sport: 'dynamic sporty portrait, athletic look, action pose, sportswear aesthetic, high energy, realistic photo, professional lighting',
   in_car: 'in a car, driver or passenger seat, automotive lifestyle, natural lighting through window, modern car interior, realistic photo, cinematic',
   in_office: 'professional office setting, business attire, desk and computer, natural office lighting, realistic photo',
@@ -115,6 +120,7 @@ function getStyleContextPrompt(styleId) {
     history: 'The person is dressed in clothing from a historical era.',
     literature: 'The person looks like a character from a famous literary work.',
     portrait: 'Classic portrait, neutral background, professional studio lighting.',
+    casual: 'Casual lifestyle portrait, relaxed everyday look, comfortable clothing.',
   };
   return contextPrompts[styleId] || '';
 }
