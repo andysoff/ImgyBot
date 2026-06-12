@@ -115,7 +115,8 @@
     "id": "in_office",
     "name": "💼 В офисе",
     "nameEn": "In Office",
-    "description": "Случайная офисная роль или отдел"
+    "description": "Случайная офисная роль или отдел",
+    "hidden": true
   },
   {
     "id": "professions",
