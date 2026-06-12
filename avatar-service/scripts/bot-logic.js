@@ -1177,7 +1177,7 @@ const DEFAULT_SETTINGS = {
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
   portraitType: 'bust',
-  faceTurn: 'three_quarter'
+  faceTurn: 'none'
 };
 
 const QUALITY_OPTIONS = {
@@ -1195,6 +1195,7 @@ const ASPECT_OPTIONS = {
 };
 
 const PORTRAIT_TYPE_OPTIONS = {
+  none:      { label: '❌ Любой / без ограничения', hint: '' },
   headshot:  { label: 'Головной',  hint: 'headshot, face forward, tightly framed head and shoulders, passport photo style' },
   shoulder:  { label: 'Поплечный',          hint: 'shoulder-length portrait, face, neck and shoulders visible, emphasis on expression and gaze' },
   bust:      { label: 'Погрудный',          hint: 'bust portrait, face with shoulders and upper chest visible, focus on face with some shoulder context' },
@@ -1204,6 +1205,7 @@ const PORTRAIT_TYPE_OPTIONS = {
 };
 
 const FACE_TURN_OPTIONS = {
+  none:           { label: '❌ Любой / без ограничения', hint: '' },
   front:          { label: 'Анфас',       hint: 'face directly facing camera, looking straight into the lens, both eyes and face symmetry fully visible' },
   three_quarter:  { label: 'Три четверти', hint: 'face turned about 45 degrees from camera, three-quarter view, one eye closer to camera than the other, adds depth to the portrait' },
   half_profile:   { label: 'Полупрофиль',  hint: 'face turned about 75 degrees from camera, half-profile view, one side of face more prominent, dramatic look' },
@@ -1343,7 +1345,7 @@ function handleSettingsPortraitType(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   return {
-    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования — он будет применяться ко <b>всем стилям</b>:\n\n👤 <b>Головной</b> — классический, обязательно лицо\n🧑 <b>Поплечный</b> — лицо, шея и плечи\n👔 <b>Погрудный</b> — лицо, плечи и грудь\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
+    text: '📸 <b>Тип портретного фото</b>\n\nВыбери тип кадрирования — он будет применяться ко <b>всем стилям</b>:\n\n❌ <b>Любой / без ограничения</b> — нейросеть сама выберет кадрирование\n👤 <b>Головной</b> — классический, обязательно лицо\n🧑 <b>Поплечный</b> — лицо, шея и плечи\n👔 <b>Погрудный</b> — лицо, плечи и грудь\n👕 <b>Поясной</b> — до пояса, видны фигура и позы\n🧍 <b>Ростовой</b> — фото в полный рост\n🔍 <b>Крупный план</b> — акцент на деталях лица\n\nСейчас: <b>' + PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label + '</b>',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
@@ -1361,7 +1363,7 @@ function handleSettingsFaceTurn(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   return {
-    text: '🔄 <b>Поворот лица</b>\n\nВыбери положение лица относительно камеры — будет применяться ко <b>всем стилям</b>:\n\n👤 <b>Анфас</b> — лицо прямо в объектив\n🔄 <b>Три четверти</b> — поворот ~45°, глубина\n🎭 <b>Полупрофиль</b> — ~75°, драматичный эффект\n横 <b>Профиль</b> — 90°, чёткие черты лица\n👀 <b>Три четверти сзади</b> — ~135°, интрига\n💫 <b>Поворот спиной</b> — взгляд через плечо\n\nСейчас: <b>' + FACE_TURN_OPTIONS[s.faceTurn]?.label + '</b>',
+    text: '🔄 <b>Поворот лица</b>\n\nВыбери положение лица относительно камеры — будет применяться ко <b>всем стилям</b>:\n\n❌ <b>Любой / без ограничения</b> — нейросеть сама выберет ракурс\n👤 <b>Анфас</b> — лицо прямо в объектив\n🔄 <b>Три четверти</b> — поворот ~45°, глубина\n🎭 <b>Полупрофиль</b> — ~75°, драматичный эффект\n横 <b>Профиль</b> — 90°, чёткие черты лица\n👀 <b>Три четверти сзади</b> — ~135°, интрига\n💫 <b>Поворот спиной</b> — взгляд через плечо\n\nСейчас: <b>' + FACE_TURN_OPTIONS[s.faceTurn]?.label + '</b>',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
@@ -1372,11 +1374,13 @@ function handleSettingsFaceTurn(telegramId) {
  */
 function getPortraitTypePrompt(telegramId) {
   const s = getSettings(telegramId);
+  if (s.portraitType === 'none') return '';
   return PORTRAIT_TYPE_OPTIONS[s.portraitType]?.hint || PORTRAIT_TYPE_OPTIONS.headshot.hint;
 }
 
 function getFaceTurnPrompt(telegramId) {
   const s = getSettings(telegramId);
+  if (s.faceTurn === 'none') return '';
   return FACE_TURN_OPTIONS[s.faceTurn]?.hint || FACE_TURN_OPTIONS.front.hint;
 }
 

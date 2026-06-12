@@ -24,6 +24,7 @@ const QUALITY_HINTS = {
 
 // Типы портретного кадрирования
 const FACE_TURN_HINTS = {
+  none:                 '',
   front:                ', face directly facing camera, looking straight into the lens, both eyes and face symmetry fully visible',
   three_quarter:        ', face turned about 45 degrees from camera, three-quarter view, one eye closer to camera than the other, adds depth to the portrait',
   half_profile:         ', face turned about 75 degrees from camera, half-profile view, one side of face more prominent, dramatic look',
@@ -33,6 +34,7 @@ const FACE_TURN_HINTS = {
 };
 
 const PORTRAIT_TYPE_HINTS = {
+  none:      '',
   headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
   bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
   shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression',
