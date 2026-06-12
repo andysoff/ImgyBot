@@ -46,12 +46,10 @@ const PORTRAIT_TYPE_HINTS = {
 // Стили → промпты
 const STYLE_PROMPTS = {
   portrait: 'professional studio portrait photo, high quality, soft lighting, clean background, focus on face, magazine quality, realistic',
-  portrait_classic: 'classic studio portrait, high quality, soft lighting, clean background, focus on face, magazine quality, realistic',
   portrait_business_dark: 'professional corporate business portrait, formal business attire (suit and tie or blazer), dark monochrome solid background, dramatic studio lighting with subtle rim light, confident professional expression, high-end corporate headshot style, magazine quality, realistic photo, impeccable studio lighting',
   portrait_business_light: 'professional corporate business portrait, formal business attire (suit and tie or blazer), light monochrome clean background, soft diffused studio lighting, bright and professional atmosphere, confident approachable expression, high-end corporate headshot style, magazine quality, realistic photo, impeccable studio lighting',
   portrait_business_office: 'professional corporate business portrait, formal business attire (suit and tie or blazer), modern office interior background with windows and furniture, natural and artificial mixed lighting, confident professional expression, executive presence, high-end corporate style, magazine quality, realistic photo, professional studio-grade lighting',
-  portrait_corporate: 'corporate executive portrait, business formal attire, professional office setting, confident and approachable expression, soft professional lighting, boardroom aesthetic, high quality realistic photo',
-  portrait_image: 'prestige image portrait, editorial fashion quality, artistic lighting, sophisticated style, magazine cover aesthetic, high-end lifestyle photography, dramatic yet elegant, premium quality',
+
   sport: 'dynamic sporty portrait, athletic look, action pose, sportswear aesthetic, high energy, realistic photo, professional lighting',
   in_car: 'in a car, driver or passenger seat, automotive lifestyle, natural lighting through window, modern car interior, realistic photo, cinematic',
   in_office: 'professional office setting, business attire, desk and computer, natural office lighting, realistic photo',

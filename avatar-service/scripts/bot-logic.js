@@ -136,14 +136,9 @@ function handleSubStyleMenu(telegramId, styleId) {
   }
 
   const keyboard = [];
-  // Кнопки подстилей по 2 в ряд
-  for (let i = 0; i < style.subStyles.length; i += 2) {
-    const row = [];
-    row.push({ text: style.subStyles[i].name, callback_data: `substyle_select:${style.subStyles[i].id}` });
-    if (style.subStyles[i + 1]) {
-      row.push({ text: style.subStyles[i + 1].name, callback_data: `substyle_select:${style.subStyles[i + 1].id}` });
-    }
-    keyboard.push(row);
+  // Кнопки подстилей — по одной в ряд (колонка)
+  for (const sub of style.subStyles) {
+    keyboard.push([{ text: sub.name, callback_data: `substyle_select:${sub.id}` }]);
   }
   // Кнопка назад
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
