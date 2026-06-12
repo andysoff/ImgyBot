@@ -419,13 +419,15 @@ async function _callGemini(opts) {
  * @param {number}   count       - количество фото
  * @param {Object}   [extra]     - дополнительные опции
  * @param {string}   [extra.suffix] - суффикс после стандартного окончания
+ * @param {Object}   [settings]  - настройки пользователя (для применения качества)
  * @returns {string} полный промпт
  */
-function _buildPhotoPrompt(description, count, extra = {}) {
+function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
   const base = count === 1
     ? `Transform this person ${description}. Keep the face recognizable, make it look like a high-quality professional photo.`
     : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Keep the face recognizable, make it look like a high-quality professional photo.`;
-  return base + (extra.suffix || '');
+  const qualityPart = QUALITY_HINTS[settings.quality] || '';
+  return base + qualityPart + (extra.suffix || '');
 }
 
 // ======================================================================
@@ -445,7 +447,7 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId) {
     : '';
 
   const desc = `into an avatar with the following style: ${stylePrompt}${portraitTypeHint}${faceTurnHint}`;
-  const prompt = _buildPhotoPrompt(desc, files.length);
+  const prompt = _buildPhotoPrompt(desc, files.length, {}, settings);
 
   return _callGemini({
     files, prompt, outputDir, settings,
@@ -467,7 +469,9 @@ async function generateProfessionAvatar(files, profession, outputDir, settings, 
     : '';
   const prompt = _buildPhotoPrompt(
     `into the following professional role: ${profession.prompt}. The person should be the main subject dressed for this role.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -493,7 +497,9 @@ async function generateSportAvatar(files, sport, outputDir, settings, chatId) {
     : '';
   const prompt = _buildPhotoPrompt(
     `into a professional athlete in the following sport: ${sport.prompt}. The person should be the main subject playing this sport.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -519,7 +525,9 @@ async function generateOfficeAvatar(files, work, outputDir, settings, chatId) {
     : '';
   const prompt = _buildPhotoPrompt(
     `in an office setting: ${work.prompt}. The person should be the main subject in this office environment.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -546,7 +554,7 @@ async function generateCinemaAvatar(files, movie, outputDir, settings, chatId) {
   const stylePrompt = `cinematic movie still portrait in the style of the film "${movie.titleEn}" (${movie.year}): ${movie.prompt}. The person should look like a character from this movie, wearing appropriate costume for the film. High quality realistic photo, professional lighting, recognizable face.${portraitTypeHint}${faceTurnHint}`;
 
   const desc = `into a character from the movie "${movie.titleEn}". ${stylePrompt}`;
-  const prompt = _buildPhotoPrompt(desc, files.length);
+  const prompt = _buildPhotoPrompt(desc, files.length, {}, settings);
 
   const filenameBase = 'cinema_' + movie.titleEn.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
@@ -573,7 +581,9 @@ async function generateLocationAvatar(files, location, outputDir, settings, chat
     : '';
   const prompt = _buildPhotoPrompt(
     `as a tourist at this famous location: ${location.prompt}. Make it look like they are actually visiting this place.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -599,7 +609,9 @@ async function generateHistoryAvatar(files, era, outputDir, settings, chatId) {
     : '';
   const prompt = _buildPhotoPrompt(
     `into the historical era: ${era.prompt}. The person should look like they belong in this era, wearing appropriate period clothing and surrounded by authentic setting. The final image MUST be square 1:1 aspect ratio and look like an epic cinematic movie frame — dramatic lighting, film color grading, shallow depth of field, Hollywood historical film quality. Keep the face recognizable from the reference photo.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -625,7 +637,9 @@ async function generateLiteratureAvatar(files, work, outputDir, settings, chatId
     : '';
   const prompt = _buildPhotoPrompt(
     `as a character from the literary work: ${work.prompt}. Cinematic movie frame quality, anamorphic look, dramatic film lighting, rich color grading, square 1:1 aspect ratio. The aesthetic should subtly reflect the era of the book — period-appropriate textures, lighting, and atmosphere. Keep face recognizable, high quality, like a shot from an award-winning film adaptation.${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
 
   return _callGemini({
@@ -1282,7 +1296,9 @@ async function generateCarAvatar(files, brand, model, outputDir, settings, chatI
     : '';
   const prompt = _buildPhotoPrompt(
     `${model.prompt}, front grille and headlights clearly visible, car logo and badge prominent, professional automotive photography, sharp detailed front view showing the make and model of the car, model standing next to the front hood or near the driver door, stylish streetwear fashion, urban setting bright day, high-end luxury car photo shoot, person and car both in frame, car front half fully in shot${portraitTypeHint}${faceTurnHint}`,
-    files.length
+    files.length,
+    {},
+    settings
   );
   console.log(`🎨 Генерация авто: ${brand.name} ${model.name}`);
   return _callGemini({
