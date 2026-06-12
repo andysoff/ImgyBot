@@ -6,27 +6,27 @@
     "description": "Классический портрет в костюме",
     "subStyles": [
       {
-        "id": "portrait_business_dark",
+        "id": "portrait_corporate_dark",
         "name": "Тёмный фон",
         "description": "Корпоративный портрет на тёмном монотонном фоне"
       },
       {
-        "id": "portrait_business_light",
+        "id": "portrait_corporate_light",
         "name": "Светлый фон",
         "description": "Корпоративный портрет на светлом монотонном фоне"
       },
       {
-        "id": "portrait_business_office",
+        "id": "portrait_corporate_office",
         "name": "Офис",
         "description": "Корпоративный портрет в офисной обстановке"
       },
       {
-        "id": "portrait_business_bw",
+        "id": "portrait_corporate_bw",
         "name": "Чёрно-белое",
         "description": "Классический чёрно-белый корпоративный портрет в студийном стиле"
       },
       {
-        "id": "portrait_chair",
+        "id": "portrait_corporate_chair",
         "name": "На стуле в студии",
         "description": "Корпоративный портрет на стуле в студии"
       }
@@ -82,7 +82,7 @@
         "description": "Повседневный портрет на светлом монотонном фоне"
       },
       {
-        "id": "casual_interior",
+        "id": "casual_office",
         "name": "Офис",
         "description": "Повседневный портрет в офисе"
       },

@@ -46,11 +46,11 @@ const PORTRAIT_TYPE_HINTS = {
 // Стили → промпты
 const STYLE_PROMPTS = {
   portrait: 'professional studio portrait photo, high quality, soft lighting, clean background, focus on face, magazine quality, realistic',
-  portrait_business_dark: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), dark monochrome solid background, refined studio lighting with subtle rim light, confident poised expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
-  portrait_business_light: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), light monochrome clean background, soft diffused studio lighting, bright and polished atmosphere, confident approachable expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
-  portrait_business_office: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), modern office interior background with windows and furniture, polished mixed lighting, confident professional expression, executive presence, premium corporate style, exquisite studio quality, realistic photo, professional studio-grade lighting',
-  portrait_business_bw: 'formal black and white corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), classic studio setting with a clean solid monochrome background, studio-quality soft diffused lighting, soft low contrast with even and balanced exposure, gentle tonal range, timeless elegant black and white aesthetic, confident professional expression, premium corporate headshot style, realistic photo, impeccable studio lighting',
-  portrait_chair: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), sitting on a chair in a photo studio (random: high bar stool, modern office chair, designer chair, wooden chair), studio professional lighting, clean studio background, can be color or black and white, confident professional expression, premium corporate style, realistic photo',
+  portrait_corporate_dark: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), dark monochrome solid background, refined studio lighting with subtle rim light, confident poised expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
+  portrait_corporate_light: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), light monochrome clean background, soft diffused studio lighting, bright and polished atmosphere, confident approachable expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
+  portrait_corporate_office: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), modern office interior background with windows and furniture, polished mixed lighting, confident professional expression, executive presence, premium corporate style, exquisite studio quality, realistic photo, professional studio-grade lighting',
+  portrait_corporate_bw: 'formal black and white corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), classic studio setting with a clean solid monochrome background, studio-quality soft diffused lighting, soft low contrast with even and balanced exposure, gentle tonal range, timeless elegant black and white aesthetic, confident professional expression, premium corporate headshot style, realistic photo, impeccable studio lighting',
+  portrait_corporate_chair: 'formal corporate studio portrait, professional attire (suit, blazer, or dress shirt, tie optional), sitting on a chair in a photo studio (random: high bar stool, modern office chair, designer chair, wooden chair), studio professional lighting, clean studio background, can be color or black and white, confident professional expression, premium corporate style, realistic photo',
 
   classic_dark: 'professional classic portrait, smart business casual attire (dress shirt only, no tie, no jacket), dark monochrome solid background, soft studio lighting, confident relaxed expression, clean and minimalist aesthetic, magazine quality, realistic photo',
   classic_light: 'professional classic portrait, smart business casual attire (dress shirt only, no tie, no jacket), light monochrome clean background, soft diffused studio lighting, bright and fresh atmosphere, confident relaxed expression, clean and minimalist aesthetic, magazine quality, realistic photo',
@@ -58,11 +58,11 @@ const STYLE_PROMPTS = {
   classic_bw: 'professional black and white classic portrait, smart business casual attire (dress shirt only, no tie, no jacket), classic studio setting with a clean solid monochrome background, studio-quality soft diffused professional lighting, even and balanced exposure, timeless elegant black and white aesthetic, confident relaxed expression, magazine quality, realistic photo',
   classic_chair: 'professional classic portrait, smart business casual attire (dress shirt only, no tie, no jacket), sitting on a chair in a photo studio (random: high bar stool, modern office chair, designer chair, wooden chair), studio professional lighting, clean studio background, can be color or black and white, confident relaxed expression, classic business portrait style, realistic photo',
 
-  casual_dark: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), dark monochrome solid background, soft natural lighting, relaxed natural expression, modern casual style, realistic photo, high quality photography',
-  casual_light: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), light monochrome clean background, soft bright natural lighting, relaxed natural expression, modern casual style, realistic photo, high quality photography',
-  casual_interior: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), modern office interior background (open office, desk, chair, computer), professional office lighting, relaxed natural expression, modern casual style at work, realistic photo, high quality photography',
-  casual_bw: 'casual studio portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), sitting on a chair in a photo studio (random: high bar stool, modern office chair, designer chair, wooden chair), studio professional lighting, clean studio background, can be color or black and white, professional studio portrait aesthetic, relaxed natural expression, realistic photo, high quality photography',
-  casual_home: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans), cozy home interior background (living room, kitchen, bedroom, hallway), warm natural lighting through windows, relaxed candid expression, homely comfortable atmosphere, realistic photo, high quality photography',
+  casual_dark: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans, hoodie), dark monochrome smooth solid background, soft studio diffused lighting with subtle side rim light, relaxed natural expression, modern casual portrait aesthetic, realistic photo, exquisite studio quality, impeccable lighting',
+  casual_light: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans, hoodie), light monochrome clean solid background, soft bright diffused studio lighting, relaxed natural candid expression, bright and fresh atmosphere, modern casual portrait style, realistic photo, high quality photography',
+  casual_office: 'casual lifestyle portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans, hoodie), modern office interior background with desks chairs and computers, natural and artificial mixed lighting, relaxed natural expression, casual work atmosphere, modern casual lifestyle, realistic photo, high quality photography, absolutely no text no timestamps no dates no clocks no writing of any kind on the image or on any objects in the scene, computer screen is blank or shows only abstract blurred content',
+  casual_bw: 'casual black and white studio portrait, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans, hoodie), sitting on a chair in a photo studio (random: wooden chair, high stool, designer chair, armchair), classic studio lighting, clean solid monochrome studio background, even and balanced exposure, timeless black and white aesthetic, relaxed natural expression, modern casual portrait, realistic photo',
+  casual_home: 'casual lifestyle portrait at home, relaxed everyday clothing (t-shirt, sweater, hoodie, jeans, joggers), cozy home interior background (living room sofa, bedroom, hallway, kitchen), warm soft natural window light, relaxed candid expression, comfortable homely atmosphere, modern casual lifestyle photography, realistic photo, high quality photography',
 
   sport: 'dynamic sporty portrait, athletic look, action pose, sportswear aesthetic, high energy, realistic photo, professional lighting',
   in_car: 'in a car, driver or passenger seat, automotive lifestyle, natural lighting through window, modern car interior, realistic photo, cinematic',
@@ -86,6 +86,15 @@ const STYLE_PROMPTS = {
   fashion_beauty: 'high fashion beauty close-up portrait, extreme close-up or tight headshot framing, flawless perfected skin with natural texture, emphasis on makeup artistry — bold lipstick defined brows contoured cheeks smoky eyes or editorial makeup looks, impeccable hair styling, soft diffused studio lighting that flatters facial features, subtle retouching maintaining skin realism, high-end beauty photography, no text no letters no typography no logos no labels anywhere on the image, no magazine cover layout or cosmetics branding, pure beauty portrait without any inscriptions',
   fashion_glamour: 'high fashion glamour portrait, luxurious evening wear: silk gowns sequined dresses velvet tuxedos statement jewelry, old Hollywood and modern red carpet glamour aesthetic, warm golden studio lighting with soft reflections and sparkle, polished sophisticated pose with elegance and confidence, impeccable styling with glossy polished finish, luxurious atmosphere, premium lifestyle photography, no text no letters no typography no logos no labels anywhere on the image, no magazine text or event branding, pure glamour portrait without any inscriptions',
   fashion_avantgarde: 'avant-garde high fashion art portrait, experimental conceptual fashion photography, unconventional silhouettes and architectural clothing, creative experimental studio lighting with colored gels geometric shadows and unusual light patterns, artistic and surreal aesthetic, bold makeup and styling, striking unusual poses, creative photography with strong visual impact, no text no letters no typography no logos no labels anywhere on the image, no magazine captions or titles, pure avant-garde art photography without any inscriptions'
+};
+
+// Женские версии корпоративных стилей (без галстука и брюк, с юбкой)
+const STYLE_PROMPTS_FEMALE = {
+  portrait_corporate_dark: 'formal corporate studio portrait, professional women\'s corporate attire (elegant blouse, professional skirt, blazer optional, no tie, no trousers), dark monochrome solid background, refined studio lighting with subtle rim light, confident poised expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
+  portrait_corporate_light: 'formal corporate studio portrait, professional women\'s corporate attire (elegant blouse, professional skirt, blazer optional, no tie, no trousers), light monochrome clean background, soft diffused studio lighting, bright and polished atmosphere, confident approachable expression, premium corporate headshot style, exquisite studio quality, realistic photo, impeccable lighting',
+  portrait_corporate_office: 'formal corporate studio portrait, professional women\'s corporate attire (elegant blouse, professional skirt, blazer optional, no tie, no trousers), modern office interior background with windows and furniture, polished mixed lighting, confident professional expression, executive presence, premium corporate style, exquisite studio quality, realistic photo, professional studio-grade lighting',
+  portrait_corporate_bw: 'formal black and white corporate studio portrait, professional women\'s corporate attire (elegant blouse, professional skirt, blazer optional, no tie, no trousers), classic studio setting with a clean solid monochrome background, studio-quality soft diffused lighting, soft low contrast with even and balanced exposure, gentle tonal range, timeless elegant black and white aesthetic, confident professional expression, premium corporate headshot style, realistic photo, impeccable studio lighting',
+  portrait_corporate_chair: 'formal corporate studio portrait, professional women\'s corporate attire (elegant blouse, professional skirt, blazer optional, no tie, no trousers), sitting on a chair in a photo studio (random: high bar stool, modern office chair, designer chair, wooden chair), studio professional lighting, clean studio background, can be color or black and white, confident professional expression, premium corporate style, realistic photo'
 };
 
 // Shared variable for apiCall
@@ -469,10 +478,56 @@ function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
 // ======================================================================
 
 /**
- * Сгенерировать аватарку по стилю.
+ * Определить пол человека на фото через Gemini.
+ * @param {Object[]} files - загруженные файлы
+ * @returns {Promise<string>} 'male' | 'female'
  */
-async function generateAvatar(files, styleId, outputDir, settings, chatId) {
-  const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
+async function detectGender(files) {
+  if (!files || files.length === 0) return 'male';
+  try {
+    const payload = JSON.stringify({
+      contents: [{
+        parts: [
+          ...files.slice(0, 1).map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } })),
+          { text: 'Look at the person in this photo. Is this a man or a woman? Answer with only one word: male or female.' }
+        ]
+      }],
+      generationConfig: {
+        responseModalities: ['Text'],
+        temperature: 0.1,
+        maxOutputTokens: 10
+      }
+    });
+    const result = await apiCall(payload, { model: 'gemini-2.0-flash' });
+    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.toLowerCase().trim() || '';
+    if (text.includes('female') || text.includes('woman') || text.includes('girl')) {
+      return 'female';
+    }
+    return 'male';
+  } catch (err) {
+    console.warn('⚠️ Не удалось определить пол, используется male:', err.message);
+    return 'male';
+  }
+}
+
+/**
+ * Сгенерировать аватарку по стилю.
+ * @param {Object[]} files - загруженные файлы
+ * @param {string} styleId - id стиля
+ * @param {string} outputDir - папка для результата
+ * @param {Object} settings - настройки
+ * @param {string} [chatId] - id чата
+ * @param {string} [gender] - пол ('male' или 'female'), для корпоративных стилей. Если не передан — считается мужчина
+ */
+async function generateAvatar(files, styleId, outputDir, settings, chatId, gender) {
+  // Для женских аватаров используем женские версии корпоративных промптов
+  let stylePrompt;
+  if (gender === 'female' && STYLE_PROMPTS_FEMALE[styleId]) {
+    stylePrompt = STYLE_PROMPTS_FEMALE[styleId];
+  } else {
+    stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
+  }
+
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
@@ -487,7 +542,7 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId) {
     files, prompt, outputDir, settings,
     metricsLabel: 'generateAvatar:' + styleId,
     metricsStyle: styleId,
-    logMessage: `генерация в стиле «${styleId}»`
+    logMessage: `генерация в стиле «${styleId}»${gender ? ', пол: ' + gender : ''}`
   });
 }
 
@@ -1424,6 +1479,9 @@ module.exports = {
   generateLiteratureAvatar,
   generateCustomAvatar,
   generateNoAvatarCustom,
+  // Определение пола
+  detectGender,
+  STYLE_PROMPTS_FEMALE,
   // Вспомогательное
   uploadPhoto,
   // Данные

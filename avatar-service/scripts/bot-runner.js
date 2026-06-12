@@ -94,6 +94,29 @@ const generateImage = require('./generate-image');
 const metrics = require('./metrics-ga4');
 const payments = require('./payments');
 
+const ADMIN_TELEGRAM_ID = '132454710';
+
+/**
+ * Отправить админу уведомление об оплате
+ */
+async function sendAdminPaymentNotification(chatId, paymentId, pkg) {
+  const user = botLogic.findUserByTelegram(String(chatId));
+  const userName = (user && user.name) ? user.name : 'ID ' + chatId;
+  try {
+    await tgSend(Number(ADMIN_TELEGRAM_ID),
+      '💳 <b>Новый платёж</b>\n\n'
+      + '👤 <b>' + userName + '</b>\n'
+      + '📦 Пакет: ' + pkg.generations + ' ' + botLogic.pluralGen(pkg.generations) + '\n'
+      + '💰 Сумма: ' + pkg.price + '₽\n'
+      + '🆔 Платёж: <code>' + paymentId + '</code>\n'
+      + '✅ Статус: <b>Оплачено</b>',
+      { parse_mode: 'HTML' }
+    );
+  } catch (err) {
+    console.error('⚠️ Ошибка отправки уведомления админу:', err.message);
+  }
+}
+
 const PHOTOS_TMP = path.join(__dirname, '..', 'photos', '_incoming');
 fs.mkdirSync(PHOTOS_TMP, { recursive: true });
 
@@ -133,6 +156,30 @@ async function verifyGeminiFile(name) {
 }
 
 /**
+ * Определить пол аватара через Gemini и сохранить в avatars.json.
+ * @param {object} avatar — объект аватара
+ * @param {object[]} avatars — весь массив аватаров
+ * @param {Array} files — массив geminiFiles
+ */
+async function detectAndSaveGender(avatar, avatars, files) {
+  try {
+    const gender = await generateImage.detectGender(files);
+    avatar.gender = gender;
+    const idx = avatars.findIndex(a => a.id === avatar.id);
+    if (idx >= 0) {
+      avatars[idx] = avatar;
+      fs.writeFileSync(
+        path.join(__dirname, '..', 'data', 'avatars.json'),
+        JSON.stringify(avatars, null, 2) + '\n'
+      );
+    }
+    console.log(`🔍 Пол аватара ${avatar.id} определён: ${gender}`);
+  } catch (detectErr) {
+    console.warn('⚠️ Не удалось определить пол:', detectErr.message);
+  }
+}
+
+/**
  * Получить валидные geminiFiles для аватара — проверить кеш, перезагрузить протухшие.
  * @param {object} avatar — объект аватара из avatars.json
  * @param {object} avatars — весь массив (для сохранения)
@@ -167,6 +214,10 @@ async function ensureGeminiFiles(avatar, avatars) {
     if (allValid && validFiles.length === avatar.geminiFiles.length) {
       // Все живы — используем кеш
       console.log(`⚡ Все ${validFiles.length} файлов аватара ${avatar.id} живы`);
+      // Определяем пол, если ещё не задан (для старых аватаров с кешированными файлами)
+      if (!avatar.gender && validFiles.length > 0) {
+        await detectAndSaveGender(avatar, avatars, validFiles);
+      }
       return validFiles;
     }
 
@@ -201,6 +252,11 @@ async function ensureGeminiFiles(avatar, avatars) {
       path.join(__dirname, '..', 'data', 'avatars.json'),
       JSON.stringify(avatars, null, 2) + '\n'
     );
+  }
+
+  // Определяем пол по фото (один раз, при первой загрузке в Gemini)
+  if (!avatar.gender && avatar.geminiFiles && avatar.geminiFiles.length > 0) {
+    await detectAndSaveGender(avatar, avatars, avatar.geminiFiles);
   }
 
   console.log(`✅ ${avatar.geminiFiles.length} Gemini URI для аватара ${avatar.id}`);
@@ -1097,59 +1153,7 @@ async function handleUpdate(update) {
       await tgSend(chatId, text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
     }
 
-    if (data.startsWith('check_payment:')) {
-      await tgAnswerCb(cb.id, '🔄 Проверяю...');
 
-      const parts = data.split(':');
-      const paymentId = parts[1];
-      const packageId = parts[2];
-
-      metrics.track('buy:payment_checked', { telegram_id: String(chatId), package_id: packageId });
-
-      if (!payments.isConfigured()) {
-        await tgSend(chatId, '❌ Проверка платежа временно недоступна.');
-        return;
-      }
-
-      try {
-        const result = await payments.checkPayment(paymentId);
-
-        if (result.paid) {
-          const pkg = payments.PACKAGES.find(p => p.id === packageId);
-          if (pkg) {
-            metrics.track('buy:payment_completed', { telegram_id: String(chatId), package_id: packageId, generations: String(pkg.generations), amount: String(pkg.price) });
-            // Начисляем генерации
-            const newTotal = botLogic.addGenerations(String(chatId), pkg.generations);
-
-            const isDemoPayment = String(paymentId).startsWith('demo_');
-
-            await tgEdit(chatId, msgId,
-              `✅ <b>Оплата подтверждена!</b>\n\n`
-              + (isDemoPayment ? '🔄 <i>Демо-режим</i> — генерации начислены для теста.\n\n' : '')
-              + `Тебе начислено <b>${pkg.generations}</b> ${botLogic.pluralGen(pkg.generations)}.\n`
-              + `Теперь у тебя <b>${newTotal}</b> ${botLogic.pluralGen(newTotal)}.`,
-              { parse_mode: 'HTML' }
-            );
-
-            // Удаляем платёж из хранилища
-            botLogic.removePendingPayment(String(chatId), paymentId);
-          }
-        } else if (result.status === 'pending') {
-          await tgSend(chatId, '⏳ Платёж ещё не завершён. Попробуй оплатить или нажми «✅ Я оплатил» через несколько секунд.');
-        } else if (result.status === 'canceled') {
-          await tgEdit(chatId, msgId,
-            '❌ Платёж был отменён.\nПопробуй ещё раз — /buy',
-            { parse_mode: 'HTML' }
-          );
-        } else {
-          await tgSend(chatId, `❌ Статус платежа: ${result.status}. Если оплатил — подожди немного и попробуй ещё раз.`);
-        }
-      } catch (err) {
-        console.error('❌ Ошибка проверки платежа:', err.message);
-        await tgSend(chatId, `❌ Не удалось проверить платёж: ${err.message}`);
-      }
-      return;
-    }
 
     if (data === 'show_buy') {
       metrics.track('buy:menu_opened', { telegram_id: String(chatId) });
@@ -1833,7 +1837,7 @@ async function handleUpdate(update) {
 
           } else {
             // === Обычный стиль — одно фото ===
-            const generatedResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
+            const generatedResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId), avatar?.gender);
 
             const genStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
             const caption = `✨ Готово! Стиль: «${genStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
@@ -1948,7 +1952,7 @@ async function handleUpdate(update) {
                 const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else {
-                retryResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
+                retryResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId), avatar?.gender);
                 const retryStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
                 const caption = `✨ Готово! Стиль: «${retryStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
@@ -2154,7 +2158,7 @@ async function handleUpdate(update) {
           caption = `🚗 За рулём ${brand.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
           styleLabel = 'in_car';
         } else {
-          generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings);
+          generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings, undefined, avatar?.gender);
           const repeatGenStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
           caption = `✨ Готово! Стиль: «${repeatGenStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
           styleLabel = repeatStyleId;
@@ -2857,6 +2861,8 @@ function startPaymentWatcher(chatId, msgId, paymentId, packageId) {
               { parse_mode: 'HTML' }
             );
           } catch {}
+          // Уведомление админу
+          try { await sendAdminPaymentNotification(chatId, paymentId, pkg); } catch {}
           // Удаляем выполненный платёж из хранилища
           botLogic.removePendingPayment(String(chatId), paymentId);
         }
@@ -2949,6 +2955,8 @@ console.log(`📁 Временные фото: ${PHOTOS_TMP}`);
             if (pkg.id === packageId) {
               const newTotal = botLogic.addGenerations(telegramId, pkg.generations);
               try { await tgSend(Number(telegramId), '✅ <b>Оплата подтверждена!</b> 🎉\n\nТебе начислено <b>' + pkg.generations + '</b> ' + botLogic.pluralGen(pkg.generations) + '.\nТеперь у тебя <b>' + newTotal + '</b> ' + botLogic.pluralGen(newTotal) + '.', { parse_mode: 'HTML' }); } catch {}
+              // Уведомление админу (создаём объект пакета для функции)
+              try { await sendAdminPaymentNotification(telegramId, paymentId, pkg); } catch {}
               botLogic.removePendingPayment(telegramId, paymentId);
               console.log('♻️ Восстановлен платёж ' + paymentId + ' для ' + telegramId + ': оплачен ✅');
               restored++;
