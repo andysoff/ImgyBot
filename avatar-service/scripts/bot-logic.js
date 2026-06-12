@@ -110,7 +110,7 @@ function buildMainKeyboard() {
 }
 
 function buildStylesKeyboard() {
-  const styles = readJSON(STYLES_FILE);
+  const styles = readJSON(STYLES_FILE).filter(s => !s.hidden);
   const keyboard = [];
   for (let i = 0; i < styles.length; i += 2) {
     const row = [];
