@@ -144,7 +144,9 @@ function handleSubStyleMenu(telegramId, styleId) {
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
 
   return {
-    text: `<b>${style.name}</b> — выбери тип портрета:`,
+    text: `<b>${style.name}</b> — ${style.description || 'выбери тип портрета'}
+
+Выбери тип портрета 👇`,
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
@@ -516,12 +518,16 @@ function handleStyleSelected(telegramId, styleId) {
   const styles = readJSON(STYLES_FILE);
   // Ищем стиль сначала на верхнем уровне, потом в подстилях
   let style = styles.find(s => s.id === styleId);
+  let parentStyleName = null;
   if (!style) {
     // Ищем в подстилях
     for (const s of styles) {
       if (s.subStyles) {
         style = s.subStyles.find(sub => sub.id === styleId);
-        if (style) break;
+        if (style) {
+          parentStyleName = s.name;
+          break;
+        }
       }
     }
   }
@@ -555,10 +561,12 @@ function handleStyleSelected(telegramId, styleId) {
     lastGeneratedPrompt: existingData.lastGeneratedPrompt
   });
 
+  const displayName = parentStyleName ? `${parentStyleName} → ${style.name}` : style.name;
+
   return {
-    text: `✅ Стиль «${style.name}». Генерирую...`,
+    text: `✅ Стиль «${displayName}». Генерирую...`,
     parse_mode: 'HTML',
-    style, userId, avatarId, cost,
+    style, parentStyleName, userId, avatarId, cost,
     user, avatar,
     remaining: user.generationsRemaining,
     isNoAvatar: avatarId === 'no_avatar',

@@ -1471,9 +1471,10 @@ async function handleUpdate(update) {
 
       if (result.readyToGenerate) {
         // Меняем текст сообщения
+        const replyStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
         const statusText = result.remaining > 0
-          ? `✅ Стиль: «${result.style.name}»`
-          : `✅ Стиль: «${result.style.name}»\nГенерации закончились`;
+          ? `✅ Стиль: «${replyStyleName}»`
+          : `✅ Стиль: «${replyStyleName}»\nГенерации закончились`;
 
         await tgEdit(chatId, msgId, statusText);
 
@@ -1535,7 +1536,8 @@ async function handleUpdate(update) {
 
           // Уведомление о старте
           metrics.track('generation:started', { telegram_id: String(chatId), style_id: result.style?.id || styleId });
-          const statusMsg = `🎨 Генерирую фото в стиле «${result.style.name}»...`;
+          const styleDisplayName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
+          const statusMsg = `🎨 Генерирую фото в стиле «${styleDisplayName}»...`;
           await tgSend(chatId, statusMsg);
 
           {
@@ -1799,7 +1801,8 @@ async function handleUpdate(update) {
             // === Обычный стиль — одно фото ===
             const generatedResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
 
-            const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+            const genStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
+            const caption = `✨ Готово! Стиль: «${genStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
 
             await tgSendPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
@@ -1912,7 +1915,8 @@ async function handleUpdate(update) {
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               } else {
                 retryResult = await generateImage.generateAvatar(geminiFiles, styleId, outputDir, settings, String(chatId));
-                const caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+                const retryStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
+                const caption = `✨ Готово! Стиль: «${retryStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
                 await tgSendPhoto(chatId, retryResult.path, caption, { parse_mode: 'HTML' });
               }
 
@@ -2038,7 +2042,8 @@ async function handleUpdate(update) {
         return;
       }
 
-      await tgSend(chatId, `🔄 Повторяю в стиле «${result.style?.name || repeatStyleId}»...`);
+      const repeatStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
+      await tgSend(chatId, `🔄 Повторяю в стиле «${repeatStyleName}»...`);
 
       // ---- Генерация ----
       const settings = botLogic.getSettings(String(chatId));
@@ -2110,7 +2115,8 @@ async function handleUpdate(update) {
           styleLabel = 'near_car';
         } else {
           generatedResult = await require('./generate-image').generateAvatar(geminiFiles, repeatStyleId, outputDir, settings);
-          caption = `✨ Готово! Стиль: «${result.style.name}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
+          const repeatGenStyleName = result.parentStyleName ? `${result.parentStyleName} → ${result.style.name}` : result.style.name;
+          caption = `✨ Готово! Стиль: «${repeatGenStyleName}»\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
           styleLabel = repeatStyleId;
         }
 
