@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-16T17:22:25.834Z",
+  "updatedAt": "2026-06-16T20:55:23.282Z",
   "entries": {
     "memory:memory/2026-05-23.md:1:30": {
       "key": "memory:memory/2026-05-23.md:1:30",
@@ -569,21 +569,23 @@
       "endLine": 69,
       "source": "memory",
       "snippet": "дующий день.",
-      "recallCount": 4,
+      "recallCount": 5,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 1.8237942457199094,
+      "totalScore": 2.288865408301353,
       "maxScore": 0.46905867457389827,
       "firstRecalledAt": "2026-06-12T10:25:51.676Z",
-      "lastRecalledAt": "2026-06-12T13:05:36.555Z",
+      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
       "queryHashes": [
         "a1751693da01",
         "1ef911e8e4cc",
         "29804e4c242f",
-        "d20a9a7c740b"
+        "d20a9a7c740b",
+        "63a5a2c004f1"
       ],
       "recallDays": [
-        "2026-06-12"
+        "2026-06-12",
+        "2026-06-16"
       ],
       "conceptTags": [
         "дующий",
@@ -652,6 +654,130 @@
         "реструктуризация",
         "стилей",
         "категорий"
+      ]
+    },
+    "memory:memory/2026-06-15.md:1:10": {
+      "key": "memory:memory/2026-06-15.md:1:10",
+      "path": "memory/2026-06-15.md",
+      "startLine": 1,
+      "endLine": 10,
+      "source": "memory",
+      "snippet": "# 2026-06-15 (Понедельник) ## Репозиторий - Коммитов в avatar-service за сегодня нет — тихий день ## Заметки - MSK-дата: 2026-06-15, день без активной разработки",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.504628038406372,
+      "maxScore": 0.504628038406372,
+      "firstRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "queryHashes": [
+        "63a5a2c004f1"
+      ],
+      "recallDays": [
+        "2026-06-16"
+      ],
+      "conceptTags": [
+        "avatar-service",
+        "msk-дата",
+        "понедельник",
+        "репозиторий",
+        "коммитов",
+        "avatar",
+        "service",
+        "сегодня"
+      ]
+    },
+    "memory:memory/2026-06-14.md:1:10": {
+      "key": "memory:memory/2026-06-14.md:1:10",
+      "path": "memory/2026-06-14.md",
+      "startLine": 1,
+      "endLine": 10,
+      "source": "memory",
+      "snippet": "# 2026-06-14 (Воскресенье) ## Репозиторий - Коммитов в avatar-service за сегодня нет — тихий день ## Заметки - MSK-дата: 2026-06-14, день без активной разработки",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.496930119395256,
+      "maxScore": 0.496930119395256,
+      "firstRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "queryHashes": [
+        "63a5a2c004f1"
+      ],
+      "recallDays": [
+        "2026-06-16"
+      ],
+      "conceptTags": [
+        "avatar-service",
+        "msk-дата",
+        "воскресенье",
+        "репозиторий",
+        "коммитов",
+        "avatar",
+        "service",
+        "сегодня"
+      ]
+    },
+    "memory:memory/2026-06-13.md:1:12": {
+      "key": "memory:memory/2026-06-13.md:1:12",
+      "path": "memory/2026-06-13.md",
+      "startLine": 1,
+      "endLine": 12,
+      "source": "memory",
+      "snippet": "# 2026-06-13 Суббота. День без активных изменений в коде. ## Коммиты - `60e496f` — docs: обновление дневной истории за 2026-06-12 (вчерашний daily memory save) ## Заметки - Рабочих коммитов в avatar-service не было. Изменения касались только служебных файлов `.dreams/` (автоматическая генерация recall/dream данных).",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.4894080430269241,
+      "maxScore": 0.4894080430269241,
+      "firstRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "queryHashes": [
+        "63a5a2c004f1"
+      ],
+      "recallDays": [
+        "2026-06-16"
+      ],
+      "conceptTags": [
+        "avatar-service",
+        "recall/dream",
+        "суббота",
+        "день",
+        "без",
+        "активных",
+        "изменений",
+        "коде"
+      ]
+    },
+    "memory:memory/2026-06-16.md:1:20": {
+      "key": "memory:memory/2026-06-16.md:1:20",
+      "path": "memory/2026-06-16.md",
+      "startLine": 1,
+      "endLine": 20,
+      "source": "memory",
+      "snippet": "# 2026-06-16 ## Imgy Bot — Кнопка «Скачать оригинал» и рефакторинг - Андрей попросил всегда сохранять изменения в git после правок бота - Сделана и закомичена новая фича: - `pendingOriginals` Map — хранит пути к оригинальным фото 30 минут - `tgSendDocument()` — отправка файла без сжатия через multipart/form-data - `sendAfterGenerationButtons()` — единая функция для всех стилей вместо дублирования кода - Кнопка «📄 Прислать файл без сжатия» во всех сценариях после генерации - Callback `download_original` — возвращает оригинал по клику - Убрано ~250 строк дублирующегося кода кнопок после генерации по всем стилям - Закомичено и запущено на GitHub ## Указания на будущее - Андрей ск",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.47949489057064054,
+      "maxScore": 0.47949489057064054,
+      "firstRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "queryHashes": [
+        "63a5a2c004f1"
+      ],
+      "recallDays": [
+        "2026-06-16"
+      ],
+      "conceptTags": [
+        "multipart/form-data",
+        "download-original",
+        "imgy",
+        "bot",
+        "кнопка",
+        "скачать",
+        "оригинал",
+        "рефакторинг"
       ]
     }
   }
