@@ -1272,12 +1272,12 @@ function handleSettings(telegramId) {
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
       [{ text: '🔄 Поворот: ' + faceTurnLabel, callback_data: 'settings_face_turn' }],
       [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
-      [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
+      [{ text: '🔧 Debug: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Debug: ' + debugLabel + '\n📷 Качество: ' + qualityLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
