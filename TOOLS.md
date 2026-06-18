@@ -45,9 +45,9 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - **Prod deploy:** `/opt/avatar-service-prod/` — копия из гита + свой .env
 - Код один, разница только в .env и данных
 
-**Deploy скрипты:**
-- В тест: `bash /opt/deploy-avatar-test.sh`
-- В прод: `bash /opt/deploy-avatar-prod.sh`
+**Deploy скрипты (в git: `avatar-service/deploy/`):**
+- В тест: `bash /opt/deploy-avatar-test.sh` → вызывает `deploy/deploy-test.sh`
+- В прод: `bash /opt/deploy-avatar-prod.sh` → вызывает `deploy/deploy-prod.sh`
 
 **Сервисы:**
 - Прод: `systemctl [restart|status] avatar-bot`
