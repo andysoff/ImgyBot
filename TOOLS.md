@@ -39,24 +39,37 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 ### Avatar Service (Imgy Bot)
 
-**Бот:** `avatar-service/scripts/bot-runner.js`
+**Архитектура:**
+- **Git (source):** `avatar-service/` — только код, без env/data
+- **Test deploy:** `/opt/avatar-service-test/` — копия из гита + свой .env
+- **Prod deploy:** `/opt/avatar-service-prod/` — копия из гита + свой .env
+- Код один, разница только в .env и данных
 
-**Управление:**
-- Рестарт после правок: `systemctl restart avatar-bot`
-- Статус: `systemctl status avatar-bot`
-- Логи: `journalctl -u avatar-bot --no-pager -n 50` или `/tmp/avatar-bot-systemd.log`
-- PID-файл: `/tmp/imgy-bot.pid` (защита от дублирования)
-- Принудительный запуск, если PID-файл мешает: `rm -f /tmp/imgy-bot.pid`
+**Deploy скрипты:**
+- В тест: `bash /opt/deploy-avatar-test.sh`
+- В прод: `bash /opt/deploy-avatar-prod.sh`
 
-**Данные:**
-- Юзеры: `avatar-service/data/users.json`
-- Аватары: `avatar-service/data/avatars.json`
-- Стили: `avatar-service/data/styles.json`
+**Сервисы:**
+- Прод: `systemctl [restart|status] avatar-bot`
+- Тест: `systemctl [restart|status] avatar-bot-test`
+
+**Логи:**
+- Прод: `journalctl -u avatar-bot --no-pager -n 50` или `/tmp/avatar-bot-prod.log`
+- Тест: `journalctl -u avatar-bot-test --no-pager -n 50` или `/tmp/avatar-bot-test.log`
+
+**PID-файлы (защита от дублирования):**
+- Прод: `/tmp/imgy-bot.pid` (дефолт)
+- Тест: `/tmp/imgy-bot-test.pid` (из .env)
+
+**Данные (свои для теста и прода):**
+- Юзеры: `data/users.json`
+- Аватары: `data/avatars.json`
+- Стили: `data/styles.json`
 
 **Начисление генераций:**
 Править `generationsRemaining` в `users.json` для нужного telegramId.
 
-**Основные скрипты:**
+**Основные скрипты (в avatar-service/scripts/):**
 - `bot-runner.js` — сам бот (long-polling)
 - `bot-logic.js` — логика состояний и ответов
 - `generate-image.js` — генерация через Gemini
