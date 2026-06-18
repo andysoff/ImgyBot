@@ -56,11 +56,11 @@ function getConfig() {
 }
 
 /**
- * Проверить, настроена ли оплата (реальная или демо)
+ * Проверить, настроена ли оплата (всегда true — кнопка показывается всегда,
+ * а проверка ключей идёт уже при создании платежа)
  */
 function isConfigured() {
-  const cfg = getConfig();
-  return !!(cfg.shopId && cfg.secretKey) || isDemoMode();
+  return true;
 }
 
 // =============================
