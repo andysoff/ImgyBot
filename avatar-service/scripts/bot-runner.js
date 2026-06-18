@@ -28,7 +28,7 @@ function savePromptForRepeat(chatId, prompt, styleId) {
 
 // ===================== PID Lock =====================
 // Защита от дублирования процессов — только один экземпляр бота.
-const PID_FILE = '/tmp/imgy-bot.pid';
+const PID_FILE = process.env.PID_FILE || '/tmp/imgy-bot.pid';
 
 function acquirePidLock() {
   const _fs = require('fs');
