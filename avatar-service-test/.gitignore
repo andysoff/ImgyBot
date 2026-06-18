@@ -1,0 +1,16 @@
+# Environment
+.env
+
+# Data files (users, state, generated content)
+data/
+logs/
+photos/
+*.log
+
+# Backups
+*.bak*
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db

@@ -8,8 +8,7 @@ avatar-service/logs/
 avatar-service/photos/
 
 # Backups
-*.bak
-*.bak2
+*.bak*
 *.tar.gz
 
 # OS
