@@ -259,6 +259,20 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
 
+## 🚀 Avatar Service Pipeline
+
+**Git (source):** `avatar-service/` — только код, без env/data. 
+**Test deploy:** `/opt/avatar-service-test/`
+**Prod deploy:** `/opt/avatar-service-prod/`
+
+**Правило деплоя:**
+1. Правлю код → деплою только в тест: `bash /opt/deploy-avatar-test.sh`
+2. Жду, пока Андрей скажет «катай в прод» (или аналогично)
+3. Только после его команды — деплой в прод: `bash /opt/deploy-avatar-prod.sh`
+4. Код теста и прода идентичен, разница только в `.env`
+
+Никогда не катить в прод без явной команды Андрея.
+
 ## Related
 
 - [Default AGENTS.md](/reference/AGENTS.default)

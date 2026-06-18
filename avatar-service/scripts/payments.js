@@ -3,7 +3,7 @@
  * Модуль оплаты через ЮMoney (ЮKassa) / Режим демонстрации
  *
  * Реальная оплата:  YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY
- * Демо-режим:       PAYMENT_DEMO_MODE=true (или пустые ключи)
+ * Демо-режим:       через debug-кнопку админа (settings.debug = true)
  *
  * В демо-режиме:
  *   - Создаётся фейковый платёж с ссылкой на заглушку
@@ -38,13 +38,10 @@ function setDemoOverride(val) {
 }
 
 /**
- * Включён ли демо-режим?
+ * Включён ли демо-режим? Только через debug-кнопку админа.
  */
 function isDemoMode() {
-  if (_demoOverride !== undefined) return _demoOverride;
-  const shopId = process.env.YOOKASSA_SHOP_ID || '';
-  const secretKey = process.env.YOOKASSA_SECRET_KEY || '';
-  return !shopId && !secretKey;
+  return _demoOverride === true;
 }
 
 /**
@@ -63,7 +60,6 @@ function getConfig() {
  */
 function isConfigured() {
   const cfg = getConfig();
-  // Даже если ключи не заполнены — считаем настроенным в демо-режиме
   return !!(cfg.shopId && cfg.secretKey) || isDemoMode();
 }
 
