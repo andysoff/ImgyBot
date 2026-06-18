@@ -14,3 +14,6 @@ avatar-service/photos/
 # OS
 .DS_Store
 Thumbs.db
+
+# Test copy (separate dir on server)
+avatar-service-test/
