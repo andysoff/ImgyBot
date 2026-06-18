@@ -25,14 +25,26 @@ const PACKAGES = [
   { id: 'gen_100', label: '🔥 100 генераций', generations: 100, price: 700, priceLabel: '700₽', savings: 300, savingsPercent: 30, buyEmoji: '🔥' },
 ];
 
+// Переопределение демо-режима через runtime (из settings.debug)
+let _demoOverride;
+
+/**
+ * Установить демо-режим через runtime (из settings.debug админа).
+ * @param {boolean|undefined} val — true=демо, false=реальная оплата, undefined=авто
+ */
+function setDemoOverride(val) {
+  _demoOverride = val;
+  console.log('💳 Демо-режим:', val === undefined ? 'авто' : val ? 'включён 🧪' : 'выключен');
+}
+
 /**
  * Включён ли демо-режим?
  */
 function isDemoMode() {
+  if (_demoOverride !== undefined) return _demoOverride;
   const shopId = process.env.YOOKASSA_SHOP_ID || '';
   const secretKey = process.env.YOOKASSA_SECRET_KEY || '';
-  const explicitDemo = process.env.PAYMENT_DEMO_MODE === 'true';
-  return explicitDemo || (!shopId && !secretKey);
+  return !shopId && !secretKey;
 }
 
 /**
@@ -251,6 +263,8 @@ module.exports = {
   PACKAGES,
   isConfigured,
   isDemoMode,
+  isDemoMode,
+  setDemoOverride,
   createPayment,
   checkPayment,
 };

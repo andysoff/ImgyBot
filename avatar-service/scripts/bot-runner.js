@@ -93,6 +93,7 @@ const { buildBuyKeyboard } = botLogic;
 const generateImage = require('./generate-image');
 const metrics = require('./metrics-ga4');
 const payments = require('./payments');
+const { setDemoOverride } = payments;
 
 const ADMIN_TELEGRAM_ID = '132454710';
 
@@ -898,6 +899,10 @@ async function handleUpdate(update) {
       const value = data.replace('set_debug:', '') === 'true';
       metrics.track('settings:debug_changed', { telegram_id: String(chatId), value: String(value) });
       botLogic.updateSetting(String(chatId), 'debug', value);
+      // Переключаем демо-режим платежей вместе с отладкой (только для админа)
+      if (String(chatId) === ADMIN_TELEGRAM_ID) {
+        setDemoOverride(value);
+      }
       await tgAnswerCb(cb.id, value ? '✅ Отладка включена' : '❌ Отладка выключена');
       const result = botLogic.handleSettingsDebug(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
@@ -4048,6 +4053,12 @@ async function generateWheelPhoto(chatId, brand, cb) {
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'in_car', sub_id: brand.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
     await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
   }
+}
+
+// При старте: читаем отладку админа и применяем к демо-режиму
+const adminSettings = botLogic.getSettings(String(ADMIN_TELEGRAM_ID));
+if (adminSettings.debug) {
+  setDemoOverride(true);
 }
 
 console.log('Ожидание сообщений...');
