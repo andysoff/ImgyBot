@@ -74,6 +74,13 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - `bot-logic.js` — логика состояний и ответов
 - `generate-image.js` — генерация через Gemini
 
+**Health-check GEMINI_API_KEY при старте:**
+- bot-runner.js проверяет: длина ≥30 символов, префикс AIzaSy… или AQ…, no binary ch
+- Если ключ битый → ERROR в лог + `/tmp/imgy-gemini-key-status.txt`
+- Если ок → в лог: `GEMINI_API_KEY: *** (53 символов)`
+- Авто-бэкап `.env` → `.env.bak` при каждом старте
+- Делать deploy после любых правок .env ИЛИ bot-runner.js (health-check встроен туда)
+
 ---
 
 Add whatever helps you do your job. This is your cheat sheet.
