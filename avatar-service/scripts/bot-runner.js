@@ -125,6 +125,57 @@ fs.mkdirSync(PHOTOS_TMP, { recursive: true });
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+// ===================== Health Check: Gemini API Key =====================
+(function checkApiKey() {
+  const problems = [];
+
+  if (!GEMINI_API_KEY) {
+    problems.push('GEMINI_API_KEY пуст или не задан в .env');
+  } else {
+    if (GEMINI_API_KEY.length < 30) {
+      problems.push(`GEMINI_API_KEY слишком короткий (${GEMINI_API_KEY.length} символов, ожидается ≥39). Возможно, ключ повреждён.`);
+    }
+    if (!/^AIzaSy|^AQ\./.test(GEMINI_API_KEY)) {
+      problems.push('GEMINI_API_KEY не начинается с ожидаемого префикса (AIzaSy… или AQ…). Ключ может быть неверным.');
+    }
+    // Проверка на бинарные/не-ASCII символы
+    if (/[^\x20-\x7E]/.test(GEMINI_API_KEY)) {
+      problems.push('GEMINI_API_KEY содержит не-ASCII или управляющие символы — ключ повреждён (бинарный мусор).');
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error('\n❌❌❌ GEMINI_API_KEY FAILED HEALTH CHECK ❌❌❌');
+    problems.forEach(p => console.error(`  • ${p}`));
+    console.error('   Бот продолжит работу, но Gemini API будет возвращать ошибки.');
+    console.error('   Проверьте .env и восстановите ключ из бэкапа или из тестового окружения.');
+    console.error('   Исправьте и рестартуйте: systemctl restart avatar-bot\n');
+
+    // Пишем статус-файл для внешнего мониторинга
+    try {
+      require('fs').writeFileSync('/tmp/imgy-gemini-key-status.txt',
+        problems.join('\n') + '\n', 'utf8');
+    } catch {}
+  } else {
+    console.log(`✅ GEMINI_API_KEY: ${GEMINI_API_KEY.slice(0, 6)}…${GEMINI_API_KEY.slice(-4)} (${GEMINI_API_KEY.length} символов)`);
+    // Удаляем старый статус-файл, если есть
+    try { require('fs').unlinkSync('/tmp/imgy-gemini-key-status.txt'); } catch {}
+  }
+})();
+
+// ===================== /Health Check =====================
+
+// ===================== Auto-backup .env =====================
+try {
+  const envPath = path.join(__dirname, '..', '.env');
+  const bakPath = envPath + '.bak';
+  require('fs').copyFileSync(envPath, bakPath);
+  console.log(`✅ .env backed up → ${path.basename(bakPath)}`);
+} catch (err) {
+  console.warn(`⚠️ Не удалось создать бэкап .env: ${err.message}`);
+}
+// ===================== /Auto-backup =====================
+
 // Хранилище путей к оригинальным файлам для кнопки «Скачать оригинал»
 // Ключ: `${chatId}:${photoMessageId}` → путь к файлу
 const pendingOriginals = new Map();
