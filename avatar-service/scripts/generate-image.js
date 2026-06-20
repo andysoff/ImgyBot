@@ -570,7 +570,11 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId, gende
   if (gender === 'female' && STYLE_PROMPTS_FEMALE[styleId]) {
     stylePrompt = STYLE_PROMPTS_FEMALE[styleId];
   } else {
-    stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.portrait;
+    stylePrompt = STYLE_PROMPTS[styleId];
+  }
+
+  if (!stylePrompt) {
+    throw new Error(`Промпт для стиля «${styleId}» не найден. Стиль ещё не настроен. Генерация не списана — попробуй другой стиль.`);
   }
 
   const portraitTypeHint = settings?.portraitType
