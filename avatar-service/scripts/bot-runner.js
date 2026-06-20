@@ -1378,6 +1378,35 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Callback: Группы стилей (Warhammer и др. с groups) ------
+    if (data.startsWith('group_select:')) {
+      const parts = data.split(':');
+      const styleId = parts[1];
+      const groupId = parts.slice(2).join(':');
+      const result = botLogic.handleSubStyleGroup(String(chatId), styleId, groupId);
+      if (!result) {
+        await tgAnswerCb(cb.id, '❌', true);
+        return;
+      }
+      await tgAnswerCb(cb.id, '');
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    // ------ Callback: Рандом Warhammer 40k ------
+    if (data === 'warhammer_random') {
+      const randomId = botLogic.handleWarhammerRandom();
+      if (!randomId) {
+        await tgAnswerCb(cb.id, '❌', true);
+        return;
+      }
+      // Перенаправляем в стандартный обработчик выбора стиля
+      data = 'style:' + randomId;
+    }
+
     if (data.startsWith('substyle_select:')) {
       const styleId = data.replace('substyle_select:', '');
       // Перенаправляем в обычный обработчик стилей

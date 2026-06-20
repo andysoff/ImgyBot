@@ -115,10 +115,12 @@ function buildStylesKeyboard() {
   for (let i = 0; i < styles.length; i += 2) {
     const row = [];
     const s1 = styles[i];
-    row.push({ text: s1.name, callback_data: (s1.subStyles ? `substyle_menu:${s1.id}` : `style:${s1.id}`) });
+    const hasSubMenu1 = s1.subStyles || s1.groups;
+    row.push({ text: s1.name, callback_data: (hasSubMenu1 ? `substyle_menu:${s1.id}` : `style:${s1.id}`) });
     if (styles[i + 1]) {
       const s2 = styles[i + 1];
-      row.push({ text: s2.name, callback_data: (s2.subStyles ? `substyle_menu:${s2.id}` : `style:${s2.id}`) });
+      const hasSubMenu2 = s2.subStyles || s2.groups;
+      row.push({ text: s2.name, callback_data: (hasSubMenu2 ? `substyle_menu:${s2.id}` : `style:${s2.id}`) });
     }
     keyboard.push(row);
   }
@@ -131,16 +133,40 @@ function buildStylesKeyboard() {
 function handleSubStyleMenu(telegramId, styleId) {
   const styles = readJSON(STYLES_FILE);
   const style = styles.find(s => s.id === styleId);
-  if (!style || !style.subStyles || style.subStyles.length === 0) {
+  if (!style) {
     return null;
   }
 
   const keyboard = [];
-  // Кнопки подстилей — по одной в ряд (колонка)
+
+  // Если у стиля есть groups — показываем группы вместо подстилей
+  if (style.groups && style.groups.length > 0) {
+    for (const group of style.groups) {
+      keyboard.push([{ text: group.name, callback_data: `group_select:${styleId}:${group.id}` }]);
+    }
+    // Кнопка рандома для Warhammer 40k
+    if (styleId === 'warhammer') {
+      keyboard.push([{ text: '🎲 Выбрать случайно', callback_data: 'warhammer_random' }]);
+    }
+    keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
+
+    return {
+      text: `<b>${style.name}</b> — ${style.description || 'выбери категорию'}
+
+Выбери категорию 👇`,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    };
+  }
+
+  // Обычные подстили (плоская структура)
+  if (!style.subStyles || style.subStyles.length === 0) {
+    return null;
+  }
+
   for (const sub of style.subStyles) {
     keyboard.push([{ text: sub.name, callback_data: `substyle_select:${sub.id}` }]);
   }
-  // Кнопка назад
   keyboard.push([{ text: '🔙 Назад к стилям', callback_data: 'back_to_styles' }]);
 
   return {
@@ -153,22 +179,81 @@ function handleSubStyleMenu(telegramId, styleId) {
 }
 
 /**
+ * Показать подстили для выбранной группы.
+ */
+function handleSubStyleGroup(telegramId, styleId, groupId) {
+  const styles = readJSON(STYLES_FILE);
+  const style = styles.find(s => s.id === styleId);
+  if (!style || !style.groups) return null;
+
+  const group = style.groups.find(g => g.id === groupId);
+  if (!group || !group.subStyles || group.subStyles.length === 0) return null;
+
+  const keyboard = [];
+  for (const sub of group.subStyles) {
+    keyboard.push([{ text: sub.name, callback_data: `substyle_select:${sub.id}` }]);
+  }
+  keyboard.push([{ text: '🔙 К категориям', callback_data: `substyle_menu:${styleId}` }]);
+
+  return {
+    text: `<b>${style.name}</b> — <b>${group.name}</b>
+
+Выбери подстиль 👇`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  };
+}
+
+/**
  * Обработать выбор подстиля.
- * Ищет подстиль в subStyles родительского стиля и передаёт его id в handleStyleSelected.
+ * Ищет подстиль в subStyles или в groups->subStyles и передаёт его id в handleStyleSelected.
  */
 function handleSubStyleSelected(telegramId, subStyleId) {
-  // Ищем подстиль среди всех стилей
   const styles = readJSON(STYLES_FILE);
+  // Сначала ищем в плоских subStyles
   for (const style of styles) {
     if (style.subStyles) {
       const sub = style.subStyles.find(s => s.id === subStyleId);
       if (sub) {
-        // Создаём виртуальный стиль для handleStyleSelected
         return handleStyleSelected(telegramId, subStyleId);
+      }
+    }
+    // Потом ищем внутри groups
+    if (style.groups) {
+      for (const group of style.groups) {
+        const sub = group.subStyles.find(s => s.id === subStyleId);
+        if (sub) {
+          return handleStyleSelected(telegramId, subStyleId);
+        }
       }
     }
   }
   return { text: '❌ Такого подстиля нет. Выбери из предложенных.' };
+}
+
+/**
+ * Возвращает id случайного подстиля из Warhammer 40k (все группы).
+ * Возвращает null, если не найдено.
+ */
+function handleWarhammerRandom() {
+  const styles = readJSON(STYLES_FILE);
+  const wh = styles.find(s => s.id === 'warhammer');
+  if (!wh || !wh.groups || wh.groups.length === 0) {
+    return null;
+  }
+
+  const allSubs = [];
+  for (const group of wh.groups) {
+    if (group.subStyles) {
+      for (const sub of group.subStyles) {
+        allSubs.push(sub);
+      }
+    }
+  }
+
+  if (allSubs.length === 0) return null;
+
+  return allSubs[Math.floor(Math.random() * allSubs.length)].id;
 }
 
 function findUserByTelegram(telegramId) {
@@ -529,6 +614,16 @@ function handleStyleSelected(telegramId, styleId) {
         if (style) {
           parentStyleName = s.name;
           break;
+        }
+      }
+      // Ищем в группах подстилей
+      if (!style && s.groups) {
+        for (const group of s.groups) {
+          style = group.subStyles.find(sub => sub.id === styleId);
+          if (style) {
+            parentStyleName = s.name;
+            break;
+          }
         }
       }
     }
@@ -1670,6 +1765,8 @@ module.exports = {
   handleStyleSelected,
   handleSubStyleMenu,
   handleSubStyleSelected,
+  handleSubStyleGroup,
+  handleWarhammerRandom,
   handleGenerationsExhausted,
   buildBuyKeyboard,
   exhaustionMessage,

@@ -236,5 +236,183 @@
     "name": "📖 Герой книги",
     "nameEn": "Literature",
     "description": "Случайное произведение из 100 известнейших книг мира"
+  },
+  {
+    "id": "warhammer",
+    "name": "Warhammer 40k",
+    "nameEn": "Warhammer 40k",
+    "description": "Вселенная Warhammer 40,000 — космодесант, хаос, ксеносы",
+    "groups": [
+      {
+        "id": "wh_legions",
+        "name": "Астартес — Ордена",
+        "subStyles": [
+          {
+            "id": "warhammer_ultramarines",
+            "name": "Ultramarines",
+            "description": "Сине-золотой космодесант, ультрамарины Макрейджа"
+          },
+          {
+            "id": "warhammer_bloodangels",
+            "name": "Blood Angels",
+            "description": "Красные ангелы крови, готическая эстетика, благородные вампиры"
+          },
+          {
+            "id": "warhammer_spacewolves",
+            "name": "Space Wolves",
+            "description": "Космические волки Фенриса, викинги в силовой броне"
+          },
+          {
+            "id": "warhammer_darkangels",
+            "name": "Dark Angels",
+            "description": "Тёмные ангелы, тёмно-зелёная броня, монашеский орден с тайной"
+          },
+          {
+            "id": "warhammer_blacktemplars",
+            "name": "Black Templars",
+            "description": "Чёрные крестоносцы, вечный крестовый поход, рыцарская эстетика"
+          },
+          {
+            "id": "warhammer_salamanders",
+            "name": "Salamanders",
+            "description": "Саламандры с Ноктюрна, чёрная кожа, огненные копья"
+          },
+          {
+            "id": "warhammer_deathwatch",
+            "name": "Deathwatch",
+            "description": "Элита ксенособорцев, чёрный доспех с серебряным левым рукавом"
+          }
+        ]
+      },
+      {
+        "id": "wh_chaos",
+        "name": "Хаос — Еретики и Демоны",
+        "subStyles": [
+          {
+            "id": "warhammer_worldeaters",
+            "name": "World Eaters",
+            "description": "Берсерки Кхорна, цепи, топоры, красная броня в крови"
+          },
+          {
+            "id": "warhammer_deathguard",
+            "name": "Death Guard",
+            "description": "Неразрушимый легион Нагла, зелёная гниющая броня"
+          },
+          {
+            "id": "warhammer_thousandsons",
+            "name": "Thousand Sons",
+            "description": "Колдуны Тзинча, сине-золотая броня, магия и мутации"
+          },
+          {
+            "id": "warhammer_emperorschildren",
+            "name": "Emperor's Children",
+            "description": "Легион Слаанеш, пурпурная броня, перфекционизм и порок"
+          },
+          {
+            "id": "warhammer_blacklegion",
+            "name": "Black Legion",
+            "description": "Чёрный легион Аббадона, Неделимый Хаос, чёрно-золотая броня"
+          },
+          {
+            "id": "warhammer_wordbearers",
+            "name": "Word Bearers",
+            "description": "Псалмопевцы, тёмные апостолы, серая броня с красными письменами"
+          }
+        ]
+      },
+      {
+        "id": "wh_imperium",
+        "name": "Империум — Силы Человечества",
+        "subStyles": [
+          {
+            "id": "warhammer_sororitas",
+            "name": "Sisters of Battle",
+            "description": "Сёстры битвы, воительницы Экклезиархии, красные плащи и силовая броня"
+          },
+          {
+            "id": "warhammer_mechanicus",
+            "name": "Adeptus Mechanicus",
+            "description": "Техножрецы Марса, красно-белые балахоны, кибер-импланты"
+          },
+          {
+            "id": "warhammer_guard",
+            "name": "Astra Militarum",
+            "description": "Гвардия Империума, окопы, лазганы, комиссары и массивные танки"
+          },
+          {
+            "id": "warhammer_greyknights",
+            "name": "Grey Knights",
+            "description": "Серые рыцари, паладины против демонов, серебряная броня"
+          },
+          {
+            "id": "warhammer_custodes",
+            "name": "Adeptus Custodes",
+            "description": "Золотые стражи Императора, аурамитовая броня, алебарды"
+          },
+          {
+            "id": "warhammer_knights",
+            "name": "Imperial Knights",
+            "description": "Рыцари-титаны, огромные шагоходы, гербы и имперская геральдика"
+          }
+        ]
+      },
+      {
+        "id": "wh_xenos",
+        "name": "Ксеносы — Чуждые расы",
+        "subStyles": [
+          {
+            "id": "warhammer_ork",
+            "name": "Orks",
+            "description": "Зелёная орда, Waaagh!, скрап-технологии, звериная сила"
+          },
+          {
+            "id": "warhammer_necron",
+            "name": "Necrons",
+            "description": "Древние некроны, космические зомби-андроиды, зелёное свечение"
+          },
+          {
+            "id": "warhammer_eldar",
+            "name": "Aeldari",
+            "description": "Эльдары, древняя элегантная цивилизация, призрачные доспехи"
+          },
+          {
+            "id": "warhammer_tau",
+            "name": "T'au",
+            "description": "Империя Тау, высокие технологии, вакуумные костюмы и дроны"
+          },
+          {
+            "id": "warhammer_harlequin",
+            "name": "Harlequins",
+            "description": "Шуты Смеющегося Бога, арлекины, хаотичная красота танца"
+          }
+        ]
+      },
+      {
+        "id": "wh_threats",
+        "name": "Чуждая угроза",
+        "subStyles": [
+          {
+            "id": "warhammer_tyranids",
+            "name": "Tyranids",
+            "description": "Тираниды, космический улей, хитиновая броня, когти и биомасса"
+          },
+          {
+            "id": "warhammer_genestealers",
+            "name": "Genestealer Cults",
+            "description": "Генокрады, скрытые культы, гибриды мутантов и горная техника"
+          },
+          {
+            "id": "warhammer_drukhari",
+            "name": "Drukhari",
+            "description": "Тёмные эльдары Комморры, шипастая броня, крюки и цепи"
+          },
+          {
+            "id": "warhammer_votann",
+            "name": "Leagues of Votann",
+            "description": "Лиги Вотанна, космические гномы, тяжёлая броня, плазменные ружья"
+          }
+        ]
+      }
+    ]
   }
 ]
