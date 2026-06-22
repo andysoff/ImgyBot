@@ -582,7 +582,7 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId, gende
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
 
@@ -604,7 +604,7 @@ async function generateProfessionAvatar(files, profession, outputDir, settings, 
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
@@ -632,7 +632,7 @@ async function generateSportAvatar(files, sport, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
@@ -660,7 +660,7 @@ async function generateOfficeAvatar(files, work, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
@@ -688,7 +688,7 @@ async function generateCinemaAvatar(files, movie, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
 
@@ -725,7 +725,7 @@ async function generateLocationAvatar(files, location, outputDir, settings, chat
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
@@ -753,7 +753,7 @@ async function generateHistoryAvatar(files, era, outputDir, settings, chatId) {
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
@@ -781,7 +781,7 @@ async function generateLiteratureAvatar(files, work, outputDir, settings, chatId
   const portraitTypeHint = settings?.portraitType
     ? (PORTRAIT_TYPE_HINTS[settings.portraitType] || '')
     : '';
-  const faceTurnHint = settings?.faceTurn
+  const faceTurnHint = (settings?.faceTurn && settings?.faceTurn !== 'none')
     ? (FACE_TURN_HINTS[settings.faceTurn] || '')
     : ', face angle, head rotation and orientation must match the source photo exactly';
   const prompt = _buildPhotoPrompt(
