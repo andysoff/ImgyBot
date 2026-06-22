@@ -513,12 +513,12 @@ async function _callGemini(opts) {
  * @returns {string} полный промпт
  */
 function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
-  const identityLock = 'IDENTITY: facial features (eyes, nose, mouth, jaw, cheekbones, proportions) MUST match reference photo EXACTLY. Only change: clothing, background, lighting, hair. Do NOT modify face shape or structure.';
+  const identityLock = 'CRITICAL IDENTITY LOCK: Preserve this person\'s exact facial identity — eye shape, nose, mouth, jawline, cheekbones, and facial proportions must remain IDENTICAL to the reference photo. The person must be immediately recognizable as the same individual. Only change clothing, background, lighting, and styling. Do NOT alter, beautify, morph, or modify the face itself.';
   const base = count === 1
-    ? `Using the uploaded photo as the SOURCE image: transform this person ${description}. Make it look like a high-quality professional photo.`
-    : `Using the uploaded photo(s) as the SOURCE: transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. Make it look like a high-quality professional photo.`;
+    ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
+    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
-  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + identityLock + (extra.suffix || '');
+  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
 
 // ======================================================================
@@ -808,10 +808,10 @@ async function generateLiteratureAvatar(files, work, outputDir, settings, chatId
  */
 async function generateCustomAvatar(files, customPrompt, outputDir, settings, chatId) {
   const count = files.length;
-  const identityLock = 'IDENTITY: facial features (eyes, nose, mouth, jaw, cheekbones, proportions) MUST match reference photo EXACTLY. Only change: clothing, background, lighting, hair. Do NOT modify face shape or structure.';
+  const identityLock = 'CRITICAL IDENTITY LOCK: Preserve this person\'s exact facial identity — eye shape, nose, mouth, jawline, cheekbones, and facial proportions must remain IDENTICAL to the reference photo. The person must be immediately recognizable as the same individual. Only change clothing, background, lighting, and styling. Do NOT alter, beautify, morph, or modify the face itself.';
   const promptBase = count === 1
-    ? `Transform this person\'s photo according to this description: ${customPrompt}. Make it look like a high-quality professional photo. ${identityLock}`
-    : `Transform this person\'s photo according to this description: ${customPrompt}. I\'m providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. Make it look like a high-quality professional photo. ${identityLock}`;
+    ? `Transform this person\'s photo according to this description: ${customPrompt}. ${identityLock} Make it look like a high-quality professional photo.`
+    : `Transform this person\'s photo according to this description: ${customPrompt}. I\'m providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const prompt = applyQuality(promptBase, settings);
 
   return _callGemini({
