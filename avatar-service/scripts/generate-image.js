@@ -459,6 +459,7 @@ async function _callGemini(opts) {
 
   _callLabel = label;
   console.log(`🎨 Gemini${logMessage ? ': ' + logMessage : ''}`);
+  console.log('📝 Промпт (первые 500):', prompt.slice(0, 500));
 
   const genStart = Date.now();
   const result = await apiCall(payload, extraConfig);
