@@ -268,7 +268,7 @@ function apiCall(payload, extraConfig) {
       req.destroy();
       reject(new Error('Gemini API timeout (>5 min)'));
     });
-    console.log('🔍 Gemini payload (первые 3000):', payload.slice(0, 3000));
+    console.log('🔍 Gemini payload:', payload);
     req.write(payload);
     req.end();
   });
