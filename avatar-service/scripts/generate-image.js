@@ -443,7 +443,7 @@ async function _callGemini(opts) {
   // Пэйлоад
   const payload = JSON.stringify({
     contents: [{ parts: requestParts }],
-    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 0, topK: 32, topP: 1 },
+    generationConfig: { responseModalities: ['Image', 'Text'], temperature: 0.1, topK: 32, topP: 1 },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -513,8 +513,8 @@ async function _callGemini(opts) {
 function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
   const identityLock = 'CRITICAL IDENTITY LOCK: Preserve this person\'s exact facial identity — eye shape, nose, mouth, jawline, cheekbones, and facial proportions must remain IDENTICAL to the reference photo. The person must be immediately recognizable as the same individual. Only change clothing, background, lighting, and styling. Do NOT alter, beautify, morph, or modify the face itself.';
   const base = count === 1
-    ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
-    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
+    ? `Using the uploaded photo as the SOURCE image: transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
+    : `Using the uploaded photo(s) as the SOURCE: transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
   return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
