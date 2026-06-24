@@ -3,12 +3,13 @@
  * Генерация изображений через OpenAI
  *
  * Поддерживает:
- *  - gpt-image-1.5 (по умолчанию)
- *  - gpt-image-2
+ *  - gpt-image-1.5 — генерация по тексту (generations) + с фото-референсом (edits)
+ *  - gpt-image-2 — генерация по тексту (generations), фото-референс НЕ поддерживается
  *
- * Функции:
- *  - Генерация по тексту
- *  - Генерация с фото-референсом (base64 в промпте)
+ * OpenAI Image API reference:
+ *  - GET /v1/images/generations → создание с нуля
+ *  - POST /v1/images/edits → редактирование по фото (gpt-image-1.5, gpt-image-1, gpt-image-1-mini)
+ *  - gpt-image-2 НЕ поддерживает edits, для фото-референса нужен Responses API
  */
 
 const https = require('https');
@@ -19,6 +20,8 @@ const { Buffer } = require('buffer');
 const API_KEY = process.env.OPENAI_API_KEY;
 const DEFAULT_MODEL = 'gpt-image-1.5';
 
+// Размеры по соотношениям сторон
+// gpt-image-1.5 works with /v1/images/edits → size: "1024x1024" (only standard sizes)
 const SIZE_MAP = {
   '1:1': '1024x1024',
   '4:3': '1536x1024',
@@ -27,13 +30,13 @@ const SIZE_MAP = {
   '9:16': '1024x1536'
 };
 
-// gpt-image-2 поддерживает больше размеров и resolution (1K/2K/4K)
+// gpt-image-2 supports arbitrary sizes up to 3840x2160
 const SIZE_MAP_V2 = {
-  '1:1': { size: '1024x1024', resolution: '1K' },
-  '4:3': { size: '2048x1536', resolution: '2K' },
-  '16:9': { size: '3840x2160', resolution: '4K' },
-  '3:4': { size: '1536x2048', resolution: '2K' },
-  '9:16': { size: '2160x3840', resolution: '4K' }
+  '1:1': '1024x1024',
+  '4:3': '2048x1536',
+  '16:9': '3840x2160',
+  '3:4': '1536x2048',
+  '9:16': '2160x3840'
 };
 
 function getMimeType(filePath) {
@@ -52,14 +55,7 @@ function getMimeType(filePath) {
 // ======================================================================
 
 /**
- * Вызов OpenAI images/generations.
- * gpt-image-1.5 возвращает b64_json по умолчанию.
- * gpt-image-2 поддерживает как b64_json, так и url.
- */
-/**
- * Универсальный вызов OpenAI API.
- * @param {string} apiPath - путь API (напр. /v1/images/generations, /v1/images/edits)
- * @param {Object} body - тело запроса
+ * Универсальный вызов OpenAI API (JSON body).
  */
 function openaiRequest(apiPath, body) {
   return new Promise((resolve, reject) => {
@@ -102,8 +98,6 @@ function openaiRequest(apiPath, body) {
 
 /**
  * Вызов OpenAI images/generations (текст → изображение).
- * gpt-image-1.5 возвращает b64_json по умолчанию.
- * gpt-image-2 поддерживает как b64_json, так и url.
  */
 function dalleGeneration(body) {
   return openaiRequest('/v1/images/generations', body);
@@ -111,14 +105,13 @@ function dalleGeneration(body) {
 
 /**
  * Вызов OpenAI images/edits (изображение + промпт → новое изображение).
- * Для gpt-image-1.5/gpt-image-2 с фото-референсом.
  */
 function dalleEdit(body) {
   return openaiRequest('/v1/images/edits', body);
 }
 
 /**
- * Скачать изображение по URL (для gpt-image-2, который может вернуть url вместо b64_json).
+ * Скачать изображение по URL (не используется для GPT image models — они всегда b64_json).
  */
 function downloadImage(url) {
   return new Promise((resolve, reject) => {
@@ -138,21 +131,36 @@ function downloadImage(url) {
 // ВСПОМОГАТЕЛЬНЫЕ
 // ======================================================================
 
-/**
- * Считать изображение в base64.
- */
 function imageToBase64(filePath) {
   const data = fs.readFileSync(filePath);
   return data.toString('base64');
+}
+
+function extractImage(result) {
+  const imageData = result.data?.[0];
+  if (imageData?.b64_json) {
+    return Buffer.from(imageData.b64_json, 'base64');
+  }
+  if (imageData?.url) {
+    console.log('📥 OpenAI: скачивание по URL');
+    return downloadImage(imageData.url);
+  }
+  throw new Error('OpenAI не вернул изображение');
+}
+
+function saveImage(imgBuffer, outputDir, filenameBase) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
+  fs.writeFileSync(outputPath, imgBuffer);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
+  return outputPath;
 }
 
 // ======================================================================
 // ПУБЛИЧНЫЕ ФУНКЦИИ
 // ======================================================================
 
-/**
- * Загрузить фото (заглушка — OpenAI не требует File API).
- */
 async function uploadPhoto(photoPath) {
   console.log(`📤 OpenAI: фото готово к использованию: ${photoPath}`);
   return { uri: photoPath, mimeType: getMimeType(photoPath) };
@@ -160,11 +168,7 @@ async function uploadPhoto(photoPath) {
 
 /**
  * Генерация по тексту (без фото-референса).
- * @param {string} prompt - промпт
- * @param {string} outputDir - папка для результата
- * @param {string} [filenameBase='openai_gen'] - префикс файла
- * @param {string|Object} [sizeOrConfig='1024x1024'] - размер или конфигурация для v2
- * @param {string} [model=DEFAULT_MODEL] - модель OpenAI
+ * Работает для gpt-image-1.5 и gpt-image-2.
  */
 async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
@@ -179,87 +183,58 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
     n: 1
   };
 
-  if (model === 'gpt-image-2' && typeof sizeOrConfig === 'object') {
+  // sizeOrConfig — строка для v1.5, строка для v2
+  if (typeof sizeOrConfig === 'string') {
+    body.size = sizeOrConfig;
+  } else if (typeof sizeOrConfig === 'object') {
     body.size = sizeOrConfig.size || '1024x1024';
-    body.resolution = sizeOrConfig.resolution || '1K';
   } else {
-    body.size = typeof sizeOrConfig === 'string' ? sizeOrConfig : (sizeOrConfig.size || '1024x1024');
+    body.size = '1024x1024';
   }
 
   const result = await dalleGeneration(body);
-  const imageData = result.data?.[0];
-
-  let imgBuffer;
-  if (imageData?.b64_json) {
-    imgBuffer = Buffer.from(imageData.b64_json, 'base64');
-  } else if (imageData?.url) {
-    console.log('📥 OpenAI: скачивание по URL');
-    imgBuffer = await downloadImage(imageData.url);
-  } else {
-    throw new Error('OpenAI не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
-  fs.writeFileSync(outputPath, imgBuffer);
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  console.log(`✅ OpenAI ${model}: готово ${outputPath} (${imgSizeKB} KB)`);
+  const imgBuffer = await extractImage(result);
+  const outputPath = saveImage(imgBuffer, outputDir, filenameBase);
   return { path: outputPath, prompt };
 }
 
 /**
  * Генерация с фото-референсом.
- * Кодирует фото в base64 и передаёт в теле промпта.
- * @param {string} photoPath - путь к фото
- * @param {string} prompt - промпт
- * @param {string} outputDir - папка для результата
- * @param {string} [filenameBase='openai_photo'] - префикс файла
- * @param {string|Object} [sizeOrConfig='1024x1024'] - размер или конфигурация для v2
- * @param {string} [model=DEFAULT_MODEL] - модель OpenAI
+ * Поддерживается только для gpt-image-1.5 (через /v1/images/edits).
+ * gpt-image-2 НЕ поддерживает edit endpoint в Image API (нужен Responses API).
  */
 async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
   if (!fs.existsSync(photoPath)) throw new Error(`Фото не найдено: ${photoPath}`);
-  fs.mkdirSync(outputDir, { recursive: true });
 
   const b64 = imageToBase64(photoPath);
   const mime = getMimeType(photoPath);
+  const dataUri = `data:${mime};base64,${b64}`;
 
-  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом`);
+  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits)`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
-  // Используем /v1/images/edits — он принимает image как отдельное поле
-  // ВАЖНО: не пихаем base64 в текст промпта — лимит 32000 символов!
   const body = {
     model,
     prompt,
-    images: [{ image_url: `data:${mime};base64,${b64}` }],
+    images: [{ image_url: dataUri }],
+    input_fidelity: 'high',
     n: 1
   };
 
-  if (model === 'gpt-image-2' && typeof sizeOrConfig === 'object') {
+  // edits поддерживает только фиксированные размеры
+  if (typeof sizeOrConfig === 'string') {
+    body.size = sizeOrConfig;
+  } else if (typeof sizeOrConfig === 'object') {
+    // Для edits доступны только: auto, 1024x1024, 1536x1024, 1024x1536
     body.size = sizeOrConfig.size || '1024x1024';
-    body.resolution = sizeOrConfig.resolution || '1K';
   } else {
-    body.size = typeof sizeOrConfig === 'string' ? sizeOrConfig : (sizeOrConfig.size || '1024x1024');
+    body.size = '1024x1024';
   }
 
   const result = await dalleEdit(body);
-  const imageData = result.data?.[0];
-
-  let imgBuffer;
-  if (imageData?.b64_json) {
-    imgBuffer = Buffer.from(imageData.b64_json, 'base64');
-  } else if (imageData?.url) {
-    console.log('📥 OpenAI: скачивание по URL');
-    imgBuffer = await downloadImage(imageData.url);
-  } else {
-    throw new Error('OpenAI не вернул изображение');
-  }
-
-  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
-  fs.writeFileSync(outputPath, imgBuffer);
-  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  console.log(`✅ OpenAI ${model}: готово ${outputPath} (${imgSizeKB} KB)`);
+  const imgBuffer = await extractImage(result);
+  const outputPath = saveImage(imgBuffer, outputDir, filenameBase);
   return { path: outputPath, prompt };
 }
 
