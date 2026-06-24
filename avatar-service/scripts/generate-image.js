@@ -908,12 +908,7 @@ async function generateLiteratureAvatar(files, work, outputDir, settings, chatId
  * Режим бога — генерация по кастомному описанию с использованием фото.
  */
 async function generateCustomAvatar(files, customPrompt, outputDir, settings, chatId) {
-  const count = files.length;
-  const identityLock = 'CRITICAL IDENTITY LOCK: Preserve this person\'s exact facial identity — eye shape, nose, mouth, jawline, cheekbones, and facial proportions must remain IDENTICAL to the reference photo. The person must be immediately recognizable as the same individual. Only change clothing, background, lighting, and styling. Do NOT alter, beautify, morph, or modify the face itself.';
-  const promptBase = count === 1
-    ? `Transform this person\'s photo according to this description: ${customPrompt}. ${identityLock} Make it look like a high-quality professional photo.`
-    : `Transform this person\'s photo according to this description: ${customPrompt}. I\'m providing ${count} photos of the same person — use ALL of them to capture their facial features accurately. ${identityLock} Make it look like a high-quality professional photo.`;
-  const prompt = applyQuality(promptBase, settings);
+  const prompt = applyQuality(customPrompt, settings);
 
   return _callGemini({
     files, prompt, outputDir, settings,
