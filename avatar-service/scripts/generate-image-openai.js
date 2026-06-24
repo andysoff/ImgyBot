@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { Buffer } = require('buffer');
 
-const API_KEY = ***
+const API_KEY = process.env.OPENAI_API_KEY;
 const MODEL = 'gpt-image-1.5';
 
 const SIZE_MAP = {
