@@ -56,13 +56,18 @@ function getMimeType(filePath) {
  * gpt-image-1.5 возвращает b64_json по умолчанию.
  * gpt-image-2 поддерживает как b64_json, так и url.
  */
-function dalleGeneration(body) {
+/**
+ * Универсальный вызов OpenAI API.
+ * @param {string} apiPath - путь API (напр. /v1/images/generations, /v1/images/edits)
+ * @param {Object} body - тело запроса
+ */
+function openaiRequest(apiPath, body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const req = https.request(
       {
         hostname: 'api.openai.com',
-        path: '/v1/images/generations',
+        path: apiPath,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
@@ -93,6 +98,23 @@ function dalleGeneration(body) {
     req.write(payload);
     req.end();
   });
+}
+
+/**
+ * Вызов OpenAI images/generations (текст → изображение).
+ * gpt-image-1.5 возвращает b64_json по умолчанию.
+ * gpt-image-2 поддерживает как b64_json, так и url.
+ */
+function dalleGeneration(body) {
+  return openaiRequest('/v1/images/generations', body);
+}
+
+/**
+ * Вызов OpenAI images/edits (изображение + промпт → новое изображение).
+ * Для gpt-image-1.5/gpt-image-2 с фото-референсом.
+ */
+function dalleEdit(body) {
+  return openaiRequest('/v1/images/edits', body);
 }
 
 /**
@@ -205,7 +227,7 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   console.log(`🎨 OpenAI ${model}: генерация с фото-референсом`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
-  // OpenAI gpt-image-1.5/gpt-image-2 принимают image как отдельное поле
+  // Используем /v1/images/edits — он принимает image как отдельное поле
   // ВАЖНО: не пихаем base64 в текст промпта — лимит 32000 символов!
   const body = {
     model,
@@ -221,7 +243,7 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
     body.size = typeof sizeOrConfig === 'string' ? sizeOrConfig : (sizeOrConfig.size || '1024x1024');
   }
 
-  const result = await dalleGeneration(body);
+  const result = await dalleEdit(body);
   const imageData = result.data?.[0];
 
   let imgBuffer;
