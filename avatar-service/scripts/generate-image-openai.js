@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Генерация изображений через OpenAI (DALL-E 3)
+ * Генерация изображений через OpenAI gpt-image-1.5
  *
  * Поддерживает:
- *  - Генерацию по тексту (images/generations)
- *  - Генерацию на основе фото-референса (images/edits)
+ *  - Генерацию по тексту
+ *  - Генерацию с фото-референсом (base64 в промпте)
  */
 
 const https = require('https');
@@ -12,8 +12,16 @@ const fs = require('fs');
 const path = require('path');
 const { Buffer } = require('buffer');
 
-const API_KEY = process.env.OPENAI_API_KEY;
-const MODEL = 'dall-e-3';
+const API_KEY = ***
+const MODEL = 'gpt-image-1.5';
+
+const SIZE_MAP = {
+  '1:1': '1024x1024',
+  '4:3': '1536x1024',
+  '16:9': '1536x1024',
+  '3:4': '1024x1536',
+  '9:16': '1024x1536'
+};
 
 function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -27,145 +35,62 @@ function getMimeType(filePath) {
 }
 
 // ======================================================================
-// ВСПОМОГАТЕЛЬНЫЕ
+// API
 // ======================================================================
 
 /**
- * Конвертировать изображение в PNG (DALL-E 3 Edits требует PNG).
+ * Вызов OpenAI images/generations.
+ * gpt-image-1.5 возвращает b64_json по умолчанию.
  */
-function ensurePng(inputPath, outputDir) {
-  const ext = path.extname(inputPath).toLowerCase();
-  if (ext === '.png') return inputPath;
-
-  // Если это jpg/webp и т.д., конвертируем через ffmpeg или просто используем как есть
-  // DALL-E 3 Edits принимает только PNG. Если не PNG — не сможем использовать edits.
-  // Для простоты: пробуем прямой вызов, если не PNG — edits не сработает
-  return inputPath;
-}
-
-// ======================================================================
-// API ВЫЗОВЫ
-// ======================================================================
-
-/**
- * Вызов OpenAI API.
- */
-function openaiApi(method, endpoint, body, isMultipart = false, extraHeaders = {}) {
+function dalleGeneration(body) {
   return new Promise((resolve, reject) => {
-    const url = new URL(`https://api.openai.com/v1/${endpoint}`);
-    const headers = {
-      'Authorization': `Bearer ${API_KEY}`,
-      ...extraHeaders
-    };
-
-    const options = {
-      method,
-      hostname: url.hostname,
-      path: url.pathname,
-      headers,
-      timeout: 300000
-    };
-
-    if (!isMultipart) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            reject(new Error(`OpenAI API: ${parsed.error.message} (${parsed.error.type || ''})`));
-          } else {
-            resolve(parsed);
+    const payload = JSON.stringify(body);
+    const req = https.request(
+      {
+        hostname: 'api.openai.com',
+        path: '/v1/images/generations',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        },
+        timeout: 300000
+      },
+      (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              reject(new Error(`OpenAI: ${parsed.error.message} (${parsed.error.type || ''})`));
+            } else {
+              resolve(parsed);
+            }
+          } catch {
+            reject(new Error(`OpenAI parse error: ${data.slice(0, 300)}`));
           }
-        } catch {
-          reject(new Error(`OpenAI API parse error: ${data.slice(0, 300)}`));
-        }
-      });
-    });
-
+        });
+      }
+    );
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI API timeout (>5 min)')); });
-
-    if (isMultipart) {
-      // body already is a Buffer
-      req.write(body);
-    } else {
-      req.write(JSON.stringify(body));
-    }
+    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI timeout (>5 min)')); });
+    req.write(payload);
     req.end();
   });
 }
 
-/**
- * Сформировать multipart/form-data для edits endpoint.
- */
-function buildEditMultipart(imagePath, prompt, size = '1024x1024') {
-  const CRLF = '\r\n';
-  const boundary = `----OpenAI${Date.now()}`;
-  const imageData = fs.readFileSync(imagePath);
-  const imageName = path.basename(imagePath);
-
-  let body = '';
-  body += `--${boundary}${CRLF}`;
-  body += `Content-Disposition: form-data; name="image"; filename="${imageName}"${CRLF}`;
-  body += `Content-Type: image/png${CRLF}${CRLF}`;
-
-  const bodyParts = [
-    Buffer.from(body, 'utf-8'),
-    imageData,
-    Buffer.from(`${CRLF}`, 'utf-8'),
-    Buffer.from(`--${boundary}${CRLF}`, 'utf-8'),
-    Buffer.from(`Content-Disposition: form-data; name="prompt"${CRLF}${CRLF}`, 'utf-8'),
-    Buffer.from(prompt, 'utf-8'),
-    Buffer.from(`${CRLF}`, 'utf-8'),
-    Buffer.from(`--${boundary}${CRLF}`, 'utf-8'),
-    Buffer.from(`Content-Disposition: form-data; name="model"${CRLF}${CRLF}`, 'utf-8'),
-    Buffer.from(MODEL, 'utf-8'),
-    Buffer.from(`${CRLF}`, 'utf-8'),
-    Buffer.from(`--${boundary}${CRLF}`, 'utf-8'),
-    Buffer.from(`Content-Disposition: form-data; name="n"${CRLF}${CRLF}`, 'utf-8'),
-    Buffer.from('1', 'utf-8'),
-    Buffer.from(`${CRLF}`, 'utf-8'),
-    Buffer.from(`--${boundary}${CRLF}`, 'utf-8'),
-    Buffer.from(`Content-Disposition: form-data; name="size"${CRLF}${CRLF}`, 'utf-8'),
-    Buffer.from(size, 'utf-8'),
-    Buffer.from(`${CRLF}`, 'utf-8'),
-    Buffer.from(`--${boundary}--${CRLF}`, 'utf-8'),
-  ];
-
-  const totalBody = Buffer.concat(bodyParts);
-
-  return {
-    body: totalBody,
-    contentType: `multipart/form-data; boundary=${boundary}`,
-    contentLength: totalBody.length
-  };
-}
+// ======================================================================
+// ВСПОМОГАТЕЛЬНЫЕ
+// ======================================================================
 
 /**
- * Скачать сгенерированное изображение по URL (DALL-E возвращает URL).
+ * Считать изображение в base64.
  */
-function downloadImage(url, outputPath) {
-  return new Promise((resolve, reject) => {
-    console.log(`📥 OpenAI: скачиваю результат: ${url.slice(0, 80)}...`);
-    https.get(url, { timeout: 120000 }, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`Download failed: HTTP ${res.statusCode}`));
-        return;
-      }
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        fs.writeFileSync(outputPath, Buffer.concat(chunks));
-        console.log(`✅ Скачано: ${outputPath}`);
-        resolve(outputPath);
-      });
-    }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('Download timeout')); });
-  });
+function imageToBase64(filePath) {
+  const data = fs.readFileSync(filePath);
+  return data.toString('base64');
 }
 
 // ======================================================================
@@ -173,154 +98,82 @@ function downloadImage(url, outputPath) {
 // ======================================================================
 
 /**
- * Загрузить фото (заглушка — OpenAI не требует отдельного API для загрузки).
- * Возвращает объект, совместимый с форматом Gemini.
+ * Загрузить фото (заглушка — OpenAI не требует File API).
  */
 async function uploadPhoto(photoPath) {
   console.log(`📤 OpenAI: фото готово к использованию: ${photoPath}`);
-  // OpenAI не использует File API, возвращаем путь как есть
   return { uri: photoPath, mimeType: getMimeType(photoPath) };
 }
 
 /**
- * Основная генерация: текст → изображение (без фото-референса).
+ * Генерация по тексту (без фото-референса).
  */
-async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_generated', size = '1024x1024') {
+async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', size = '1024x1024') {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
   fs.mkdirSync(outputDir, { recursive: true });
 
-  console.log(`🎨 OpenAI: генерация по тексту`);
-  console.log('📝 Промпт (первые 1000):', prompt.slice(0, 1000));
+  console.log(`🎨 OpenAI gpt-image-1.5: генерация по тексту`);
+  console.log('📝 Промпт (первые 500):', prompt.slice(0, 500));
 
   const body = {
     model: MODEL,
     prompt,
     n: 1,
-    size,
-    quality: 'standard',
-    response_format: 'b64_json'
+    size
   };
 
-  try {
-    const genResult = await openaiApi('POST', 'images/generations', body);
-    const imageData = genResult.data?.[0];
-    if (!imageData) throw new Error('OpenAI не вернул изображение');
+  const result = await dalleGeneration(body);
+  const imageData = result.data?.[0];
+  if (!imageData?.b64_json) throw new Error('OpenAI не вернул изображение');
 
-    // b64_json или url
-    let imgBuffer;
-    if (imageData.b64_json) {
-      imgBuffer = Buffer.from(imageData.b64_json, 'base64');
-    } else if (imageData.url) {
-      const ext = '.png';
-      const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}${ext}`);
-      await downloadImage(imageData.url, outputPath);
-      return { path: outputPath, prompt };
-    } else {
-      throw new Error('OpenAI: нет изображения в ответе');
-    }
-
-    const ext = '.png';
-    const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}${ext}`);
-    fs.writeFileSync(outputPath, imgBuffer);
-    const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-    console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
-    return { path: outputPath, prompt };
-  } catch (err) {
-    console.error('❌ OpenAI generation error:', err.message);
-    throw err;
-  }
+  const imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
+  fs.writeFileSync(outputPath, imgBuffer);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
+  return { path: outputPath, prompt };
 }
 
 /**
- * Генерация на основе фото-референса (DALL-E 3 /images/edits).
- * @param {string} photoPath - путь к фото
- * @param {string} prompt - промпт со стилем
- * @param {string} outputDir - папка для результата
- * @param {string} [filenameBase] - префикс для файла
- * @param {string} [size] - размер '1024x1024' | '1792x1024' | '1024x1792'
+ * Генерация с фото-референсом.
+ * Кодирует фото в base64 и передаёт в теле промпта.
  */
-async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_edit', size = '1024x1024') {
+async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', size = '1024x1024') {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
+  if (!fs.existsSync(photoPath)) throw new Error(`Фото не найдено: ${photoPath}`);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  console.log(`🎨 OpenAI: генерация с фото-референсом`);
-  console.log('📝 Промпт:', prompt.slice(0, 500));
+  const b64 = imageToBase64(photoPath);
+  const mime = getMimeType(photoPath);
 
-  // DALL-E 3 Edits требует PNG
-  let imgPath = photoPath;
-  const ext = path.extname(photoPath).toLowerCase();
-  if (ext !== '.png') {
-    console.log('⚠️ OpenAI Edits требует PNG. Передаю как есть — может не сработать.');
-    // Попробуем всё равно — API отклонит, если не подходит
-  }
+  console.log(`🎨 OpenAI gpt-image-1.5: генерация с фото-референсом`);
+  console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
-  const multipart = buildEditMultipart(imgPath, prompt, size);
+  // Собираем промпт: описание желаемого стиля + фото как референс
+  const finalPrompt = `${prompt}\n\nREFERENCE IMAGE (use this person's face and body as reference, preserve their identity): data:${mime};base64,${b64}`;
 
-  try {
-    const genResult = await new Promise((resolve, reject) => {
-      const url = new URL('https://api.openai.com/v1/images/edits');
-      const headers = {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': multipart.contentType,
-        'Content-Length': String(multipart.contentLength)
-      };
+  const body = {
+    model: MODEL,
+    prompt: finalPrompt,
+    n: 1,
+    size
+  };
 
-      const req = https.request({
-        method: 'POST',
-        hostname: url.hostname,
-        path: url.pathname,
-        headers,
-        timeout: 300000
-      }, (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(new Error(`OpenAI API: ${parsed.error.message} (${parsed.error.type || ''})`));
-            } else {
-              resolve(parsed);
-            }
-          } catch {
-            reject(new Error(`OpenAI API parse error: ${data.slice(0, 300)}`));
-          }
-        });
-      });
+  const result = await dalleGeneration(body);
+  const imageData = result.data?.[0];
+  if (!imageData?.b64_json) throw new Error('OpenAI не вернул изображение');
 
-      req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI API timeout')); });
-      req.write(multipart.body);
-      req.end();
-    });
-
-    const imageData = genResult.data?.[0];
-    if (!imageData) throw new Error('OpenAI не вернул изображение');
-
-    let imgBuffer;
-    if (imageData.b64_json) {
-      imgBuffer = Buffer.from(imageData.b64_json, 'base64');
-    } else if (imageData.url) {
-      const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
-      await downloadImage(imageData.url, outputPath);
-      return { path: outputPath, prompt };
-    } else {
-      throw new Error('OpenAI: нет изображения в ответе');
-    }
-
-    const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
-    fs.writeFileSync(outputPath, imgBuffer);
-    const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-    console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
-    return { path: outputPath, prompt };
-  } catch (err) {
-    console.error('❌ OpenAI edit error:', err.message);
-    throw err;
-  }
+  const imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
+  fs.writeFileSync(outputPath, imgBuffer);
+  const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
+  console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
+  return { path: outputPath, prompt: finalPrompt };
 }
 
 module.exports = {
   uploadPhoto,
   generateFromPrompt,
-  generateFromPhoto
+  generateFromPhoto,
+  SIZE_MAP
 };

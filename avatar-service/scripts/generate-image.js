@@ -455,9 +455,8 @@ async function _callGemini(opts) {
     const label = metricsLabel || 'generate';
     const fnameBase = filenameBase || 'openai_generated';
 
-    // Размер от настроек или дефолт
-    const aspectSizeMap = { '1:1': '1024x1024', '4:3': '1792x1024', '16:9': '1792x1024', '3:4': '1024x1792', '9:16': '1024x1792' };
-    const size = aspectSizeMap[settings?.aspectRatio] || '1024x1024';
+    // Размер от настроек (gpt-image-1.5: 1024x1024, 1024x1536, 1536x1024, auto)
+    const size = openaiGen.SIZE_MAP?.[settings?.aspectRatio] || '1024x1024';
 
     _callLabel = label;
     console.log(`🎨 OpenAI${logMessage ? ': ' + logMessage : ''}`);
