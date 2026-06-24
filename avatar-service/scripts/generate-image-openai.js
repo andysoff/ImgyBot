@@ -205,12 +205,12 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   console.log(`🎨 OpenAI ${model}: генерация с фото-референсом`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
-  // Собираем промпт: описание желаемого стиля + фото как референс
-  const finalPrompt = `${prompt}\n\nREFERENCE IMAGE (use this person's face and body as reference, preserve their identity): data:${mime};base64,${b64}`;
-
+  // OpenAI gpt-image-1.5/gpt-image-2 принимают image как отдельное поле
+  // ВАЖНО: не пихаем base64 в текст промпта — лимит 32000 символов!
   const body = {
     model,
-    prompt: finalPrompt,
+    prompt,
+    image: `data:${mime};base64,${b64}`,
     n: 1
   };
 
@@ -238,7 +238,7 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   fs.writeFileSync(outputPath, imgBuffer);
   const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
   console.log(`✅ OpenAI ${model}: готово ${outputPath} (${imgSizeKB} KB)`);
-  return { path: outputPath, prompt: finalPrompt };
+  return { path: outputPath, prompt };
 }
 
 module.exports = {
