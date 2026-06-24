@@ -274,6 +274,16 @@ async function ensureGeminiFiles(avatar, avatars) {
       if (!avatar.gender && validFiles.length > 0) {
         await detectAndSaveGender(avatar, avatars, validFiles);
       }
+      // Дозаполняем localPath для OpenAI — старые кеши могут не содержать localPath
+      const userPhotos = avatar.photos || [];
+      for (let i = 0; i < validFiles.length && i < userPhotos.length; i++) {
+        if (!validFiles[i].localPath) {
+          const fullPath = path.join(__dirname, '..', userPhotos[i]);
+          if (fs.existsSync(fullPath)) {
+            validFiles[i].localPath = fullPath;
+          }
+        }
+      }
       return validFiles;
     }
 
