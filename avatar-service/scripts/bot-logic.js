@@ -280,9 +280,10 @@ function getModelOptions(telegramId) {
   if (String(telegramId) === ADMIN_TELEGRAM_ID) {
     return MODEL_OPTIONS;
   }
-  // Не-админам скрываем 2.5 Flash
+  // Не-админам скрываем 2.5 Flash и GPT-Image 2
   const filtered = { ...MODEL_OPTIONS };
   delete filtered['gemini-2.5-flash-image'];
+  delete filtered['openai-gpt-image-2'];
   return filtered;
 }
 
@@ -1321,7 +1322,7 @@ const MODEL_OPTIONS = {
   'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
   'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
-  'openai-gpt-image-1.5': { label: '🤖 ChatGPT GPT-Image 1.5', desc: 'OpenAI gpt-image-1.5 — 1 генерация, только для админа' },
+  'openai-gpt-image-1.5': { label: '🤖 Альтернативная', desc: 'OpenAI gpt-image-1.5 — 1 генерация, с поддержкой фото-референса' },
   'openai-gpt-image-2': { label: '🤖 ChatGPT GPT-Image 2', desc: 'OpenAI gpt-image-2 — 1 генерация, до 4K, только для админа' },
 };
 
@@ -1331,7 +1332,7 @@ function getSettings(telegramId) {
     const all = readJSON(SETTINGS_FILE);
     const settings = { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
     // Не-админам 2.5 Flash не показываем и не используем
-    if ((settings.model === "gemini-2.5-flash-image" || settings.model.startsWith('openai-')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
+    if ((settings.model === "gemini-2.5-flash-image" || (settings.model.startsWith('openai-') && settings.model !== 'openai-gpt-image-1.5')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
       settings.model = DEFAULT_SETTINGS.model;
     }
     return settings;
@@ -1531,9 +1532,9 @@ function handleSettingsModel(telegramId) {
   const proLabel = '🏆 <b>Про</b> — 2 генерации, макс. качество';
   const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
-  const openaiLabel1 = isAdmin ? '\n🤖 <b>ChatGPT GPT-Image 1.5</b> — 1 генерация (только ты, с поддержкой фото-референса)' : '';
+  const openaiLabel1 = '\n🤖 <b>Альтернативная</b> — 1 генерация, с поддержкой фото-референса';
   const openaiLabel2 = isAdmin ? '\n🤖 <b>ChatGPT GPT-Image 2</b> — 1 генерация, до 4K (только ты, с поддержкой фото-референса)' : '';
-  const openaiLabel = isAdmin ? (openaiLabel1 + openaiLabel2 + '\n') : '';
+  const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
 
   return {
     text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери нейросеть 👇',
