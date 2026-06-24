@@ -232,7 +232,7 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   const body = {
     model,
     prompt,
-    image: `data:${mime};base64,${b64}`,
+    images: [`data:${mime};base64,${b64}`],
     n: 1
   };
 
