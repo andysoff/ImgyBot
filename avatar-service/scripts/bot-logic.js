@@ -1270,6 +1270,7 @@ const MODEL_COST = {
   'gemini-2.5-flash-image': 1,
   'gemini-3.1-flash-image-preview': 1,
   'gemini-3-pro-image-preview': 2,
+  'openai-dalle-3': 1,
 };
 
 const DEFAULT_SETTINGS = {
@@ -1319,6 +1320,7 @@ const MODEL_OPTIONS = {
   'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
   'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
+  'openai-dalle-3': { label: '🤖 ChatGPT (DALL·E 3)', desc: 'OpenAI DALL-E 3 — только для админа' },
 };
 
 
@@ -1327,7 +1329,7 @@ function getSettings(telegramId) {
     const all = readJSON(SETTINGS_FILE);
     const settings = { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
     // Не-админам 2.5 Flash не показываем и не используем
-    if (settings.model === "gemini-2.5-flash-image" && String(telegramId) !== ADMIN_TELEGRAM_ID) {
+    if ((settings.model === "gemini-2.5-flash-image" || settings.model.startsWith('openai-')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
       settings.model = DEFAULT_SETTINGS.model;
     }
     return settings;
@@ -1527,9 +1529,10 @@ function handleSettingsModel(telegramId) {
   const proLabel = '🏆 <b>Про</b> — 2 генерации, макс. качество';
   const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
+  const openaiLabel = isAdmin ? '\n🤖 <b>ChatGPT DALL·E 3</b> — 1 генерация (только ты, с поддержкой фото-референса)\n' : '';
 
   return {
-    text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + '\nВыбери нейросеть 👇',
+    text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери нейросеть 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };

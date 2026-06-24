@@ -13,6 +13,14 @@ const path = require('path');
 const metrics = require('./metrics-ga4');
 
 const API_KEY = process.env.GEMINI_API_KEY;
+let openaiGen = null;
+try {
+  if (process.env.OPENAI_API_KEY) {
+    openaiGen = require('./generate-image-openai');
+  }
+} catch (e) {
+  console.warn('⚠️ OpenAI модуль не загружен:', e.message);
+}
 const MODEL = 'gemini-3.1-flash-image-preview';
 
 // Настройки для разных качеств
@@ -429,6 +437,93 @@ function _extractImage(result, outputDir, filenameBase) {
  * @returns {Promise<{path:string, prompt:string}>}
  */
 async function _callGemini(opts) {
+  // ======================================================================
+  // OpenAI routing
+  // ======================================================================
+  const isOpenAI = opts.settings?.model?.startsWith('openai-');
+
+  if (isOpenAI) {
+    if (!openaiGen) {
+      throw new Error('OPENAI_API_KEY не задан. Добавь ключ в .env и перезапусти бота.');
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY не задан. Добавь ключ в .env и перезапусти бота.');
+    }
+
+    fs.mkdirSync(opts.outputDir, { recursive: true });
+    const { files, prompt, outputDir, settings, metricsLabel, metricsStyle, metricsSub, logMessage, filenameBase, chatId } = opts;
+    const label = metricsLabel || 'generate';
+    const fnameBase = filenameBase || 'openai_generated';
+
+    // Размер от настроек или дефолт
+    const aspectSizeMap = { '1:1': '1024x1024', '4:3': '1792x1024', '16:9': '1792x1024', '3:4': '1024x1792', '9:16': '1024x1792' };
+    const size = aspectSizeMap[settings?.aspectRatio] || '1024x1024';
+
+    _callLabel = label;
+    console.log(`🎨 OpenAI${logMessage ? ': ' + logMessage : ''}`);
+    console.log('📝 Промпт (первые 1000):', prompt.slice(0, 1000));
+
+    const genStart = Date.now();
+    let result;
+
+    if (files && files.length > 0) {
+      // Пробуем localPath (сохранённый ensureGeminiFiles), потом uri
+      const refFile = files[0];
+      let photoPath = null;
+
+      if (refFile.localPath && fs.existsSync(refFile.localPath)) {
+        photoPath = refFile.localPath;
+      } else if (refFile.uri && fs.existsSync(refFile.uri)) {
+        photoPath = refFile.uri;
+      }
+
+      if (photoPath) {
+        console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
+        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, size);
+      } else {
+        // Gemini File URI — не можем использовать напрямую
+        console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
+        result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, size);
+      }
+    } else {
+      result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, size);
+    }
+
+    const totalDuration = Date.now() - genStart;
+    const imgStat = fs.statSync(result.path);
+    const imgSizeKB = (imgStat.size / 1024).toFixed(1);
+    console.log(`✅ OpenAI: готово ${result.path} (${imgSizeKB} KB)`);
+
+    metrics.track('openai:generation_success', {
+      label,
+      style: metricsStyle || '',
+      sub: metricsSub || '',
+      model: 'openai-dalle-3',
+      duration_ms: String(totalDuration),
+      img_size_kb: imgSizeKB
+    });
+
+    // Сохраняем промпт для повтора
+    if (chatId && prompt) {
+      try {
+        const convFile = path.join(__dirname, '..', 'data', 'conversations.json');
+        const all = JSON.parse(fs.readFileSync(convFile, 'utf-8'));
+        if (all[chatId]) {
+          all[chatId].data = all[chatId].data || {};
+          all[chatId].data.lastGeneratedPrompt = { text: prompt, styleId: metricsStyle || 'openai' };
+          fs.writeFileSync(convFile, JSON.stringify(all, null, 2) + '\n');
+        }
+      } catch (e) {
+        console.warn('⚠️ Не удалось сохранить промпт для повтора:', e.message);
+      }
+    }
+
+    return { path: result.path, prompt };
+  }
+  // ======================================================================
+  // /OpenAI routing
+  // ======================================================================
+
   if (!API_KEY) throw new Error('GEMINI_API_KEY не задан');
   fs.mkdirSync(opts.outputDir, { recursive: true });
 
