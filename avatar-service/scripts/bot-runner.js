@@ -296,7 +296,8 @@ async function ensureGeminiFiles(avatar, avatars) {
     const fullPath = path.join(__dirname, '..', photoRel);
     if (fs.existsSync(fullPath)) {
       const fileInfo = await generateImage.uploadPhoto(fullPath);
-      avatar.geminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType });
+      // Сохраняем и localPath для OpenAI (DALL-E 3 Edits нужен локальный файл)
+      avatar.geminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType, localPath: fullPath });
     }
   }
 
@@ -2029,7 +2030,7 @@ async function handleUpdate(update) {
                   const fullPath = path.join(__dirname, '..', photoRel);
                   if (fs.existsSync(fullPath)) {
                     const fileInfo = await generateImage.uploadPhoto(fullPath);
-                    newGeminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType });
+                    newGeminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType, localPath: fullPath });
                   }
                 }
 
@@ -2746,7 +2747,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
         try {
           console.log(`📤 Загружаю прикреплённое фото (no_avatar): ${promptResult.attachedPhoto}`);
           const fileInfo = await generateImage.uploadPhoto(promptResult.attachedPhoto);
-          singleFile = { uri: fileInfo.uri, mimeType: fileInfo.mimeType };
+          singleFile = { uri: fileInfo.uri, mimeType: fileInfo.mimeType, localPath: promptResult.attachedPhoto };
           console.log(`✅ Прикреплённое фото загружено: ${fileInfo.uri}`);
         } catch (uploadErr) {
           console.error('❌ Ошибка загрузки прикреплённого фото:', uploadErr.message);
@@ -2863,8 +2864,8 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       try {
         console.log(`📤 Загружаю прикреплённое фото в Gemini: ${promptResult.attachedPhoto}`);
         const fileInfo = await generateImage.uploadPhoto(promptResult.attachedPhoto);
-        geminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType });
-        console.log(`✅ Прикреплённое фото загружено: ${fileInfo.uri}`);
+        geminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType, localPath: promptResult.attachedPhoto });
+        console.log(`✅ Прикреплённое фото загружено: ${fileInfo.uri}, local: ${promptResult.attachedPhoto}`);
       } catch (uploadErr) {
         console.error('❌ Ошибка загрузки прикреплённого фото:', uploadErr.message);
         await tgSend(chatId, '⚠️ Не удалось загрузить прикреплённое фото. Генерирую без него.');
