@@ -455,11 +455,18 @@ async function _callGemini(opts) {
     const label = metricsLabel || 'generate';
     const fnameBase = filenameBase || 'openai_generated';
 
-    // Размер от настроек (gpt-image-1.5: 1024x1024, 1024x1536, 1536x1024, auto)
-    const size = openaiGen.SIZE_MAP?.[settings?.aspectRatio] || '1024x1024';
+    // Определяем фактическое имя модели OpenAI (убираем префикс 'openai-')
+    const openaiModel = (settings?.model || 'openai-gpt-image-1.5').replace(/^openai-/, '');
+    const isV2 = openaiModel === 'gpt-image-2';
+
+    // Размер/конфигурация от соотношения сторон
+    const sizeMap = isV2 ? openaiGen.SIZE_MAP_V2 : openaiGen.SIZE_MAP;
+    const sizeOrConfig = isV2
+      ? (sizeMap?.[settings?.aspectRatio] || { size: '1024x1024', resolution: '1K' })
+      : (sizeMap?.[settings?.aspectRatio] || '1024x1024');
 
     _callLabel = label;
-    console.log(`🎨 OpenAI${logMessage ? ': ' + logMessage : ''}`);
+    console.log(`🎨 OpenAI ${openaiModel}${logMessage ? ': ' + logMessage : ''}`);
     console.log('📝 Промпт (первые 1000):', prompt.slice(0, 1000));
 
     const genStart = Date.now();
@@ -478,14 +485,14 @@ async function _callGemini(opts) {
 
       if (photoPath) {
         console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
-        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, size);
+        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
         // Gemini File URI — не можем использовать напрямую
         console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
-        result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, size);
+        result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       }
     } else {
-      result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, size);
+      result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
     }
 
     const totalDuration = Date.now() - genStart;
@@ -497,7 +504,7 @@ async function _callGemini(opts) {
       label,
       style: metricsStyle || '',
       sub: metricsSub || '',
-      model: 'openai-dalle-3',
+      model: openaiModel,
       duration_ms: String(totalDuration),
       img_size_kb: imgSizeKB
     });

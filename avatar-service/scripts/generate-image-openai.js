@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * Генерация изображений через OpenAI gpt-image-1.5
+ * Генерация изображений через OpenAI
  *
  * Поддерживает:
- *  - Генерацию по тексту
- *  - Генерацию с фото-референсом (base64 в промпте)
+ *  - gpt-image-1.5 (по умолчанию)
+ *  - gpt-image-2
+ *
+ * Функции:
+ *  - Генерация по тексту
+ *  - Генерация с фото-референсом (base64 в промпте)
  */
 
 const https = require('https');
@@ -13,7 +17,7 @@ const path = require('path');
 const { Buffer } = require('buffer');
 
 const API_KEY = process.env.OPENAI_API_KEY;
-const MODEL = 'gpt-image-1.5';
+const DEFAULT_MODEL = 'gpt-image-1.5';
 
 const SIZE_MAP = {
   '1:1': '1024x1024',
@@ -21,6 +25,15 @@ const SIZE_MAP = {
   '16:9': '1536x1024',
   '3:4': '1024x1536',
   '9:16': '1024x1536'
+};
+
+// gpt-image-2 поддерживает больше размеров и resolution (1K/2K/4K)
+const SIZE_MAP_V2 = {
+  '1:1': { size: '1024x1024', resolution: '1K' },
+  '4:3': { size: '2048x1536', resolution: '2K' },
+  '16:9': { size: '3840x2160', resolution: '4K' },
+  '3:4': { size: '1536x2048', resolution: '2K' },
+  '9:16': { size: '2160x3840', resolution: '4K' }
 };
 
 function getMimeType(filePath) {
@@ -41,6 +54,7 @@ function getMimeType(filePath) {
 /**
  * Вызов OpenAI images/generations.
  * gpt-image-1.5 возвращает b64_json по умолчанию.
+ * gpt-image-2 поддерживает как b64_json, так и url.
  */
 function dalleGeneration(body) {
   return new Promise((resolve, reject) => {
@@ -81,6 +95,23 @@ function dalleGeneration(body) {
   });
 }
 
+/**
+ * Скачать изображение по URL (для gpt-image-2, который может вернуть url вместо b64_json).
+ */
+function downloadImage(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`Download failed: HTTP ${res.statusCode}`));
+        return;
+      }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    }).on('error', reject);
+  });
+}
+
 // ======================================================================
 // ВСПОМОГАТЕЛЬНЫЕ
 // ======================================================================
@@ -107,38 +138,63 @@ async function uploadPhoto(photoPath) {
 
 /**
  * Генерация по тексту (без фото-референса).
+ * @param {string} prompt - промпт
+ * @param {string} outputDir - папка для результата
+ * @param {string} [filenameBase='openai_gen'] - префикс файла
+ * @param {string|Object} [sizeOrConfig='1024x1024'] - размер или конфигурация для v2
+ * @param {string} [model=DEFAULT_MODEL] - модель OpenAI
  */
-async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', size = '1024x1024') {
+async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
   fs.mkdirSync(outputDir, { recursive: true });
 
-  console.log(`🎨 OpenAI gpt-image-1.5: генерация по тексту`);
+  console.log(`🎨 OpenAI ${model}: генерация по тексту`);
   console.log('📝 Промпт (первые 500):', prompt.slice(0, 500));
 
   const body = {
-    model: MODEL,
+    model,
     prompt,
-    n: 1,
-    size
+    n: 1
   };
+
+  if (model === 'gpt-image-2' && typeof sizeOrConfig === 'object') {
+    body.size = sizeOrConfig.size || '1024x1024';
+    body.resolution = sizeOrConfig.resolution || '1K';
+  } else {
+    body.size = typeof sizeOrConfig === 'string' ? sizeOrConfig : (sizeOrConfig.size || '1024x1024');
+  }
 
   const result = await dalleGeneration(body);
   const imageData = result.data?.[0];
-  if (!imageData?.b64_json) throw new Error('OpenAI не вернул изображение');
 
-  const imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  let imgBuffer;
+  if (imageData?.b64_json) {
+    imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  } else if (imageData?.url) {
+    console.log('📥 OpenAI: скачивание по URL');
+    imgBuffer = await downloadImage(imageData.url);
+  } else {
+    throw new Error('OpenAI не вернул изображение');
+  }
+
   const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
   fs.writeFileSync(outputPath, imgBuffer);
   const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
+  console.log(`✅ OpenAI ${model}: готово ${outputPath} (${imgSizeKB} KB)`);
   return { path: outputPath, prompt };
 }
 
 /**
  * Генерация с фото-референсом.
  * Кодирует фото в base64 и передаёт в теле промпта.
+ * @param {string} photoPath - путь к фото
+ * @param {string} prompt - промпт
+ * @param {string} outputDir - папка для результата
+ * @param {string} [filenameBase='openai_photo'] - префикс файла
+ * @param {string|Object} [sizeOrConfig='1024x1024'] - размер или конфигурация для v2
+ * @param {string} [model=DEFAULT_MODEL] - модель OpenAI
  */
-async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', size = '1024x1024') {
+async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
   if (!fs.existsSync(photoPath)) throw new Error(`Фото не найдено: ${photoPath}`);
   fs.mkdirSync(outputDir, { recursive: true });
@@ -146,28 +202,42 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   const b64 = imageToBase64(photoPath);
   const mime = getMimeType(photoPath);
 
-  console.log(`🎨 OpenAI gpt-image-1.5: генерация с фото-референсом`);
+  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
   // Собираем промпт: описание желаемого стиля + фото как референс
   const finalPrompt = `${prompt}\n\nREFERENCE IMAGE (use this person's face and body as reference, preserve their identity): data:${mime};base64,${b64}`;
 
   const body = {
-    model: MODEL,
+    model,
     prompt: finalPrompt,
-    n: 1,
-    size
+    n: 1
   };
+
+  if (model === 'gpt-image-2' && typeof sizeOrConfig === 'object') {
+    body.size = sizeOrConfig.size || '1024x1024';
+    body.resolution = sizeOrConfig.resolution || '1K';
+  } else {
+    body.size = typeof sizeOrConfig === 'string' ? sizeOrConfig : (sizeOrConfig.size || '1024x1024');
+  }
 
   const result = await dalleGeneration(body);
   const imageData = result.data?.[0];
-  if (!imageData?.b64_json) throw new Error('OpenAI не вернул изображение');
 
-  const imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  let imgBuffer;
+  if (imageData?.b64_json) {
+    imgBuffer = Buffer.from(imageData.b64_json, 'base64');
+  } else if (imageData?.url) {
+    console.log('📥 OpenAI: скачивание по URL');
+    imgBuffer = await downloadImage(imageData.url);
+  } else {
+    throw new Error('OpenAI не вернул изображение');
+  }
+
   const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}.png`);
   fs.writeFileSync(outputPath, imgBuffer);
   const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
-  console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
+  console.log(`✅ OpenAI ${model}: готово ${outputPath} (${imgSizeKB} KB)`);
   return { path: outputPath, prompt: finalPrompt };
 }
 
@@ -175,5 +245,6 @@ module.exports = {
   uploadPhoto,
   generateFromPrompt,
   generateFromPhoto,
-  SIZE_MAP
+  SIZE_MAP,
+  SIZE_MAP_V2
 };
