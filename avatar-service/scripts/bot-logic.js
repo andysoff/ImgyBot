@@ -1590,7 +1590,7 @@ function handleSettingsModel(telegramId) {
   const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником, быстрая';
   const identProLabel = isAdmin ? '\n<b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
   const flashLabel = '\n<b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
-  const proLabel = '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего';
+  const proLabel = isAdmin ? '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего' : '';
   const oldLabel = isAdmin ? '\n<b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
 
   return {
