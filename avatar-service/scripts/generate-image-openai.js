@@ -292,34 +292,40 @@ function extractImageFromResponse(response) {
   const output = response.output || [];
 
   for (const item of output) {
-    // Новый формат: type: "image_generation_call", output.image
-    if (item.type === 'image_generation_call' && item.output?.image) {
-      const img = item.output.image;
-      if (img.b64_json) {
-        return Buffer.from(img.b64_json, 'base64');
+    // Тип: "image_generation_call" — результат в item.result (base64 строка)
+    if (item.type === 'image_generation_call') {
+      if (typeof item.result === 'string' && item.result.length > 0) {
+        return Buffer.from(item.result, 'base64');
       }
-      if (img.url) {
-        return downloadImage(img.url);
+      // Fallback: output.image
+      if (item.output?.image?.b64_json) {
+        return Buffer.from(item.output.image.b64_json, 'base64');
+      }
+      if (item.output?.image?.url) {
+        return downloadImage(item.output.image.url);
       }
     }
 
-    // Альтернативный формат: type: "content" с inline_data
+    // Тип: "content" с inline_data (вложенные изображения)
     if (item.type === 'content' && item.content) {
       for (const part of item.content) {
-        if (part.type === 'inline_data' && part.inline_data) {
-          const { mime_type, data } = part.inline_data;
-          if (data) {
-            return Buffer.from(data, 'base64');
-          }
+        if (part.type === 'inline_data' && part.inline_data?.data) {
+          return Buffer.from(part.inline_data.data, 'base64');
+        }
+        if (part.type === 'image_url' && part.image_url?.url) {
+          return downloadImage(part.image_url.url);
         }
       }
     }
 
-    // Формат через message с image_url
+    // Тип: "message" с контентом
     if (item.type === 'message' && item.content) {
       for (const part of item.content) {
         if (part.type === 'image_url' && part.image_url?.url) {
           return downloadImage(part.image_url.url);
+        }
+        if (part.type === 'inline_data' && part.inline_data?.data) {
+          return Buffer.from(part.inline_data.data, 'base64');
         }
       }
     }
@@ -383,8 +389,7 @@ async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 
         type: 'image_generation',
         resolution
       }
-    ],
-    include: ['image_generation_call.output']
+    ]
   };
 
   const result = await responsesApiCall(body);
