@@ -1296,7 +1296,7 @@ const DEFAULT_SETTINGS = {
   portraitType: 'bust',
   faceTurn: 'none',
   resolution: '1K',
-  openaiQuality: 'medium'
+  openaiQuality: 'low'
 };
 
 const QUALITY_OPTIONS = {
