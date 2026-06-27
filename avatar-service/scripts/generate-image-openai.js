@@ -189,11 +189,12 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
     body.images = images;
   }
 
-  // sizeOrConfig — строка для v1.5, объект для v2
+  // sizeOrConfig — строка для v1.5, объект для v2 (может содержать size, resolution, quality)
   if (typeof sizeOrConfig === 'string') {
     body.size = sizeOrConfig;
   } else if (typeof sizeOrConfig === 'object') {
     body.size = sizeOrConfig.size || '1024x1024';
+    if (sizeOrConfig.quality) body.quality = sizeOrConfig.quality;
   } else {
     body.size = '1024x1024';
   }
@@ -234,11 +235,12 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
     body.input_fidelity = 'high';
   }
 
-  // size для edits (gpt-image-2 поддерживает кастомные размеры)
+  // size для edits (gpt-image-2 поддерживает кастомные размеры) + quality
   if (typeof sizeOrConfig === 'string') {
     body.size = sizeOrConfig;
   } else if (typeof sizeOrConfig === 'object') {
     body.size = sizeOrConfig.size || '1024x1024';
+    if (sizeOrConfig.quality) body.quality = sizeOrConfig.quality;
   } else {
     body.size = '1024x1024';
   }

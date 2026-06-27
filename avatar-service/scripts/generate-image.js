@@ -462,7 +462,7 @@ async function _callGemini(opts) {
     // Размер/конфигурация от соотношения сторон
     const sizeMap = isV2 ? openaiGen.SIZE_MAP_V2 : openaiGen.SIZE_MAP;
     const sizeOrConfig = isV2
-      ? (sizeMap?.[settings?.aspectRatio] || { size: '1024x1024', resolution: '1K' })
+      ? { ...(sizeMap?.[settings?.aspectRatio] || { size: '1024x1024', resolution: '1K' }), quality: settings?.openaiQuality || 'standard' }
       : (sizeMap?.[settings?.aspectRatio] || '1024x1024');
 
     _callLabel = label;

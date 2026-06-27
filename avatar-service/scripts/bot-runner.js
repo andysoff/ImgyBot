@@ -1049,6 +1049,31 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ OpenAI качество (Реализм ПРО) ------
+    if (data === 'settings_openai_quality') {
+      metrics.track('settings:show_openai_quality', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      const result = botLogic.handleSettingsOpenaiQuality(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('set_openai_quality:')) {
+      const value = data.replace('set_openai_quality:', '');
+      metrics.track('settings:openai_quality_changed', { telegram_id: String(chatId), value });
+      botLogic.updateSetting(String(chatId), 'openaiQuality', value);
+      await tgAnswerCb(cb.id, '✅ Качество Реализм ПРО обновлено');
+      const result = botLogic.handleSettingsOpenaiQuality(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
     // ------ Нажатие на название аватара → выбор (без перезагрузки!) ------
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');
@@ -2773,6 +2798,11 @@ function getEstimatedCost(settings) {
   const resolution = settings.resolution || '1K';
   const modelPricing = IMAGE_PRICING[model];
   if (!modelPricing) return '—';
+
+  // Для gpt-image-2 учитываем HD качество
+  if (model === 'openai-gpt-image-2' && settings.openaiQuality === 'hd') {
+    return '≈$' + (modelPricing._approx_hd || 0.211).toFixed(3);
+  }
 
   if (modelPricing[resolution]) {
     return '$' + modelPricing[resolution].toFixed(3);
