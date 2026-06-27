@@ -511,7 +511,7 @@ async function sendAfterGenerationButtons(chatId, styleId, photoPath, remaining)
       pendingOriginals.set(`${chatId}:${result.result.message_id}`, photoPath);
       setTimeout(() => {
         pendingOriginals.delete(`${chatId}:${result.result.message_id}`);
-      }, 30 * 60 * 1000);
+      }, 24 * 60 * 60 * 1000);
     }
   } else {
     await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', {
@@ -3060,7 +3060,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
               pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
               setTimeout(() => {
                 pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-              }, 30 * 60 * 1000);
+              }, 24 * 60 * 60 * 1000);
             }
           }
           return;
@@ -3112,7 +3112,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
           pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
           setTimeout(() => {
             pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-          }, 30 * 60 * 1000);
+          }, 24 * 60 * 60 * 1000);
         }
       }
       return;
@@ -3194,7 +3194,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
         pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
         setTimeout(() => {
           pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-        }, 30 * 60 * 1000);
+        }, 24 * 60 * 60 * 1000);
       }
     }
 
