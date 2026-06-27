@@ -1272,7 +1272,7 @@ const MODEL_COST = {
   'gemini-3.1-flash-image-preview': 1,
   'gemini-3-pro-image-preview': 2,
   'openai-gpt-image-1.5': 1,
-  'openai-gpt-image-2': 1,
+  'openai-gpt-image-2': 2,
 };
 
 const OPENAI_QUALITY_OPTIONS = {
