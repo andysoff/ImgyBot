@@ -209,26 +209,37 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
 
 /**
  * Генерация с фото-референсом через Image API edits.
+ * Принимает массив путей к фото — все будут отправлены как референсы.
  * Работает для gpt-image-1.5 и gpt-image-2 (через /v1/images/edits).
  * gpt-image-2 НЕ поддерживает input_fidelity (всегда high fidelity).
  */
-async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
+async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
-  if (!fs.existsSync(photoPath)) throw new Error(`Фото не найдено: ${photoPath}`);
 
-  const b64 = imageToBase64(photoPath);
-  const mime = getMimeType(photoPath);
-  const dataUri = `data:${mime};base64,${b64}`;
+  if (!Array.isArray(photoPaths)) {
+    photoPaths = [photoPaths];
+  }
+
+  const validPaths = photoPaths.filter(p => p && fs.existsSync(p));
+  if (validPaths.length === 0) {
+    throw new Error('Нет валидных фото для референса');
+  }
+
+  const images = validPaths.map(p => {
+    const b64 = imageToBase64(p);
+    const mime = getMimeType(p);
+    return { image_url: `data:${mime};base64,${b64}` };
+  });
 
   const isV2 = model === 'gpt-image-2';
 
-  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits)`);
+  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits), ${validPaths.length} фото`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
   const body = {
     model,
     prompt,
-    images: [{ image_url: dataUri }],
+    images,
     n: 1
   };
 

@@ -475,23 +475,22 @@ async function _callGemini(opts) {
     let result;
 
     if (files && files.length > 0) {
-      // Пробуем localPath (сохранённый ensureGeminiFiles), потом uri
-      const refFile = files[0];
-      let photoPath = null;
-
-      if (refFile.localPath && fs.existsSync(refFile.localPath)) {
-        photoPath = refFile.localPath;
-      } else if (refFile.uri && fs.existsSync(refFile.uri)) {
-        photoPath = refFile.uri;
+      // Собираем ВСЕ валидные локальные пути для референсов
+      const photoPaths = [];
+      for (const f of files) {
+        if (f.localPath && fs.existsSync(f.localPath)) {
+          photoPaths.push(f.localPath);
+        } else if (f.uri && fs.existsSync(f.uri)) {
+          photoPaths.push(f.uri);
+        }
       }
 
-      if (isV2 && photoPath) {
-        // gpt-image-2 с фото — через Image API edits (/v1/images/edits)
-        console.log('📸 OpenAI V2: Image API edits с фото-референсом:', photoPath);
-        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
-      } else if (photoPath) {
-        console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
-        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+      if (photoPaths.length > 0) {
+        console.log(`📸 OpenAI: отправляю ${photoPaths.length} фото-референсов:`);
+        for (const p of photoPaths) {
+          console.log('   ' + p);
+        }
+        result = await openaiGen.generateFromPhoto(photoPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
         // Gemini File URI — не можем использовать напрямую
         console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
