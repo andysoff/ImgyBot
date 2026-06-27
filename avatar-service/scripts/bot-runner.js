@@ -1049,7 +1049,7 @@ async function handleUpdate(update) {
       return;
     }
 
-    // ------ OpenAI качество (Реализм ПРО) ------
+    // ------ OpenAI качество (Идентичный ПРО) ------
     if (data === 'settings_openai_quality') {
       metrics.track('settings:show_openai_quality', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');
@@ -1065,7 +1065,7 @@ async function handleUpdate(update) {
       const value = data.replace('set_openai_quality:', '');
       metrics.track('settings:openai_quality_changed', { telegram_id: String(chatId), value });
       botLogic.updateSetting(String(chatId), 'openaiQuality', value);
-      await tgAnswerCb(cb.id, '✅ Качество Реализм ПРО обновлено');
+      await tgAnswerCb(cb.id, '✅ Качество 2 обновлено');
       const result = botLogic.handleSettingsOpenaiQuality(String(chatId));
       await tgEdit(chatId, msgId, result.text, {
         parse_mode: result.parse_mode,
@@ -2820,6 +2820,7 @@ async function sendDebugInfo(chatId, settings, prompt, durationMs, photoPath) {
 
   const modelLabel = botLogic.MODEL_OPTIONS[settings.model]?.label || settings.model;
   const qualityLabel = botLogic.QUALITY_OPTIONS[settings.quality]?.label || settings.quality;
+  const openaiQualityLabel = botLogic.OPENAI_QUALITY_OPTIONS?.[settings.openaiQuality]?.label || settings.openaiQuality || 'medium';
   const aspectLabel = botLogic.ASPECT_OPTIONS[settings.aspectRatio]?.label || settings.aspectRatio;
   const portraitLabel = botLogic.PORTRAIT_TYPE_OPTIONS[settings.portraitType]?.label || '—';
 
@@ -2853,12 +2854,64 @@ async function sendDebugInfo(chatId, settings, prompt, durationMs, photoPath) {
   // Себестоимость
   const costStr = getEstimatedCost(settings);
 
+  // Параметры API
+  let apiParams = '';
+  const isGemini = settings.model && !settings.model.startsWith('openai-');
+  const isOpenAI = settings.model && settings.model.startsWith('openai-');
+
+  if (isGemini) {
+    const geminiModel = settings.model || 'gemini-3.1-flash-image-preview';
+    const resolutionApiMap = { '0.5K': '512', '1K': '1K', '2K': '2K', '4K': '4K' };
+    const imageConfig = {};
+    if (settings.aspectRatio) imageConfig.aspectRatio = settings.aspectRatio;
+    if (settings.resolution) imageConfig.imageSize = resolutionApiMap[settings.resolution] || '1K';
+
+    apiParams = JSON.stringify({
+      model: geminiModel,
+      generationConfig: {
+        responseModalities: ['Image', 'Text'],
+        temperature: 0.1,
+        topK: 32,
+        topP: 1,
+        ...(Object.keys(imageConfig).length > 0 ? { imageConfig } : {})
+      },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ]
+    }, null, 2);
+  } else if (isOpenAI) {
+    const openaiModel = settings.model.replace(/^openai-/, '');
+    const isV2 = openaiModel === 'gpt-image-2';
+    const sizeMap = isV2
+      ? { '1:1': '1024x1024', '4:3': '2048x1536', '16:9': '3840x2160', '3:4': '1536x2048', '9:16': '2160x3840' }
+      : { '1:1': '1024x1024', '4:3': '1536x1024', '16:9': '1536x1024', '3:4': '1024x1536', '9:16': '1024x1536' };
+    const size = sizeMap[settings.aspectRatio] || '1024x1024';
+    const quality = settings.openaiQuality || 'medium';
+
+    const body = {
+      model: openaiModel,
+      size,
+      n: 1
+    };
+    if (quality) body.quality = quality;
+    if (!isV2) body.input_fidelity = 'high';
+
+    apiParams = JSON.stringify(body, null, 2);
+  }
+
   let debugText = '🔧 <b>Отладка</b>\n\n'
     + '<b>Промпт:</b>\n<code>'
     + prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     + '</code>\n\n'
+    + '<b>Параметры API:</b>\n<code>'
+    + apiParams.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    + '</code>\n\n'
     + '<b>Модель:</b> ' + modelLabel + '\n'
     + '<b>Качество:</b> ' + qualityLabel + '\n'
+    + '<b>Качество 2:</b> ' + openaiQualityLabel + '\n'
     + '<b>Формат:</b> ' + aspectLabel + '\n'
     + '<b>Тип портрета:</b> ' + portraitLabel;
 

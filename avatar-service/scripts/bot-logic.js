@@ -280,7 +280,7 @@ function getModelOptions(telegramId) {
   if (String(telegramId) === ADMIN_TELEGRAM_ID) {
     return MODEL_OPTIONS;
   }
-  // Не-админам скрываем 2.5 Flash, GPT-Image 2 и Идеализм ПРО
+  // Не-админам скрываем 2.5 Flash, GPT-Image 2 и Улучшающий ПРО
   const filtered = { ...MODEL_OPTIONS };
   delete filtered['gemini-2.5-flash-image'];
   delete filtered['gemini-3-pro-image-preview'];
@@ -1335,11 +1335,11 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'gemini-3.1-flash-image-preview': { label: '⚡ Идеализм', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
-  'gemini-3-pro-image-preview': { label: '🏆 Идеализм ПРО', desc: 'улучшенная версия Идеализма' },
+  'gemini-3.1-flash-image-preview': { label: '⚡ Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
+  'gemini-3-pro-image-preview': { label: '🏆 Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
-  'openai-gpt-image-1.5': { label: '🎨 Реализм', desc: 'максимальное сходство с исходником, быстрая' },
-  'openai-gpt-image-2': { label: '🌟 Реализм ПРО', desc: 'улучшенная версия Реализма' },
+  'openai-gpt-image-1.5': { label: '🎨 Идентичный', desc: 'максимальное сходство с исходником, быстрая' },
+  'openai-gpt-image-2': { label: '🌟 Идентичный ПРО', desc: 'улучшенная версия Идентичного' },
 };
 
 
@@ -1587,11 +1587,11 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const proLabel = '🏆 <b>Идеализм ПРО</b> — улучшенная версия Идеализма';
-  const flashLabel = '⚡ <b>Идеализм</b> — модифицирует лицо, но точнее позиционирует лицо';
+  const proLabel = '🏆 <b>Улучшающий ПРО</b> — улучшенная версия Улучшающего';
+  const flashLabel = '⚡ <b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
-  const openaiLabel1 = '\n🎨 <b>Реализм</b> — максимальное сходство с исходником, быстрая';
-  const openaiLabel2 = isAdmin ? '\n🌟 <b>Реализм ПРО</b> — улучшенная версия Реализма' : '';
+  const openaiLabel1 = '\n🎨 <b>Идентичный</b> — максимальное сходство с исходником, быстрая';
+  const openaiLabel2 = isAdmin ? '\n🌟 <b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
   const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
 
   return {
