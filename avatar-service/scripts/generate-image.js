@@ -653,7 +653,10 @@ function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
     ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
     : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
-  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
+  const headFitInstruction = settings?.portraitType === 'close_up'
+    ? ''
+    : ' The entire head must fit completely in the frame from top of hair to chin, no cropping of the top of the head or forehead.';
+  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + headFitInstruction + (extra.suffix || '');
 }
 
 // ======================================================================
