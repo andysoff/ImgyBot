@@ -1049,7 +1049,7 @@ async function handleUpdate(update) {
       return;
     }
 
-    // ------ OpenAI качество (Идентичный ПРО) ------
+    // ------ OpenAI качество (Идентичный / gpt-image-2) ------
     if (data === 'settings_openai_quality') {
       metrics.track('settings:show_openai_quality', { telegram_id: String(chatId) });
       await tgAnswerCb(cb.id, '');

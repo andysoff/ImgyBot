@@ -280,11 +280,11 @@ function getModelOptions(telegramId) {
   if (String(telegramId) === ADMIN_TELEGRAM_ID) {
     return MODEL_OPTIONS;
   }
-  // Не-админам скрываем 2.5 Flash, GPT-Image 2 и Улучшающий ПРО
+  // Не-админам скрываем 2.5 Flash, Идентичный Old и Улучшающий ПРО
   const filtered = { ...MODEL_OPTIONS };
   delete filtered['gemini-2.5-flash-image'];
   delete filtered['gemini-3-pro-image-preview'];
-  delete filtered['openai-gpt-image-2'];
+  delete filtered['openai-gpt-image-1.5'];
   return filtered;
 }
 
@@ -1273,7 +1273,7 @@ const MODEL_COST = {
   'gemini-3.1-flash-image-preview': 1,
   'gemini-3-pro-image-preview': 2,
   'openai-gpt-image-1.5': 1,
-  'openai-gpt-image-2': 2,
+  'openai-gpt-image-2': 1,
 };
 
 const OPENAI_QUALITY_OPTIONS = {
@@ -1292,7 +1292,7 @@ const RESOLUTION_OPTIONS = {
 const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
-  model: 'openai-gpt-image-1.5',
+  model: 'openai-gpt-image-2',
   debug: false,
   portraitType: 'bust',
   faceTurn: 'none',
@@ -1335,8 +1335,8 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'openai-gpt-image-1.5': { label: 'Идентичный', desc: 'максимальное сходство с исходником' },
-  'openai-gpt-image-2': { label: 'Идентичный ПРО', desc: 'улучшенная версия Идентичного' },
+  'openai-gpt-image-1.5': { label: 'Идентичный Old', desc: 'старая версия (только для админа)' },
+  'openai-gpt-image-2': { label: 'Идентичный', desc: 'максимальное сходство с исходником (по умолчанию)' },
   'gemini-3.1-flash-image-preview': { label: 'Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
   'gemini-3-pro-image-preview': { label: 'Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
   'gemini-2.5-flash-image': { label: 'Flash 2.5', desc: 'Только для админа' },
@@ -1348,7 +1348,7 @@ function getSettings(telegramId) {
     const all = readJSON(SETTINGS_FILE);
     const settings = { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
     // Не-админам скрытые модели не показываем и не используем
-    if ((settings.model === "gemini-2.5-flash-image" || settings.model === "gemini-3-pro-image-preview" || (settings.model.startsWith('openai-') && settings.model !== 'openai-gpt-image-1.5')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
+    if ((settings.model === "gemini-2.5-flash-image" || settings.model === "gemini-3-pro-image-preview" || (settings.model.startsWith('openai-') && settings.model !== 'openai-gpt-image-2')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
       settings.model = DEFAULT_SETTINGS.model;
     }
     return settings;
@@ -1587,14 +1587,14 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником';
-  const identProLabel = isAdmin ? '\n<b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
+  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником (1 генерация)';
+  const identOldLabel = isAdmin ? '\n<b>Идентичный Old</b> — старая версия (только для тебя)' : '';
   const flashLabel = '\n<b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
   const proLabel = isAdmin ? '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего' : '';
   const oldLabel = isAdmin ? '\n<b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
 
   return {
-    text: '🤖 <b>Режим</b>\n\n' + identLabel + identProLabel + flashLabel + proLabel + oldLabel + '\n\nВыбери режим 👇',
+    text: '🤖 <b>Режим</b>\n\n' + identLabel + identOldLabel + flashLabel + proLabel + oldLabel + '\n\nВыбери режим 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
