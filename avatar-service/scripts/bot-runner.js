@@ -26,6 +26,39 @@ function savePromptForRepeat(chatId, prompt, styleId) {
   });
 }
 
+/**
+ * Форматировать ошибку генерации для пользователя.
+ * Ошибки с уже готовыми (пользовательскими) сообщениями возвращаются как есть.
+ * Технические/неизвестные ошибки заменяются на стандартное сообщение.
+ */
+function formatUserFriendlyError(err) {
+  const msg = (err && err.message) || String(err || '');
+
+  // Сохраняем сообщения с пользовательскими эмодзи (уже готовые)
+  if (/^[\u{1F6AB}\u{1F604}\u{1F4DD}\u{1F4CF}\u{1F914}]/.test(msg)) return msg;
+
+  // Сохраняем сообщения о блокировке
+  if (msg.includes('Заблокировано') || msg.includes('заблокирован')) return msg;
+
+  // Сохраняем сообщения о ключах API (действенные)
+  if (msg.includes('API_KEY') || msg.includes('не задан')) return msg;
+
+  // Сохраняем сообщения о стиле (действенные)
+  if (msg.includes('не найден') || msg.includes('Стиль ещё не настроен') || msg.includes('Промпт для стиля')) return msg;
+
+  // Сохраняем сообщения о проблемах с Gemini File API
+  if (msg.includes('Срок хранения') || msg.includes('срок хранения')) return msg;
+
+  // Сохраняем сообщения о превышении лимита фото
+  if (msg.includes('Слишком много фото') || msg.includes('Максимум') || msg.includes('максимум') || msg.includes('Пожалуйста, отправь фото')) return msg;
+
+  // Сохраняем сообщения об отсутствии фото у Gemini
+  if (msg.includes('Не найдено фото') || msg.includes('нет фото')) return msg;
+
+  // Всё остальное (технические ошибки API, таймауты, parse errors) → универсальное сообщение
+  return 'Ошибка создания. Попробуйте позже или обратитесь в поддержку.';
+}
+
 // ===================== PID Lock =====================
 // Защита от дублирования процессов — только один экземпляр бота.
 const PID_FILE = process.env.PID_FILE || '/tmp/imgy-bot.pid';
@@ -2091,6 +2124,7 @@ async function handleUpdate(update) {
           }
 
         } catch (err) {
+          const userErrMsg = formatUserFriendlyError(err);
           console.error('❌ Ошибка генерации:', err.message);
 
           metrics.track('generation:failed', {
@@ -2188,7 +2222,7 @@ async function handleUpdate(update) {
             }
             } catch (retryErr) {
               console.error('❌ Retry тоже не удался:', retryErr.message);
-              await tgSend(chatId, `❌ Не удалось сгенерировать даже после повтора: ${retryErr.message}`);
+                            await tgSend(chatId, '❌ ' + formatUserFriendlyError(retryErr));
               if (result.remaining > 0) {
                 await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
               } else {
@@ -2196,7 +2230,7 @@ async function handleUpdate(update) {
               }
             }
           } else {
-            await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
             if (result.remaining > 0) {
               await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
             } else {
@@ -2386,8 +2420,9 @@ async function handleUpdate(update) {
 
         await sendAfterGenerationButtons(chatId, repeatStyleId, generatedResult.path, actualRemaining);
       } catch (err) {
+        const userErrMsg = formatUserFriendlyError(err);
         console.error('❌ Ошибка repeat генерации:', err.message);
-        await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
         if (result.remaining > 0) {
           await tgSend(chatId, 'Попробуй другой стиль 👇', { reply_markup: result.reply_markup });
         } else {
@@ -3193,7 +3228,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       error: err.message.slice(0, 100),
       blocked: String(err.message.includes('Заблокировано'))
     });
-    await tgSend(chatId, '❌ ' + err.message);
+    await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
     await tgSend(chatId, '✍️ Что дальше?\n\n🔄 <b>Повторить</b> — новая генерация по тому же описанию\n🚪 <b>Выйти</b> — выйти из режима Промпт', {
       parse_mode: 'HTML',
       reply_markup: {
@@ -3529,7 +3564,7 @@ async function generateCinemaMovie(chatId, movie, cb, category = 'foreign') {
       error: (err.message || '').slice(0, 100),
       recovered: 'false'
     });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -3654,7 +3689,7 @@ async function generateLocationPhoto(chatId, location, cb) {
       error: (err.message || '').slice(0, 100),
       recovered: 'false'
     });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -3754,7 +3789,7 @@ async function generateSportPhoto(chatId, sport, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации спорта:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -3854,7 +3889,7 @@ async function generateOfficePhoto(chatId, office, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации офиса:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -3954,7 +3989,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации истории:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -4054,7 +4089,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации литературы:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -4154,7 +4189,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации профессии:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -4329,7 +4364,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации авто:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
@@ -4386,7 +4421,7 @@ async function generateWheelPhoto(chatId, brand, cb) {
   } catch (err) {
     console.error('❌ Ошибка генерации за рулём:', err.message);
     metrics.track('generation:failed', { telegram_id: String(chatId), style_id: 'in_car', sub_id: brand.id, error: (err.message || '').slice(0, 100), recovered: 'false' });
-    await tgSend(chatId, `❌ Не удалось сгенерировать: ${err.message}`);
+            await tgSend(chatId, `❌ ${formatUserFriendlyError(err)}`);
   }
 }
 
