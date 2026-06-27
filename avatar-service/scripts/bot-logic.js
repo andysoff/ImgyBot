@@ -280,9 +280,10 @@ function getModelOptions(telegramId) {
   if (String(telegramId) === ADMIN_TELEGRAM_ID) {
     return MODEL_OPTIONS;
   }
-  // Не-админам скрываем 2.5 Flash и GPT-Image 2
+  // Не-админам скрываем 2.5 Flash, GPT-Image 2 и Идеализм ПРО
   const filtered = { ...MODEL_OPTIONS };
   delete filtered['gemini-2.5-flash-image'];
+  delete filtered['gemini-3-pro-image-preview'];
   delete filtered['openai-gpt-image-2'];
   return filtered;
 }
@@ -1346,8 +1347,8 @@ function getSettings(telegramId) {
   try {
     const all = readJSON(SETTINGS_FILE);
     const settings = { ...DEFAULT_SETTINGS, ...(all[telegramId] || {}) };
-    // Не-админам 2.5 Flash не показываем и не используем
-    if ((settings.model === "gemini-2.5-flash-image" || (settings.model.startsWith('openai-') && settings.model !== 'openai-gpt-image-1.5')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
+    // Не-админам скрытые модели не показываем и не используем
+    if ((settings.model === "gemini-2.5-flash-image" || settings.model === "gemini-3-pro-image-preview" || (settings.model.startsWith('openai-') && settings.model !== 'openai-gpt-image-1.5')) && String(telegramId) !== ADMIN_TELEGRAM_ID) {
       settings.model = DEFAULT_SETTINGS.model;
     }
     return settings;
