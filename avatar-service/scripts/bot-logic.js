@@ -1583,7 +1583,7 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const identLabel = '<b>Идентичный</b> — изображение максимально близкое к оригиналу (1 генерация)';
+  const identLabel = '<b>Идентичный</b> — изображение максимально близкое к оригиналу';
   const identOldLabel = isAdmin ? '\n<b>Идентичный Old</b> — старая версия (только для тебя)' : '';
   const flashLabel = '\n<b>Корректирующий</b> — может изменить лицо, неполное сходство';
   const proLabel = isAdmin ? '\n<b>Корректирующий ПРО</b> — улучшенная версия Корректирующего' : '';
