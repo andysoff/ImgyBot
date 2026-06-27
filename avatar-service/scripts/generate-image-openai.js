@@ -353,7 +353,12 @@ async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 
     throw new Error(`Фото не найдено: ${photoPath}`);
   }
 
-  console.log(`🎨 OpenAI ${model}: генерация через Responses API${photoPath ? ' с фото-референсом' : ' (без фото)'}`);
+  // Responses API не поддерживает gpt-image-2 как модель.
+  // Используем текстовую модель gpt-4o-mini с image_generation tool,
+  // который внутри вызывает gpt-image-2 для генерации.
+  const responsesApiModel = 'gpt-4o-mini';
+
+  console.log(`🎨 OpenAI ${model}: генерация через Responses API (${responsesApiModel} + image_generation tool)${photoPath ? ' с фото-референсом' : ' (без фото)'}`);
   console.log('📝 Промпт (первые 300):', prompt.slice(0, 300));
 
   // Собираем контент: опционально input_image + input_text
@@ -374,7 +379,7 @@ async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 
   });
 
   const body = {
-    model,
+    model: responsesApiModel,
     input: [
       {
         role: 'user',
