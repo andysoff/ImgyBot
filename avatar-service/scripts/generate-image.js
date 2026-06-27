@@ -483,18 +483,10 @@ async function _callGemini(opts) {
         photoPath = refFile.uri;
       }
 
-      if (isV2) {
-        // gpt-image-2 через Image API /v1/images/generations с photos[]
-        if (photoPath) {
-          const mime = openaiGen.getMimeType ? openaiGen.getMimeType(photoPath) : 'image/jpeg';
-          const b64 = fs.readFileSync(photoPath).toString('base64');
-          const images = [{ image_url: `data:${mime};base64,${b64}` }];
-          console.log('📸 OpenAI V2: Image API с фото-референсом:', photoPath);
-          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel, images);
-        } else {
-          console.log('⚠️ OpenAI V2: есть files[], но нет локального файла. Генерирую без фото.');
-          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
-        }
+      if (isV2 && photoPath) {
+        // gpt-image-2 с фото — через Image API edits (/v1/images/edits)
+        console.log('📸 OpenAI V2: Image API edits с фото-референсом:', photoPath);
+        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else if (photoPath) {
         console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
         result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);

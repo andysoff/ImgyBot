@@ -205,11 +205,9 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
 }
 
 /**
- * Генерация с фото-референсом.
- * Поддерживается только для gpt-image-1.5 (через /v1/images/edits).
- * gpt-image-2 НЕ поддерживает edit endpoint — вместо этого используй
- * generateFromPrompt(prompt, outputDir, filenameBase, sizeOrConfig, model, images[]),
- * который шлёт images[] в /v1/images/generations.
+ * Генерация с фото-референсом через Image API edits.
+ * Работает для gpt-image-1.5 и gpt-image-2 (через /v1/images/edits).
+ * gpt-image-2 НЕ поддерживает input_fidelity (всегда high fidelity).
  */
 async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
@@ -219,6 +217,8 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   const mime = getMimeType(photoPath);
   const dataUri = `data:${mime};base64,${b64}`;
 
+  const isV2 = model === 'gpt-image-2';
+
   console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits)`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
 
@@ -226,15 +226,18 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
     model,
     prompt,
     images: [{ image_url: dataUri }],
-    input_fidelity: 'high',
     n: 1
   };
 
-  // edits поддерживает только фиксированные размеры
+  // input_fidelity не поддерживается gpt-image-2 (всегда high)
+  if (!isV2) {
+    body.input_fidelity = 'high';
+  }
+
+  // size для edits (gpt-image-2 поддерживает кастомные размеры)
   if (typeof sizeOrConfig === 'string') {
     body.size = sizeOrConfig;
   } else if (typeof sizeOrConfig === 'object') {
-    // Для edits доступны только: auto, 1024x1024, 1536x1024, 1024x1536
     body.size = sizeOrConfig.size || '1024x1024';
   } else {
     body.size = '1024x1024';
