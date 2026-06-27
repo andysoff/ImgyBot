@@ -1276,8 +1276,9 @@ const MODEL_COST = {
 };
 
 const OPENAI_QUALITY_OPTIONS = {
-  'standard': { label: '💠 Стандарт (Low)', desc: 'быстро, дёшево, ~$0.006-0.053' },
-  'hd':       { label: '💎 HD (Medium/High)', desc: 'качественнее, ~$0.053-0.211' }
+  'low':    { label: '💠 Low', desc: 'быстро, дёшево, ~$0.006' },
+  'medium': { label: '💎 Medium', desc: 'сбалансированно, ~$0.053' },
+  'high':   { label: '🔥 High', desc: 'макс. качество, ~$0.211' }
 };
 
 const RESOLUTION_OPTIONS = {
@@ -1295,7 +1296,7 @@ const DEFAULT_SETTINGS = {
   portraitType: 'bust',
   faceTurn: 'none',
   resolution: '1K',
-  openaiQuality: 'standard'
+  openaiQuality: 'medium'
 };
 
 const QUALITY_OPTIONS = {
@@ -1381,7 +1382,7 @@ function handleSettings(telegramId) {
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
     const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
     const resolutionLabel = RESOLUTION_OPTIONS[s.resolution]?.label || '🟡 1K';
-    const openaiQualityLabel = OPENAI_QUALITY_OPTIONS[s.openaiQuality]?.label || '💠 Стандарт';
+    const openaiQualityLabel = OPENAI_QUALITY_OPTIONS[s.openaiQuality]?.label || '💎 Medium';
 
     keyboard = [
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],

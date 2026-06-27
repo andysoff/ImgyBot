@@ -2784,8 +2784,9 @@ const IMAGE_PRICING = {
     '_approx': 0.06  // токеновая, примерная средняя
   },
   'openai-gpt-image-2': {
-    '_approx': 0.053,  // standard quality ~1024px
-    '_approx_hd': 0.211
+    'low':    0.006,
+    'medium': 0.053,
+    'high':   0.211
   }
 };
 
@@ -2799,9 +2800,10 @@ function getEstimatedCost(settings) {
   const modelPricing = IMAGE_PRICING[model];
   if (!modelPricing) return '—';
 
-  // Для gpt-image-2 учитываем HD качество
-  if (model === 'openai-gpt-image-2' && settings.openaiQuality === 'hd') {
-    return '≈$' + (modelPricing._approx_hd || 0.211).toFixed(3);
+  // Для gpt-image-2 учитываем качество (low/medium/high)
+  if (model === 'openai-gpt-image-2') {
+    const quality = settings.openaiQuality || 'medium';
+    if (modelPricing[quality]) return '$' + modelPricing[quality].toFixed(3);
   }
 
   if (modelPricing[resolution]) {
