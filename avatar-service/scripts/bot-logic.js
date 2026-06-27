@@ -1528,16 +1528,21 @@ function handleSettingsModel(telegramId) {
   })).map(btn => [btn]);
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
-  const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const proLabel = '🏆 <b>Про</b> — 2 генерации, макс. качество';
-  const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
-  const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
-  const openaiLabel1 = '\n🎨 <b>Реализм</b> — 1 генерация, с поддержкой фото-референса';
-  const openaiLabel2 = isAdmin ? '\n🌟 <b>Реализм ПРО</b> — 1 генерация, до 4K (только ты, с поддержкой фото-референса)' : '';
-  const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
+  // Строим сводку стоимости из MODEL_OPTIONS и MODEL_COST
+  const costEntries = Object.entries(options).map(([key, opt]) => {
+    const cost = MODEL_COST[key] || 1;
+    const costStr = cost === 1 ? '1 генерация' : `${cost} генерации`;
+    return `${opt.label} — ${costStr}` + (opt.desc ? `, ${opt.desc}` : '');
+  });
+
+  // Таблица сравнения слева/справа — группируем по паре для компактности
+  const costLines = costEntries.map(entry => `▸ ${entry}`).join('\n');
 
   return {
-    text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери нейросеть 👇',
+    text: '🤖 <b>Сравнение моделей</b>\n\n'
+      + '<b>Стоимость</b> (сколько генераций тратится за 1 фото):\n'
+      + costLines + '\n\n'
+      + '<b>Выбери модель</b> 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
