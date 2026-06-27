@@ -1733,7 +1733,7 @@ function handleRenameAvatarDone(telegramId, newName) {
 
   const trimmed = newName.trim();
   if (!trimmed) return { error: 'Имя не может быть пустым' };
-  if (trimmed.length > 40) return { error: 'Слишком длинное (макс. 40 символов)' };
+  if (trimmed.length > 30) return { error: 'Слишком длинное (макс. 30 символов)' };
 
   const allAvatars = readJSON(AVATARS_FILE);
   const avatar = allAvatars.find(a => a.id === avatarId);
