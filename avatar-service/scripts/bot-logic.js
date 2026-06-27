@@ -1335,7 +1335,7 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'openai-gpt-image-1.5': { label: 'Идентичный', desc: 'максимальное сходство с исходником, быстрая' },
+  'openai-gpt-image-1.5': { label: 'Идентичный', desc: 'максимальное сходство с исходником' },
   'openai-gpt-image-2': { label: 'Идентичный ПРО', desc: 'улучшенная версия Идентичного' },
   'gemini-3.1-flash-image-preview': { label: 'Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
   'gemini-3-pro-image-preview': { label: 'Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
@@ -1587,7 +1587,7 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником, быстрая';
+  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником';
   const identProLabel = isAdmin ? '\n<b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
   const flashLabel = '\n<b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
   const proLabel = isAdmin ? '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего' : '';
