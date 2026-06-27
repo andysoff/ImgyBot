@@ -1334,8 +1334,8 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
-  'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
+  'gemini-3.1-flash-image-preview': { label: '⚡ Идеализм', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
+  'gemini-3-pro-image-preview': { label: '🏆 Идеализм ПРО', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
   'openai-gpt-image-1.5': { label: '🎨 Реализм', desc: '1 генерация, с поддержкой фото-референса' },
   'openai-gpt-image-2': { label: '🌟 Реализм ПРО', desc: '1 генерация, до 4K, только для админа' },
@@ -1587,7 +1587,7 @@ function handleSettingsModel(telegramId) {
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
   const proLabel = '🏆 <b>Идеализм ПРО</b> — 2 генерации, макс. качество';
-  const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
+  const flashLabel = '⚡ <b>Идеализм</b> — 1 генерация, быстро, нормальное качество';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
   const openaiLabel1 = '\n🎨 <b>Реализм</b> — 1 генерация, с поддержкой фото-референса';
   const openaiLabel2 = isAdmin ? '\n🌟 <b>Реализм ПРО</b> — 1 генерация, до 4K (только ты, с поддержкой фото-референса)' : '';
