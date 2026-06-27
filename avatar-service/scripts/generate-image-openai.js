@@ -4,12 +4,11 @@
  *
  * Поддерживает:
  *  - gpt-image-1.5 — генерация по тексту (generations) + с фото-референсом (edits)
- *  - gpt-image-2 — генерация по тексту (generations) + с фото-референсом (Responses API)
+ *  - gpt-image-2 — генерация по тексту (generations) + с фото-референсом (generations с images[])
  *
  * OpenAI API reference:
- *  - POST /v1/images/generations → создание с нуля
+ *  - POST /v1/images/generations → создание с нуля (+ фото-референс через images[] для gpt-image-2)
  *  - POST /v1/images/edits → редактирование по фото (gpt-image-1.5, gpt-image-1, gpt-image-1-mini)
- *  - POST /v1/responses → генерация с фото-референсом (gpt-image-2)
  */
 
 const https = require('https');
@@ -167,14 +166,16 @@ async function uploadPhoto(photoPath) {
 }
 
 /**
- * Генерация по тексту (без фото-референса).
+ * Генерация по тексту (с опциональным фото-референсом).
  * Работает для gpt-image-1.5 и gpt-image-2.
+ * Для gpt-image-2 фото-референс передаётся через images[] в /v1/images/generations.
  */
-async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
+async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL, images = null) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
   fs.mkdirSync(outputDir, { recursive: true });
 
-  console.log(`🎨 OpenAI ${model}: генерация по тексту`);
+  const hasImages = images && images.length > 0;
+  console.log(`🎨 OpenAI ${model}: генерация${hasImages ? ' с фото-референсом' : ' по тексту'}`);
   console.log('📝 Промпт (первые 500):', prompt.slice(0, 500));
 
   const body = {
@@ -183,7 +184,12 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
     n: 1
   };
 
-  // sizeOrConfig — строка для v1.5, строка для v2
+  // Фото-референс для gpt-image-2 (через /v1/images/generations)
+  if (hasImages) {
+    body.images = images;
+  }
+
+  // sizeOrConfig — строка для v1.5, объект для v2
   if (typeof sizeOrConfig === 'string') {
     body.size = sizeOrConfig;
   } else if (typeof sizeOrConfig === 'object') {
@@ -201,7 +207,9 @@ async function generateFromPrompt(prompt, outputDir, filenameBase = 'openai_gen'
 /**
  * Генерация с фото-референсом.
  * Поддерживается только для gpt-image-1.5 (через /v1/images/edits).
- * gpt-image-2 НЕ поддерживает edit endpoint в Image API (нужен Responses API).
+ * gpt-image-2 НЕ поддерживает edit endpoint — вместо этого используй
+ * generateFromPrompt(prompt, outputDir, filenameBase, sizeOrConfig, model, images[]),
+ * который шлёт images[] в /v1/images/generations.
  */
 async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
@@ -238,172 +246,11 @@ async function generateFromPhoto(photoPath, prompt, outputDir, filenameBase = 'o
   return { path: outputPath, prompt };
 }
 
-// ======================================================================
-// GPT-IMAGE-2 ЧЕРЕЗ RESPONSES API (с фото-референсом)
-// ======================================================================
-
-/**
- * Универсальный вызов Responses API.
- */
-function responsesApiCall(body) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
-    const req = https.request(
-      {
-        hostname: 'api.openai.com',
-        path: '/v1/responses',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload)
-        },
-        timeout: 300000
-      },
-      (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(new Error(`OpenAI Responses API: ${parsed.error.message} (${parsed.error.type || ''})`));
-            } else {
-              resolve(parsed);
-            }
-          } catch {
-            reject(new Error(`OpenAI Responses API parse error: ${data.slice(0, 300)}`));
-          }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI Responses API timeout (>5 min)')); });
-    req.write(payload);
-    req.end();
-  });
-}
-
-/**
- * Извлечь изображение из ответа Responses API.
- * Responses API возвращает output-массив, где image_generation_call содержит сгенерированное изображение.
- */
-function extractImageFromResponse(response) {
-  const output = response.output || [];
-
-  for (const item of output) {
-    // Тип: "image_generation_call" — результат в item.result (base64 строка)
-    if (item.type === 'image_generation_call') {
-      if (typeof item.result === 'string' && item.result.length > 0) {
-        return Buffer.from(item.result, 'base64');
-      }
-      // Fallback: output.image
-      if (item.output?.image?.b64_json) {
-        return Buffer.from(item.output.image.b64_json, 'base64');
-      }
-      if (item.output?.image?.url) {
-        return downloadImage(item.output.image.url);
-      }
-    }
-
-    // Тип: "content" с inline_data (вложенные изображения)
-    if (item.type === 'content' && item.content) {
-      for (const part of item.content) {
-        if (part.type === 'inline_data' && part.inline_data?.data) {
-          return Buffer.from(part.inline_data.data, 'base64');
-        }
-        if (part.type === 'image_url' && part.image_url?.url) {
-          return downloadImage(part.image_url.url);
-        }
-      }
-    }
-
-    // Тип: "message" с контентом
-    if (item.type === 'message' && item.content) {
-      for (const part of item.content) {
-        if (part.type === 'image_url' && part.image_url?.url) {
-          return downloadImage(part.image_url.url);
-        }
-        if (part.type === 'inline_data' && part.inline_data?.data) {
-          return Buffer.from(part.inline_data.data, 'base64');
-        }
-      }
-    }
-  }
-
-  // Fallback: проверяем response.data (массив как в generations)
-  if (response.data?.[0]?.b64_json) {
-    return Buffer.from(response.data[0].b64_json, 'base64');
-  }
-  if (response.data?.[0]?.url) {
-    return downloadImage(response.data[0].url);
-  }
-
-  throw new Error('OpenAI Responses API не вернул изображение. Ответ (первые 1000): ' + JSON.stringify(response).slice(0, 1000));
-}
-
-/**
- * Генерация с фото-референсом через Responses API (gpt-image-2).
- * В отличие от edits, Responses API поддерживает input_image для gpt-image-2.
- */
-async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 'openai_v2_photo', sizeConfig = '1024x1024', model = 'gpt-image-2') {
-  if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
-
-  if (photoPath && !fs.existsSync(photoPath)) {
-    throw new Error(`Фото не найдено: ${photoPath}`);
-  }
-
-  // Responses API не поддерживает gpt-image-2 как модель.
-  // Используем текстовую модель gpt-4o-mini с image_generation tool,
-  // который внутри вызывает gpt-image-2 для генерации.
-  const responsesApiModel = 'gpt-4o-mini';
-
-  console.log(`🎨 OpenAI ${model}: генерация через Responses API (${responsesApiModel} + image_generation tool)${photoPath ? ' с фото-референсом' : ' (без фото)'}`);
-  console.log('📝 Промпт (первые 300):', prompt.slice(0, 300));
-
-  // Собираем контент: опционально input_image + input_text
-  const content = [];
-  if (photoPath) {
-    const b64 = imageToBase64(photoPath);
-    const mime = getMimeType(photoPath);
-    const dataUri = `data:${mime};base64,${b64}`;
-    content.push({
-      type: 'input_image',
-      image_url: dataUri,
-      detail: 'high'
-    });
-  }
-  content.push({
-    type: 'input_text',
-    text: prompt
-  });
-
-  const body = {
-    model: responsesApiModel,
-    input: [
-      {
-        role: 'user',
-        content
-      }
-    ],
-    tools: [
-      {
-        type: 'image_generation'
-      }
-    ]
-  };
-
-  const result = await responsesApiCall(body);
-  const imgBuffer = await extractImageFromResponse(result);
-  const outputPath = saveImage(imgBuffer, outputDir, filenameBase);
-  return { path: outputPath, prompt };
-}
-
 module.exports = {
   uploadPhoto,
   generateFromPrompt,
   generateFromPhoto,
-  generateFromPhotoV2,
+  getMimeType,
   SIZE_MAP,
   SIZE_MAP_V2
 };

@@ -484,9 +484,17 @@ async function _callGemini(opts) {
       }
 
       if (isV2) {
-        // gpt-image-2 всегда через Responses API (с фото или без)
-        console.log('📸 OpenAI V2: Responses API' + (photoPath ? ', фото:' + photoPath : ', без фото'));
-        result = await openaiGen.generateFromPhotoV2(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        // gpt-image-2 через Image API /v1/images/generations с photos[]
+        if (photoPath) {
+          const mime = openaiGen.getMimeType ? openaiGen.getMimeType(photoPath) : 'image/jpeg';
+          const b64 = fs.readFileSync(photoPath).toString('base64');
+          const images = [{ image_url: `data:${mime};base64,${b64}` }];
+          console.log('📸 OpenAI V2: Image API с фото-референсом:', photoPath);
+          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel, images);
+        } else {
+          console.log('⚠️ OpenAI V2: есть files[], но нет локального файла. Генерирую без фото.');
+          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        }
       } else if (photoPath) {
         console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
         result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
@@ -496,9 +504,9 @@ async function _callGemini(opts) {
         result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       }
     } else if (isV2) {
-      // gpt-image-2 без фото — тоже через Responses API
-      console.log('📸 OpenAI V2: Responses API, без фото');
-      result = await openaiGen.generateFromPhotoV2(null, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+      // gpt-image-2 без фото — через Image API /v1/images/generations
+      console.log('📸 OpenAI V2: Image API, без фото');
+      result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
     } else {
       result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
     }
