@@ -1852,7 +1852,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1874,7 +1874,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1896,7 +1896,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1918,7 +1918,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'location', sub_id: location.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1940,7 +1940,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1962,7 +1962,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -1985,7 +1985,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'cinema', sub_id: movie.titleEn, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -2005,7 +2005,7 @@ async function handleUpdate(update) {
 
             await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: "HTML" });
 
-            await sendDebugInfo(chatId, settings, generatedResult.prompt);
+            await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
             const actualRemaining = consumeAfterGeneration(chatId, result);
             metrics.track('generation:completed', { telegram_id: String(chatId), style_id: styleId, sub_id: '', model: settings?.model || '', cost: String(result.cost || 1) });
@@ -2303,7 +2303,7 @@ async function handleUpdate(update) {
 
         // Сохраняем промпт для следующего повтора (универсально)
 
-        await sendDebugInfo(chatId, settings, generatedResult.prompt);
+        await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
         const actualRemaining = consumeAfterGeneration(chatId, result);
         metrics.track('generation:completed', { telegram_id: String(chatId), style_id: repeatStyleId, model: settings?.model || '', cost: String(result.cost || 1) });
@@ -2689,7 +2689,7 @@ async function handleUpdate(update) {
 /**
  * Отправить отладочную информацию после генерации (если режим отладки включён).
  */
-async function sendDebugInfo(chatId, settings, prompt) {
+async function sendDebugInfo(chatId, settings, prompt, durationMs) {
   if (!settings.debug) return;
 
   const modelLabel = botLogic.MODEL_OPTIONS[settings.model]?.label || settings.model;
@@ -2697,7 +2697,19 @@ async function sendDebugInfo(chatId, settings, prompt) {
   const aspectLabel = botLogic.ASPECT_OPTIONS[settings.aspectRatio]?.label || settings.aspectRatio;
   const portraitLabel = botLogic.PORTRAIT_TYPE_OPTIONS[settings.portraitType]?.label || '—';
 
-  const debugText = '🔧 <b>Отладка</b>\n\n'
+  let durationStr = '';
+  if (durationMs) {
+    const secs = (durationMs / 1000).toFixed(1);
+    if (secs >= 60) {
+      const mins = Math.floor(secs / 60);
+      const remainSecs = (secs % 60).toFixed(0);
+      durationStr = `${mins} мин ${remainSecs} с`;
+    } else {
+      durationStr = `${secs} с`;
+    }
+  }
+
+  let debugText = '🔧 <b>Отладка</b>\n\n'
     + '<b>Промпт:</b>\n<code>'
     + prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     + '</code>\n\n'
@@ -2705,6 +2717,10 @@ async function sendDebugInfo(chatId, settings, prompt) {
     + '<b>Качество:</b> ' + qualityLabel + '\n'
     + '<b>Формат:</b> ' + aspectLabel + '\n'
     + '<b>Тип портрета:</b> ' + portraitLabel;
+
+  if (durationStr) {
+    debugText += '\n<b>Время генерации:</b> ' + durationStr;
+  }
 
   try {
     await tgSend(chatId, debugText, { parse_mode: 'HTML' });
@@ -2768,7 +2784,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
           const generatedResult = await generateImage.generateCustomAvatar([singleFile], promptResult.promptText, outputDir, settings, String(chatId));
           const caption = `✍️ Промпт\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>\n\n📝 ${promptResult.promptText}`;
           await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-          await sendDebugInfo(chatId, settings, generatedResult.prompt);
+          await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
           const promptRemaining = consumeAfterGeneration(chatId, promptResult);
           metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt_no_avatar_photo', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
           if (promptRemaining <= 0) {
@@ -2817,7 +2833,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
       await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
-      await sendDebugInfo(chatId, settings, generatedResult.prompt);
+      await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
       const promptRemaining = consumeAfterGeneration(chatId, promptResult);
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt_no_avatar', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
@@ -2895,7 +2911,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
 
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'custom_prompt', model: settings?.model || '', cost: String(promptResult?.cost || 1) });
 
@@ -3238,7 +3254,7 @@ async function generateCinemaMovie(chatId, movie, cb, category = 'foreign') {
       const caption = `🎬 «${movie.title}» (${movie.year})\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
 
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
 
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'cinema' } });
@@ -3264,7 +3280,7 @@ async function generateCinemaMovie(chatId, movie, cb, category = 'foreign') {
 
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'cinema' } });
@@ -3363,7 +3379,7 @@ async function generateLocationPhoto(chatId, location, cb) {
       const caption = `${location.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
 
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
 
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'location' } });
@@ -3389,7 +3405,7 @@ async function generateLocationPhoto(chatId, location, cb) {
 
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
 
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'location' } });
@@ -3481,7 +3497,7 @@ async function generateSportPhoto(chatId, sport, cb) {
       const result = await generateImage.generateSportAvatar([], sport, outputDir, settings, String(chatId));
       const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'sport' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'sport', sub_id: sport.id, model: settings?.model || '', cost: String(genCost) });
@@ -3499,7 +3515,7 @@ async function generateSportPhoto(chatId, sport, cb) {
     const generatedResult = await generateImage.generateSportAvatar(geminiFiles, sport, outputDir, settings, String(chatId));
     const caption = `${sport.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'sport' } });
@@ -3581,7 +3597,7 @@ async function generateOfficePhoto(chatId, office, cb) {
       const result = await generateImage.generateOfficeAvatar([], office, outputDir, settings, String(chatId));
       const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_office' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_office', sub_id: office.id, model: settings?.model || '', cost: String(genCost) });
@@ -3599,7 +3615,7 @@ async function generateOfficePhoto(chatId, office, cb) {
     const generatedResult = await generateImage.generateOfficeAvatar(geminiFiles, office, outputDir, settings, String(chatId));
     const caption = `${office.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_office' } });
@@ -3681,7 +3697,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
       const result = await generateImage.generateHistoryAvatar([], era, outputDir, settings, String(chatId));
       const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'history' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'history', sub_id: era.id, model: settings?.model || '', cost: String(genCost) });
@@ -3699,7 +3715,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
     const generatedResult = await generateImage.generateHistoryAvatar(geminiFiles, era, outputDir, settings, String(chatId));
     const caption = `${era.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'history' } });
@@ -3781,7 +3797,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
       const result = await generateImage.generateLiteratureAvatar([], work, outputDir, settings, String(chatId));
       const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'literature' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'literature', sub_id: work.id, model: settings?.model || '', cost: String(genCost) });
@@ -3799,7 +3815,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
     const generatedResult = await generateImage.generateLiteratureAvatar(geminiFiles, work, outputDir, settings, String(chatId));
     const caption = `${work.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'literature' } });
@@ -3881,7 +3897,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
       const result = await generateImage.generateProfessionAvatar([], profession, outputDir, settings, String(chatId));
       const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'professions' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'professions', sub_id: profession.id, model: settings?.model || '', cost: String(genCost) });
@@ -3899,7 +3915,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
     const generatedResult = await generateImage.generateProfessionAvatar(geminiFiles, profession, outputDir, settings, String(chatId));
     const caption = `${profession.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'professions' } });
@@ -4056,7 +4072,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
       const result = await generateImage.generateCarAvatar([], brand, model, outputDir, settings, String(chatId));
       const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'near_car' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'near_car', sub_id: brand.id + '_' + model.id, model: settings?.model || '', cost: String(genCost) });
@@ -4074,7 +4090,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
     const generatedResult = await generateImage.generateCarAvatar(geminiFiles, brand, model, outputDir, settings, String(chatId));
     const caption = `🚘 ${brand.name} ${model.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'near_car' } });
@@ -4113,7 +4129,7 @@ async function generateWheelPhoto(chatId, brand, cb) {
       const result = await generateImage.generateWheelAvatar([], brand, outputDir, settings, String(chatId));
       const caption = `🚗 За рулём ${brand.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
       await tgSendPhoto(chatId, result.path, caption, { parse_mode: 'HTML' });
-      await sendDebugInfo(chatId, settings, result.prompt);
+      await sendDebugInfo(chatId, settings, result.prompt, result.durationMs);
       const genCost = botLogic.getModelCost(String(chatId));
       const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_car' } });
       metrics.track('generation:completed', { telegram_id: String(chatId), style_id: 'in_car', sub_id: brand.id, model: settings?.model || '', cost: String(genCost) });
@@ -4131,7 +4147,7 @@ async function generateWheelPhoto(chatId, brand, cb) {
     const generatedResult = await generateImage.generateWheelAvatar(geminiFiles, brand, outputDir, settings, String(chatId));
     const caption = `🚗 За рулём ${brand.name}\n🌀 Сделано с помощью <a href="https://t.me/Imgy_bot">Imgy</a>`;
     await sendGeneratedPhoto(chatId, generatedResult.path, caption, { parse_mode: 'HTML' });
-    await sendDebugInfo(chatId, settings, generatedResult.prompt);
+    await sendDebugInfo(chatId, settings, generatedResult.prompt, generatedResult.durationMs);
 
     const genCost = botLogic.getModelCost(String(chatId));
     const remaining = consumeAfterGeneration(chatId, { userId, cost: genCost, style: { id: 'in_car' } });

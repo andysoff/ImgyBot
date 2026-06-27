@@ -532,7 +532,7 @@ async function _callGemini(opts) {
       }
     }
 
-    return { path: result.path, prompt };
+    return { path: result.path, prompt, durationMs: totalDuration };
   }
   // ======================================================================
   // /OpenAI routing
@@ -605,7 +605,7 @@ async function _callGemini(opts) {
     }
   }
 
-  return { path: outputPath, prompt };
+  return { path: outputPath, prompt, durationMs: totalDuration };
 }
 
 // ======================================================================
