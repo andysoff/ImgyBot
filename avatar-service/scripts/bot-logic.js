@@ -1586,7 +1586,7 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const proLabel = '🏆 <b>Про</b> — 2 генерации, макс. качество';
+  const proLabel = '🏆 <b>Идеализм ПРО</b> — 2 генерации, макс. качество';
   const flashLabel = '⚡ <b>Базовая</b> — 1 генерация, быстро, нормальное качество';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
   const openaiLabel1 = '\n🎨 <b>Реализм</b> — 1 генерация, с поддержкой фото-референса';
