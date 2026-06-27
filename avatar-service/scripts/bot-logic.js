@@ -1322,8 +1322,8 @@ const MODEL_OPTIONS = {
   'gemini-3.1-flash-image-preview': { label: '⚡ Базовая', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
   'gemini-3-pro-image-preview': { label: '🏆 Про', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
-  'openai-gpt-image-1.5': { label: '🤖 Альтернативная', desc: 'OpenAI gpt-image-1.5 — 1 генерация, с поддержкой фото-референса' },
-  'openai-gpt-image-2': { label: '🤖 ChatGPT GPT-Image 2', desc: 'OpenAI gpt-image-2 — 1 генерация, до 4K, только для админа' },
+  'openai-gpt-image-1.5': { label: '🎨 Реализм', desc: 'OpenAI gpt-image-1.5 — 1 генерация, с поддержкой фото-референса' },
+  'openai-gpt-image-2': { label: '🌟 Реализм ПРО', desc: 'OpenAI gpt-image-2 — 1 генерация, до 4K, только для админа' },
 };
 
 
