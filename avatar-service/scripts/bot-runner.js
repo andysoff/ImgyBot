@@ -1024,6 +1024,31 @@ async function handleUpdate(update) {
       return;
     }
 
+    // ------ Разрешение (Gemini) ------
+    if (data === 'settings_resolution') {
+      metrics.track('settings:show_resolution', { telegram_id: String(chatId) });
+      await tgAnswerCb(cb.id, '');
+      const result = botLogic.handleSettingsResolution(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('set_resolution:')) {
+      const value = data.replace('set_resolution:', '');
+      metrics.track('settings:resolution_changed', { telegram_id: String(chatId), value });
+      botLogic.updateSetting(String(chatId), 'resolution', value);
+      await tgAnswerCb(cb.id, '✅ Разрешение обновлено');
+      const result = botLogic.handleSettingsResolution(String(chatId));
+      await tgEdit(chatId, msgId, result.text, {
+        parse_mode: result.parse_mode,
+        reply_markup: result.reply_markup
+      });
+      return;
+    }
+
     // ------ Нажатие на название аватара → выбор (без перезагрузки!) ------
     if (data.startsWith('avatar:')) {
       const avatarId = data.replace('avatar:', '');

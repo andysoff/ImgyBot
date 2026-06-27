@@ -564,7 +564,13 @@ async function _callGemini(opts) {
 
   // extra config
   const extraConfig = {};
-  if (settings?.aspectRatio) extraConfig.imageConfig = { aspectRatio: settings.aspectRatio };
+  const imageConfig = {};
+  if (settings?.aspectRatio) imageConfig.aspectRatio = settings.aspectRatio;
+  // Разрешение для Gemini (0.5K, 1K, 2K, 4K) — только для моделей Gemini
+  if (settings?.resolution && !settings.model?.startsWith('openai-')) {
+    imageConfig.imageSize = settings.resolution;
+  }
+  if (Object.keys(imageConfig).length > 0) extraConfig.imageConfig = imageConfig;
   if (settings?.model) extraConfig.model = settings.model;
 
   _callLabel = label;

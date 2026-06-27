@@ -1275,13 +1275,21 @@ const MODEL_COST = {
   'openai-gpt-image-2': 1,
 };
 
+const RESOLUTION_OPTIONS = {
+  '0.5K': { label: '🟢 0.5K (512px)', desc: 'дёшево, $0.045/фото (только Flash)' },
+  '1K':   { label: '🟡 1K (1024px)', desc: 'стандарт, $0.067/фото' },
+  '2K':   { label: '🟠 2K (2048px)', desc: 'высокое, $0.101/фото' },
+  '4K':   { label: '🔴 4K (4096px)', desc: 'макс, $0.151/фото (Flash) / $0.24/фото (Pro)' }
+};
+
 const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
   model: 'gemini-3.1-flash-image-preview',
   debug: false,
   portraitType: 'bust',
-  faceTurn: 'none'
+  faceTurn: 'none',
+  resolution: '1K'
 };
 
 const QUALITY_OPTIONS = {
@@ -1366,6 +1374,7 @@ function handleSettings(telegramId) {
     const debugLabel = s.debug ? '🔧 Вкл' : '🔧 Выкл';
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
     const faceTurnLabel = FACE_TURN_OPTIONS[s.faceTurn]?.label || 'Анфас';
+    const resolutionLabel = RESOLUTION_OPTIONS[s.resolution]?.label || '🟡 1K';
 
     keyboard = [
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
@@ -1374,10 +1383,11 @@ function handleSettings(telegramId) {
       [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
+      [{ text: '🔍 Разрешение: ' + resolutionLabel, callback_data: 'settings_resolution' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel + '\n🔍 Разрешение: ' + resolutionLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
@@ -1516,6 +1526,25 @@ function handleSettingsDebug(telegramId) {
         [{ text: '🔙 Назад', callback_data: 'settings_main' }]
       ]
     }
+  };
+}
+
+function handleSettingsResolution(telegramId) {
+  const s = getSettings(telegramId);
+  const keyboard = Object.entries(RESOLUTION_OPTIONS).map(([key, opt]) => ({
+    text: (s.resolution === key ? '✅ ' : '') + opt.label,
+    callback_data: 'set_resolution:' + key
+  })).map(btn => [btn]);
+  keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
+
+  const lines = Object.entries(RESOLUTION_OPTIONS)
+    .map(([key, opt]) => `${opt.label} — ${opt.desc}`)
+    .join('\n');
+
+  return {
+    text: '🔍 <b>Разрешение (Gemini)</b>\n\nВыбери разрешение для Gemini-моделей:\n\n' + lines + '\n\nВыбери 👇',
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
   };
 }
 
@@ -1815,6 +1844,8 @@ module.exports = {
   handleSettingsAspect,
   handleSettingsModel,
   handleSettingsDebug,
+  handleSettingsResolution,
+  RESOLUTION_OPTIONS,
   getDebugEnabled,
   getPortraitTypePrompt,
   handleSettingsPortraitType,
