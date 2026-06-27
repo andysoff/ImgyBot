@@ -43,11 +43,11 @@ const FACE_TURN_HINTS = {
 
 const PORTRAIT_TYPE_HINTS = {
   none:      '',
-  headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style',
-  bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame',
-  shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression',
-  waist:     ', waist-length portrait composition, from head to waist, person\'s posture and arms visible',
-  full_body: ', full body portrait composition, entire body from head to toe, fashion photography style',
+  headshot:  ', headshot composition, face directly facing camera, tightly framed head and shoulders, passport photo style, the entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin, DO NOT crop cut off or omit any part of the top of the head hair or forehead, the full head must be visible with no cropping whatsoever',
+  bust:      ', bust portrait composition, face with shoulders and upper chest visible in frame, the entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin, DO NOT crop cut off or omit any part of the top of the head hair or forehead, the full head must be visible with no cropping whatsoever',
+  shoulder:  ', shoulder-length portrait composition, face, neck and shoulders visible, emphasis on expression, the entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin, DO NOT crop cut off or omit any part of the top of the head hair or forehead, the full head must be visible with no cropping whatsoever',
+  waist:     ', waist-length portrait composition, from head to waist, person\'s posture and arms visible, the entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin, DO NOT crop cut off or omit any part of the top of the head hair or forehead, the full head must be visible with no cropping whatsoever',
+  full_body: ', full body portrait composition, entire body from head to toe, fashion photography style, the entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin, DO NOT crop cut off or omit any part of the top of the head hair or forehead, the full head must be visible with no cropping whatsoever',
   close_up:  ', extreme close-up composition, intense focus on facial features, eyes, nose, mouth, skin texture'
 };
 
@@ -650,12 +650,9 @@ async function _callGemini(opts) {
 function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
   const isOpenAI = settings?.model?.startsWith('openai-');
   const identityLock = isOpenAI ? '' : '⚠️ CRITICAL IDENTITY LOCK — THIS IS THE MOST IMPORTANT REQUIREMENT: The output face must be an EXACT pixel-level match to the reference face. Preserve every facial detail IDENTICALLY: eye shape and size, irises and pupils, nose bridge and width, mouth curve and lip shape, jawline contour, cheekbone structure, forehead shape, eyebrow arch, chin form, skin texture and pores. The person MUST be 100%% immediately recognizable as the same individual. You MUST NOT change, improve, beautify, smooth, morph, reshape, slim, widen, or modify the face in ANY way. NO skin smoothing, NO jaw reshaping, NO eye color change, NO cheekbone enhancement, NO facial hair alteration, NO wrinkle removal. Only change: clothing, background, lighting, and styling. The face must appear as if copied and pasted from the reference onto the new scene. If you change the face at all, the generation is a FAILURE.';
-  const headFitInstruction = settings?.portraitType === 'close_up'
-    ? ''
-    : ' ⚠️ CRITICAL FRAMING REQUIREMENT: The entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin. DO NOT crop, cut off, or omit any part of the top of the head, hair, or forehead. The full head must be visible with no cropping whatsoever.';
   const base = count === 1
-    ? `Transform this person ${description}. ${identityLock}${headFitInstruction} Make it look like a high-quality professional photo.`
-    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock}${headFitInstruction} Make it look like a high-quality professional photo.`;
+    ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
+    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
   return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
