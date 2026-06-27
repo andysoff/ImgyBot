@@ -647,19 +647,26 @@ async function _callGemini(opts) {
  * @param {Object}   [settings]  - настройки пользователя (для применения качества)
  * @returns {string} полный промпт
  */
-function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
+function _buildPhotoPrompt(description, count, extra = {}, settings = {}, gender) {
   const isOpenAI = settings?.model?.startsWith('openai-');
   const identityLock = isOpenAI ? '' : '⚠️ CRITICAL IDENTITY LOCK — THIS IS THE MOST IMPORTANT REQUIREMENT: The output face must be an EXACT pixel-level match to the reference face. Preserve every facial detail IDENTICALLY: eye shape and size, irises and pupils, nose bridge and width, mouth curve and lip shape, jawline contour, cheekbone structure, forehead shape, eyebrow arch, chin form, skin texture and pores. The person MUST be 100%% immediately recognizable as the same individual. You MUST NOT change, improve, beautify, smooth, morph, reshape, slim, widen, or modify the face in ANY way. NO skin smoothing, NO jaw reshaping, NO eye color change, NO cheekbone enhancement, NO facial hair alteration, NO wrinkle removal. Only change: clothing, background, lighting, and styling. The face must appear as if copied and pasted from the reference onto the new scene. If you change the face at all, the generation is a FAILURE.';
   const base = count === 1
     ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
     : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
-  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
+  const bodyProportionHint = BODY_PROPORTION_HINTS[gender] || ', natural realistic body proportions — average build, not overly muscular or idealized, realistic body shape of an average person';
+  return base + qualityPart + bodyProportionHint + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
 
 // ======================================================================
 // ПУБЛИЧНЫЕ ФУНКЦИИ (тонкие обёртки над _callGemini)
 // ======================================================================
+
+// Хинт для пропорций тела в зависимости от пола
+const BODY_PROPORTION_HINTS = {
+  male:   ', natural realistic male body proportions — average male build, natural shoulder-to-waist ratio, not overly muscular or idealized, realistic body shape of an average man',
+  female: ', natural realistic female body proportions — average female build, natural shoulder-to-waist and hip ratio, not overly curvy or idealized, realistic body shape of an average woman',
+};
 
 /**
  * Определить пол человека на фото через Gemini.
@@ -724,7 +731,7 @@ async function generateAvatar(files, styleId, outputDir, settings, chatId, gende
     : ', face angle, head rotation and orientation must match the source photo exactly';
 
   const desc = `into an avatar with the following style: ${stylePrompt}${portraitTypeHint}${faceTurnHint}`;
-  const prompt = _buildPhotoPrompt(desc, files.length, {}, settings);
+  const prompt = _buildPhotoPrompt(desc, files.length, {}, settings, gender);
 
   return _callGemini({
     files, prompt, outputDir, settings,
