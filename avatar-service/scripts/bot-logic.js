@@ -280,7 +280,7 @@ function getModelOptions(telegramId) {
   if (String(telegramId) === ADMIN_TELEGRAM_ID) {
     return MODEL_OPTIONS;
   }
-  // Не-админам скрываем 2.5 Flash, Идентичный Old и Улучшающий ПРО
+  // Не-админам скрываем 2.5 Flash, Идентичный Old и Корректирующий ПРО
   const filtered = { ...MODEL_OPTIONS };
   delete filtered['gemini-2.5-flash-image'];
   delete filtered['gemini-3-pro-image-preview'];
@@ -1332,9 +1332,9 @@ const FACE_TURN_OPTIONS = {
 
 const MODEL_OPTIONS = {
   'openai-gpt-image-1.5': { label: 'Идентичный Old', desc: 'старая версия (только для админа)' },
-  'openai-gpt-image-2': { label: 'Идентичный', desc: 'максимальное сходство с исходником (по умолчанию)' },
-  'gemini-3.1-flash-image-preview': { label: 'Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
-  'gemini-3-pro-image-preview': { label: 'Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
+  'openai-gpt-image-2': { label: 'Идентичный', desc: 'изображение максимально близкое к оригиналу' },
+  'gemini-3.1-flash-image-preview': { label: 'Корректирующий', desc: 'может изменить лицо, неполное сходство' },
+  'gemini-3-pro-image-preview': { label: 'Корректирующий ПРО', desc: 'улучшенная версия Корректирующего' },
   'gemini-2.5-flash-image': { label: 'Flash 2.5', desc: 'Только для админа' },
 };
 
@@ -1583,10 +1583,10 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником (1 генерация)';
+  const identLabel = '<b>Идентичный</b> — изображение максимально близкое к оригиналу (1 генерация)';
   const identOldLabel = isAdmin ? '\n<b>Идентичный Old</b> — старая версия (только для тебя)' : '';
-  const flashLabel = '\n<b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
-  const proLabel = isAdmin ? '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего' : '';
+  const flashLabel = '\n<b>Корректирующий</b> — может изменить лицо, неполное сходство';
+  const proLabel = isAdmin ? '\n<b>Корректирующий ПРО</b> — улучшенная версия Корректирующего' : '';
   const oldLabel = isAdmin ? '\n<b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
 
   return {
