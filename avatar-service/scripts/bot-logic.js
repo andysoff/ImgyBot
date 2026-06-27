@@ -1335,11 +1335,11 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'gemini-3.1-flash-image-preview': { label: '⚡ Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
-  'gemini-3-pro-image-preview': { label: '🏆 Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
-  'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
-  'openai-gpt-image-1.5': { label: '🎨 Идентичный', desc: 'максимальное сходство с исходником, быстрая' },
-  'openai-gpt-image-2': { label: '🌟 Идентичный ПРО', desc: 'улучшенная версия Идентичного' },
+  'openai-gpt-image-1.5': { label: 'Идентичный', desc: 'максимальное сходство с исходником, быстрая' },
+  'openai-gpt-image-2': { label: 'Идентичный ПРО', desc: 'улучшенная версия Идентичного' },
+  'gemini-3.1-flash-image-preview': { label: 'Улучшающий', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
+  'gemini-3-pro-image-preview': { label: 'Улучшающий ПРО', desc: 'улучшенная версия Улучшающего' },
+  'gemini-2.5-flash-image': { label: 'Flash 2.5', desc: 'Только для админа' },
 };
 
 
@@ -1587,15 +1587,14 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const proLabel = '🏆 <b>Улучшающий ПРО</b> — улучшенная версия Улучшающего';
-  const flashLabel = '⚡ <b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
-  const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
-  const openaiLabel1 = '\n🎨 <b>Идентичный</b> — максимальное сходство с исходником, быстрая';
-  const openaiLabel2 = isAdmin ? '\n🌟 <b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
-  const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
+  const identLabel = '<b>Идентичный</b> — максимальное сходство с исходником, быстрая';
+  const identProLabel = isAdmin ? '\n<b>Идентичный ПРО</b> — улучшенная версия Идентичного' : '';
+  const flashLabel = '\n<b>Улучшающий</b> — модифицирует лицо, но точнее позиционирует лицо';
+  const proLabel = '\n<b>Улучшающий ПРО</b> — улучшенная версия Улучшающего';
+  const oldLabel = isAdmin ? '\n<b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
 
   return {
-    text: '🤖 <b>Режим</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери режим 👇',
+    text: '🤖 <b>Режим</b>\n\n' + identLabel + identProLabel + flashLabel + proLabel + oldLabel + '\n\nВыбери режим 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
