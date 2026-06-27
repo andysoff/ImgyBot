@@ -701,7 +701,7 @@ async function downloadFromTelegram(fileId) {
   const fileUrl = new URL(info.result.file_path, `https://api.telegram.org/file/bot${TOKEN}/`);
   await new Promise((resolve, reject) => {
     const file = fs.createWriteStream(tmp);
-    const req = https.get(fileUrl.href, { timeout: 300000 }, r => {
+    https.get(fileUrl.href, r => {
       if (r.statusCode !== 200) {
         fs.unlink(tmp, () => {});
         reject(new Error(`HTTP ${r.statusCode} downloading file`));
@@ -709,9 +709,7 @@ async function downloadFromTelegram(fileId) {
       }
       r.pipe(file);
       file.on('finish', () => { file.close(); resolve(); });
-    });
-    req.on('error', e => { fs.unlink(tmp, () => {}); reject(e); });
-    req.on('timeout', () => { req.destroy(); reject(new Error('Download timeout')); });
+    }).on('error', e => { fs.unlink(tmp, () => {}); reject(e); });
   });
   return tmp;
 }
