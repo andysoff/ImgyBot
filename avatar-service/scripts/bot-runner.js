@@ -178,7 +178,27 @@ try {
 
 // Хранилище путей к оригинальным файлам для кнопки «Скачать оригинал»
 // Ключ: `${chatId}:${photoMessageId}` → путь к файлу
-const pendingOriginals = new Map();
+// Хранится на диске, чтобы переживать рестарты бота
+const PENDING_ORIGINALS_FILE = path.join(__dirname, '..', 'data', 'pending-originals.json');
+
+let _pendingOriginalsData = null;
+function _loadPendingOriginals() {
+  if (_pendingOriginalsData) return _pendingOriginalsData;
+  try {
+    _pendingOriginalsData = JSON.parse(fs.readFileSync(PENDING_ORIGINALS_FILE, 'utf-8'));
+  } catch {
+    _pendingOriginalsData = {};
+  }
+  return _pendingOriginalsData;
+}
+function _savePendingOriginals() {
+  fs.writeFileSync(PENDING_ORIGINALS_FILE, JSON.stringify(_pendingOriginalsData, null, 2) + '\n');
+}
+const pendingOriginals = {
+  get(key) { return _loadPendingOriginals()[key]; },
+  set(key, value) { _loadPendingOriginals()[key] = value; _savePendingOriginals(); },
+  delete(key) { const d = _loadPendingOriginals(); delete d[key]; _savePendingOriginals(); }
+};
 
 /**
  * Проверить, жив ли файл в Gemini File API.
