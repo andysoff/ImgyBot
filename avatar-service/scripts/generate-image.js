@@ -414,7 +414,9 @@ function _extractImage(result, outputDir, filenameBase) {
   }
 
   const ext = imagePart.inlineData.mimeType === 'image/png' ? '.png' : '.jpg';
-  const outputPath = path.join(outputDir, `${filenameBase}_${Date.now()}${ext}`);
+  const now = new Date();
+  const ts = String(now.getUTCMonth() + 1).padStart(2, '0') + String(now.getUTCDate()).padStart(2, '0') + now.getUTCFullYear() + '_' + String(now.getUTCHours()).padStart(2, '0') + String(now.getUTCMinutes()).padStart(2, '0') + String(now.getUTCSeconds()).padStart(2, '0');
+  const outputPath = path.join(outputDir, `Imgy${ts}${ext}`);
   const imgBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
   fs.writeFileSync(outputPath, imgBuffer);
 
