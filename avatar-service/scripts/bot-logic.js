@@ -1335,11 +1335,11 @@ const FACE_TURN_OPTIONS = {
 };
 
 const MODEL_OPTIONS = {
-  'gemini-3.1-flash-image-preview': { label: '⚡ Идеализм', desc: 'Быстрая, нормальное качество. Стоимость — 1 генерация.' },
-  'gemini-3-pro-image-preview': { label: '🏆 Идеализм ПРО', desc: 'Максимальное качество, но медленнее и дороже. Стоимость — 2 генерации.' },
+  'gemini-3.1-flash-image-preview': { label: '⚡ Идеализм', desc: 'модифицирует лицо, но точнее позиционирует лицо' },
+  'gemini-3-pro-image-preview': { label: '🏆 Идеализм ПРО', desc: 'улучшенная версия Идеализма' },
   'gemini-2.5-flash-image': { label: '🟢 Flash 2.5', desc: 'Только для админа' },
-  'openai-gpt-image-1.5': { label: '🎨 Реализм', desc: '1 генерация, с поддержкой фото-референса' },
-  'openai-gpt-image-2': { label: '🌟 Реализм ПРО', desc: '1 генерация, до 4K, только для админа' },
+  'openai-gpt-image-1.5': { label: '🎨 Реализм', desc: 'максимальное сходство с исходником, быстрая' },
+  'openai-gpt-image-2': { label: '🌟 Реализм ПРО', desc: 'улучшенная версия Реализма' },
 };
 
 
@@ -1587,11 +1587,11 @@ function handleSettingsModel(telegramId) {
   keyboard.push([{ text: '🔙 Назад', callback_data: 'settings_main' }]);
 
   const isAdmin = String(telegramId) === ADMIN_TELEGRAM_ID;
-  const proLabel = '🏆 <b>Идеализм ПРО</b> — 2 генерации, макс. качество';
-  const flashLabel = '⚡ <b>Идеализм</b> — 1 генерация, быстро, нормальное качество';
+  const proLabel = '🏆 <b>Идеализм ПРО</b> — улучшенная версия Идеализма';
+  const flashLabel = '⚡ <b>Идеализм</b> — модифицирует лицо, но точнее позиционирует лицо';
   const oldLabel = isAdmin ? '\n🟢 <b>Flash 2.5</b> — 1 генерация (только ты)\n' : '';
-  const openaiLabel1 = '\n🎨 <b>Реализм</b> — 1 генерация, с поддержкой фото-референса';
-  const openaiLabel2 = isAdmin ? '\n🌟 <b>Реализм ПРО</b> — 1 генерация, до 4K (только ты, с поддержкой фото-референса)' : '';
+  const openaiLabel1 = '\n🎨 <b>Реализм</b> — максимальное сходство с исходником, быстрая';
+  const openaiLabel2 = isAdmin ? '\n🌟 <b>Реализм ПРО</b> — улучшенная версия Реализма' : '';
   const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
 
   return {
