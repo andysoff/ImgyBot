@@ -484,8 +484,13 @@ async function _callGemini(opts) {
       }
 
       if (photoPath) {
-        console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
-        result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        if (isV2) {
+          console.log('📸 Использую фото-референс для OpenAI V2 (Responses API):', photoPath);
+          result = await openaiGen.generateFromPhotoV2(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        } else {
+          console.log('📸 Использую фото-референс для OpenAI edit:', photoPath);
+          result = await openaiGen.generateFromPhoto(photoPath, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        }
       } else {
         // Gemini File URI — не можем использовать напрямую
         console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
