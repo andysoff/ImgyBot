@@ -2728,6 +2728,61 @@ function getImageDimensions(filePath) {
   return null;
 }
 
+/**
+ * Цены API за 1 изображение для разных моделей и разрешений.
+ * Gemini — цена зависит от модели и разрешения.
+ * OpenAI gpt-image-1.5 — токеновая, примерно $0.04-0.08, аппроксимируем.
+ * OpenAI gpt-image-2 — зависит от качества (standard/hd), качества нет в боте → standard.
+ */
+const IMAGE_PRICING = {
+  // Gemini
+  'gemini-2.5-flash-image': {
+    '0.5K': 0.039,  // 1K only for 2.5 Flash, но оставим fallback
+    '1K':   0.039,
+    '2K':   0.039,
+    '4K':   0.039
+  },
+  'gemini-3.1-flash-image-preview': {
+    '0.5K': 0.045,
+    '1K':   0.067,
+    '2K':   0.101,
+    '4K':   0.151
+  },
+  'gemini-3-pro-image-preview': {
+    '0.5K': 0.134,
+    '1K':   0.134,
+    '2K':   0.134,
+    '4K':   0.240
+  },
+  // OpenAI
+  'openai-gpt-image-1.5': {
+    '_approx': 0.06  // токеновая, примерная средняя
+  },
+  'openai-gpt-image-2': {
+    '_approx': 0.053,  // standard quality ~1024px
+    '_approx_hd': 0.211
+  }
+};
+
+/**
+ * Рассчитать примерную себестоимость генерации на основе настроек.
+ * @returns {string} — строка с ценой, например "$0.067" или "≈$0.06"
+ */
+function getEstimatedCost(settings) {
+  const model = settings.model || '';
+  const resolution = settings.resolution || '1K';
+  const modelPricing = IMAGE_PRICING[model];
+  if (!modelPricing) return '—';
+
+  if (modelPricing[resolution]) {
+    return '$' + modelPricing[resolution].toFixed(3);
+  }
+  if (modelPricing._approx) {
+    return '≈$' + modelPricing._approx.toFixed(3);
+  }
+  return '—';
+}
+
 async function sendDebugInfo(chatId, settings, prompt, durationMs, photoPath) {
   if (!settings.debug) return;
 
@@ -2763,6 +2818,9 @@ async function sendDebugInfo(chatId, settings, prompt, durationMs, photoPath) {
     }
   }
 
+  // Себестоимость
+  const costStr = getEstimatedCost(settings);
+
   let debugText = '🔧 <b>Отладка</b>\n\n'
     + '<b>Промпт:</b>\n<code>'
     + prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -2780,6 +2838,9 @@ async function sendDebugInfo(chatId, settings, prompt, durationMs, photoPath) {
   }
   if (durationStr) {
     debugText += '\n<b>Время генерации:</b> ' + durationStr;
+  }
+  if (costStr) {
+    debugText += '\n<b>Себестоимость:</b> ' + costStr;
   }
 
   try {
