@@ -342,34 +342,40 @@ function extractImageFromResponse(response) {
  */
 async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 'openai_v2_photo', sizeConfig = '1024x1024', model = 'gpt-image-2') {
   if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
-  if (!fs.existsSync(photoPath)) throw new Error(`Фото не найдено: ${photoPath}`);
 
-  const b64 = imageToBase64(photoPath);
-  const mime = getMimeType(photoPath);
-  const dataUri = `data:${mime};base64,${b64}`;
+  if (photoPath && !fs.existsSync(photoPath)) {
+    throw new Error(`Фото не найдено: ${photoPath}`);
+  }
 
-  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (Responses API)`);
-  console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
+  console.log(`🎨 OpenAI ${model}: генерация через Responses API${photoPath ? ' с фото-референсом' : ' (без фото)'}`);
+  console.log('📝 Промпт (первые 300):', prompt.slice(0, 300));
 
   // sizeConfig может быть строкой ('1024x1024') или объектом ({size: '1024x1024', resolution: '1K'})
   const resolution = typeof sizeConfig === 'string' ? sizeConfig : (sizeConfig.size || '1024x1024');
+
+  // Собираем контент: опционально input_image + input_text
+  const content = [];
+  if (photoPath) {
+    const b64 = imageToBase64(photoPath);
+    const mime = getMimeType(photoPath);
+    const dataUri = `data:${mime};base64,${b64}`;
+    content.push({
+      type: 'input_image',
+      image_url: dataUri,
+      detail: 'high'
+    });
+  }
+  content.push({
+    type: 'input_text',
+    text: prompt
+  });
 
   const body = {
     model,
     input: [
       {
         role: 'user',
-        content: [
-          {
-            type: 'input_image',
-            image_url: dataUri,
-            detail: 'high'
-          },
-          {
-            type: 'input_text',
-            text: prompt
-          }
-        ]
+        content
       }
     ],
     tools: [

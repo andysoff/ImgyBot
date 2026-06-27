@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-24T18:35:18.703Z",
+  "updatedAt": "2026-06-25T20:55:11.207Z",
   "entries": {
     "memory:memory/2026-05-23.md:1:30": {
       "key": "memory:memory/2026-05-23.md:1:30",
@@ -699,18 +699,22 @@
       "endLine": 10,
       "source": "memory",
       "snippet": "# 2026-06-15 (Понедельник) ## Репозиторий - Коммитов в avatar-service за сегодня нет — тихий день ## Заметки - MSK-дата: 2026-06-15, день без активной разработки",
-      "recallCount": 1,
+      "recallCount": 3,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 0.504628038406372,
-      "maxScore": 0.504628038406372,
+      "totalScore": 1.5138549715280532,
+      "maxScore": 0.5185301005840302,
       "firstRecalledAt": "2026-06-16T20:55:23.282Z",
-      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-25T20:55:11.207Z",
       "queryHashes": [
-        "63a5a2c004f1"
+        "63a5a2c004f1",
+        "d14260bb2a4b",
+        "a5abb8d60301"
       ],
       "recallDays": [
-        "2026-06-16"
+        "2026-06-16",
+        "2026-06-24",
+        "2026-06-25"
       ],
       "conceptTags": [
         "avatar-service",
@@ -761,18 +765,20 @@
       "endLine": 12,
       "source": "memory",
       "snippet": "# 2026-06-13 Суббота. День без активных изменений в коде. ## Коммиты - `60e496f` — docs: обновление дневной истории за 2026-06-12 (вчерашний daily memory save) ## Заметки - Рабочих коммитов в avatar-service не было. Изменения касались только служебных файлов `.dreams/` (автоматическая генерация recall/dream данных).",
-      "recallCount": 1,
+      "recallCount": 2,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 0.4894080430269241,
-      "maxScore": 0.4894080430269241,
+      "totalScore": 0.9865735441446304,
+      "maxScore": 0.49716550111770624,
       "firstRecalledAt": "2026-06-16T20:55:23.282Z",
-      "lastRecalledAt": "2026-06-16T20:55:23.282Z",
+      "lastRecalledAt": "2026-06-24T20:55:14.999Z",
       "queryHashes": [
-        "63a5a2c004f1"
+        "63a5a2c004f1",
+        "d14260bb2a4b"
       ],
       "recallDays": [
-        "2026-06-16"
+        "2026-06-16",
+        "2026-06-24"
       ],
       "conceptTags": [
         "avatar-service",
@@ -823,19 +829,21 @@
       "endLine": 31,
       "source": "memory",
       "snippet": "# 2026-06-16 (Вторник) ## Imgy Bot — Коммиты ### Кино: возвращение «Аватара» и чистка промптов - `a8b52d0` — Возвращён фильм «Аватар (2009)» с безопасным промптом (17:38) - `1a17a98` — Чистка промптов для кино: убраны триггерные слова, добавлен запрет на текст на картинке (18:04) ### Кнопка «Скачать оригинал» и рефакторинг - `4c5602a` — Новая фича: - `pendingOriginals` Map — хранит пути к оригинальным фото 30 минут - `tgSendDocument()` — отправка файла без сжатия через multipart/form-data - `sendAfterGenerationButtons()` — единая функция для всех стилей вместо дублирования кода - Кнопка «📄 Прислать файл без сжатия» во всех сценариях после генерации - Callback `download_origin",
-      "recallCount": 2,
+      "recallCount": 3,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 0.9224823534488678,
-      "maxScore": 0.46594935357570644,
+      "totalScore": 1.4167055517435072,
+      "maxScore": 0.49422319829463957,
       "firstRecalledAt": "2026-06-18T16:53:13.659Z",
-      "lastRecalledAt": "2026-06-18T16:53:18.737Z",
+      "lastRecalledAt": "2026-06-24T20:55:14.999Z",
       "queryHashes": [
         "364e30019d53",
-        "02d7baf4e2eb"
+        "02d7baf4e2eb",
+        "d14260bb2a4b"
       ],
       "recallDays": [
-        "2026-06-18"
+        "2026-06-18",
+        "2026-06-24"
       ],
       "conceptTags": [
         "multipart/form-data",
@@ -877,6 +885,101 @@
         "проблема",
         "gemini",
         "всегда"
+      ]
+    },
+    "memory:memory/2026-06-21.md:1:11": {
+      "key": "memory:memory/2026-06-21.md:1:11",
+      "path": "memory/2026-06-21.md",
+      "startLine": 1,
+      "endLine": 11,
+      "source": "memory",
+      "snippet": "# 2026-06-21 (Воскресенье) ## Общая активность Тихий день — без коммитов, без сессий, без активных правок. Воскресенье. ## Заметки - Ранее на выходных была крупная доработка Avatar Service: Warhammer 40k (28 подстилей) и защита от генерации без промпта - Сегодня активность отсутствовала",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.0244734019041062,
+      "maxScore": 0.5173626631498337,
+      "firstRecalledAt": "2026-06-24T20:55:14.999Z",
+      "lastRecalledAt": "2026-06-25T20:55:11.207Z",
+      "queryHashes": [
+        "d14260bb2a4b",
+        "a5abb8d60301"
+      ],
+      "recallDays": [
+        "2026-06-24",
+        "2026-06-25"
+      ],
+      "conceptTags": [
+        "воскресенье",
+        "общая",
+        "активность",
+        "тихий",
+        "день",
+        "без",
+        "коммитов",
+        "сессий"
+      ]
+    },
+    "memory:memory/2026-06-17.md:1:10": {
+      "key": "memory:memory/2026-06-17.md:1:10",
+      "path": "memory/2026-06-17.md",
+      "startLine": 1,
+      "endLine": 10,
+      "source": "memory",
+      "snippet": "# 2026-06-17 (MSK) — Среда ## Avatar Service - Единственный коммит: `5b27bc5` — docs: auto-update markdown files (автоматическое обновление документации) ## Заметки - День без активных изменений кода и новых задач от Андрея",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.5007256835699081,
+      "maxScore": 0.5007256835699081,
+      "firstRecalledAt": "2026-06-24T20:55:14.999Z",
+      "lastRecalledAt": "2026-06-24T20:55:14.999Z",
+      "queryHashes": [
+        "d14260bb2a4b"
+      ],
+      "recallDays": [
+        "2026-06-24"
+      ],
+      "conceptTags": [
+        "auto-update",
+        "msk",
+        "среда",
+        "avatar",
+        "service",
+        "единственный",
+        "коммит",
+        "5b27bc5"
+      ]
+    },
+    "memory:memory/2026-06-24.md:1:11": {
+      "key": "memory:memory/2026-06-24.md:1:11",
+      "path": "memory/2026-06-24.md",
+      "startLine": 1,
+      "endLine": 11,
+      "source": "memory",
+      "snippet": "# 2026-06-24 (Среда) ## Общая активность Тихий день — без коммитов, без сессий, без активных правок кода. ## Заметки - Автоматический daily memory save от cron (22:55 MSK) - Ранее на этой неделе (22–23 июня) активность не фиксировалась",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.5443090096116066,
+      "maxScore": 0.5443090096116066,
+      "firstRecalledAt": "2026-06-25T20:55:11.207Z",
+      "lastRecalledAt": "2026-06-25T20:55:11.207Z",
+      "queryHashes": [
+        "a5abb8d60301"
+      ],
+      "recallDays": [
+        "2026-06-25"
+      ],
+      "conceptTags": [
+        "среда",
+        "общая",
+        "активность",
+        "тихий",
+        "день",
+        "без",
+        "коммитов",
+        "сессий"
       ]
     }
   }
