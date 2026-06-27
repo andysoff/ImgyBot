@@ -150,8 +150,8 @@ function extractImage(result) {
 function saveImage(imgBuffer, outputDir, filenameBase) {
   fs.mkdirSync(outputDir, { recursive: true });
   const now = new Date();
-  const ts = String(now.getUTCMonth() + 1).padStart(2, '0') + String(now.getUTCDate()).padStart(2, '0') + now.getUTCFullYear() + '_' + String(now.getUTCHours()).padStart(2, '0') + String(now.getUTCMinutes()).padStart(2, '0') + String(now.getUTCSeconds()).padStart(2, '0');
-  const outputPath = path.join(outputDir, `Imgy${ts}.png`);
+  const ts = String(now.getUTCDate()).padStart(2, '0') + String(now.getUTCMonth() + 1).padStart(2, '0') + now.getUTCFullYear() + '_' + String(now.getUTCHours()).padStart(2, '0') + String(now.getUTCMinutes()).padStart(2, '0') + String(now.getUTCSeconds()).padStart(2, '0');
+  const outputPath = path.join(outputDir, `Imgy_${ts}.png`);
   fs.writeFileSync(outputPath, imgBuffer);
   const imgSizeKB = (imgBuffer.length / 1024).toFixed(1);
   console.log(`✅ OpenAI: готово ${outputPath} (${imgSizeKB} KB)`);
