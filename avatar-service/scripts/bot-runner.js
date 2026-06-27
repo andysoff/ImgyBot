@@ -509,9 +509,6 @@ async function sendAfterGenerationButtons(chatId, styleId, photoPath, remaining)
     });
     if (result.ok && result.result?.message_id && photoPath) {
       pendingOriginals.set(`${chatId}:${result.result.message_id}`, photoPath);
-      setTimeout(() => {
-        pendingOriginals.delete(`${chatId}:${result.result.message_id}`);
-      }, 24 * 60 * 60 * 1000);
     }
   } else {
     await tgSend(chatId, '😔 Твои бесплатные генерации закончились.\nНо ты можешь приобрести ещё! 👇', {
@@ -856,7 +853,7 @@ async function handleUpdate(update) {
       const key = `${chatId}:${msgId}`;
       const filePath = pendingOriginals.get(key);
       if (!filePath || !fs.existsSync(filePath)) {
-        await tgAnswerCb(cb.id, '❌ Файл уже недоступен (истекло время)', true);
+        await tgAnswerCb(cb.id, '❌ Файл уже удалён', true);
         return;
       }
       await tgAnswerCb(cb.id, '⬇️ Отправляю оригинал...');
@@ -3058,9 +3055,6 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
             });
             if (promptBtnsResult.ok && promptBtnsResult.result?.message_id && generatedResult?.path) {
               pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
-              setTimeout(() => {
-                pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-              }, 24 * 60 * 60 * 1000);
             }
           }
           return;
@@ -3110,9 +3104,6 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
         });
         if (promptBtnsResult.ok && promptBtnsResult.result?.message_id && generatedResult?.path) {
           pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
-          setTimeout(() => {
-            pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-          }, 24 * 60 * 60 * 1000);
         }
       }
       return;
@@ -3192,9 +3183,6 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
       });
       if (promptBtnsResult.ok && promptBtnsResult.result?.message_id && generatedResult?.path) {
         pendingOriginals.set(`${chatId}:${promptBtnsResult.result.message_id}`, generatedResult.path);
-        setTimeout(() => {
-          pendingOriginals.delete(`${chatId}:${promptBtnsResult.result.message_id}`);
-        }, 24 * 60 * 60 * 1000);
       }
     }
 
