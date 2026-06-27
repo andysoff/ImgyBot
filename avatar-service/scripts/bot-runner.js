@@ -1114,26 +1114,6 @@ async function handleUpdate(update) {
         console.error('❌ Ошибка загрузки в Gemini при выборе аватара:', err.message);
       }
 
-      // Показываем все фото выбранного аватара в режиме альбома
-      if (avatarId !== 'no_avatar') {
-        try {
-          const allAvatarsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
-          const selAvatar = allAvatarsData.find(a => a.id === avatarId);
-          if (selAvatar) {
-            const photoPaths = (selAvatar.photos || []).map(rel => path.join(__dirname, '..', rel)).filter(p => fs.existsSync(p));
-            if (photoPaths.length > 0) {
-              if (photoPaths.length === 1) {
-                await tgSendPhoto(chatId, photoPaths[0], `📸 ${selAvatar.name}`);
-              } else {
-                await tgSendMediaGroup(chatId, photoPaths, `📸 ${selAvatar.name}`);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('❌ Ошибка отправки фото аватара:', err.message);
-        }
-      }
-
       return;
     }
 
