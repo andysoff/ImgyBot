@@ -654,7 +654,7 @@ function _buildPhotoPrompt(description, count, extra = {}, settings = {}, gender
     ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
     : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
   const qualityPart = QUALITY_HINTS[settings.quality] || '';
-  const bodyProportionHint = BODY_PROPORTION_HINTS[gender] || ', natural realistic body proportions — average build, not overly muscular or idealized, realistic body shape of an average person';
+  const bodyProportionHint = BODY_PROPORTION_HINTS[gender] || ', preserve the person\'s actual body proportions as seen in the reference photos — keep their natural build, shoulder width, and physique exactly as-is. Only if the reference photos don\'t show the body enough, use natural realistic proportions of an average person';
   return base + qualityPart + bodyProportionHint + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
 
@@ -662,10 +662,10 @@ function _buildPhotoPrompt(description, count, extra = {}, settings = {}, gender
 // ПУБЛИЧНЫЕ ФУНКЦИИ (тонкие обёртки над _callGemini)
 // ======================================================================
 
-// Хинт для пропорций тела в зависимости от пола
+// Хинт для пропорций тела — сначала с референса, потом по полу
 const BODY_PROPORTION_HINTS = {
-  male:   ', natural realistic male body proportions — average male build, natural shoulder-to-waist ratio, not overly muscular or idealized, realistic body shape of an average man',
-  female: ', natural realistic female body proportions — average female build, natural shoulder-to-waist and hip ratio, not overly curvy or idealized, realistic body shape of an average woman',
+  male:   ', preserve the person\'s actual body proportions from the reference photos — keep their natural build, shoulder width, and physique exactly as shown. Only if the reference photos don\'t show enough of the body (e.g. only face visible), use natural realistic proportions of an average man — natural shoulder-to-waist ratio, not overly muscular or idealized',
+  female: ', preserve the person\'s actual body proportions from the reference photos — keep their natural build, shoulder width, and physique exactly as shown. Only if the reference photos don\'t show enough of the body (e.g. only face visible), use natural realistic proportions of an average woman — natural shoulder-to-waist and hip ratio, not overly curvy or idealized, natural physique',
 };
 
 /**
