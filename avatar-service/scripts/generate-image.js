@@ -564,11 +564,18 @@ async function _callGemini(opts) {
 
   // extra config
   const extraConfig = {};
+  // Маппинг значений разрешения для Gemini (UI → API)
+  const RESOLUTION_API_MAP = {
+    '0.5K': '512',
+    '1K':   '1K',
+    '2K':   '2K',
+    '4K':   '4K'
+  };
   const imageConfig = {};
   if (settings?.aspectRatio) imageConfig.aspectRatio = settings.aspectRatio;
-  // Разрешение для Gemini (0.5K, 1K, 2K, 4K) — только для моделей Gemini
+  // Разрешение для Gemini — маппим UI-значения в API-формат
   if (settings?.resolution && !settings.model?.startsWith('openai-')) {
-    imageConfig.imageSize = settings.resolution;
+    imageConfig.imageSize = RESOLUTION_API_MAP[settings.resolution] || '1K';
   }
   if (Object.keys(imageConfig).length > 0) extraConfig.imageConfig = imageConfig;
   if (settings?.model) extraConfig.model = settings.model;
