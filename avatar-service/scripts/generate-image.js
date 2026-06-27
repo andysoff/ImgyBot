@@ -473,24 +473,24 @@ async function _callGemini(opts) {
 
     const genStart = Date.now();
     let result;
+    let refPaths = [];
 
     if (files && files.length > 0) {
       // Собираем ВСЕ валидные локальные пути для референсов
-      const photoPaths = [];
       for (const f of files) {
         if (f.localPath && fs.existsSync(f.localPath)) {
-          photoPaths.push(f.localPath);
+          refPaths.push(f.localPath);
         } else if (f.uri && fs.existsSync(f.uri)) {
-          photoPaths.push(f.uri);
+          refPaths.push(f.uri);
         }
       }
 
-      if (photoPaths.length > 0) {
-        console.log(`📸 OpenAI: отправляю ${photoPaths.length} фото-референсов:`);
-        for (const p of photoPaths) {
+      if (refPaths.length > 0) {
+        console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов:`);
+        for (const p of refPaths) {
           console.log('   ' + p);
         }
-        result = await openaiGen.generateFromPhoto(photoPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
         // Gemini File URI — не можем использовать напрямую
         console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
@@ -533,7 +533,7 @@ async function _callGemini(opts) {
       }
     }
 
-    return { path: result.path, prompt, durationMs: totalDuration };
+    return { path: result.path, prompt, durationMs: totalDuration, refPaths };
   }
   // ======================================================================
   // /OpenAI routing
@@ -619,7 +619,19 @@ async function _callGemini(opts) {
     }
   }
 
-  return { path: outputPath, prompt, durationMs: totalDuration };
+  // Собираем refPaths для Gemini (все локальные файлы)
+  const gRefPaths = [];
+  if (files) {
+    for (const f of files) {
+      if (f.localPath && fs.existsSync(f.localPath)) {
+        gRefPaths.push(f.localPath);
+      } else if (f.uri && fs.existsSync(f.uri)) {
+        gRefPaths.push(f.uri);
+      }
+    }
+  }
+
+  return { path: outputPath, prompt, durationMs: totalDuration, refPaths: gRefPaths };
 }
 
 // ======================================================================
