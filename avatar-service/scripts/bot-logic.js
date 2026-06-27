@@ -769,15 +769,11 @@ function handleAvatarMenu(telegramId, avatarId) {
   const avatar = allAvatars.find(a => a.id === avatarId);
   if (!avatar || !user.avatars.includes(avatarId)) return null;
 
-  const inlineKeyboard = [];
-  if (avatar.photos.length > 1) {
-    inlineKeyboard.push([{ text: '👁 Посмотреть все фото', callback_data: 'show_avatar:' + avatarId }]);
-  }
-  inlineKeyboard.push(
+  const inlineKeyboard = [
     [{ text: '✏️ Переименовать', callback_data: 'rename_avatar:' + avatarId }],
     [{ text: '🗑 Удалить', callback_data: 'del_avatar:' + avatarId }],
     [{ text: '🔙 Назад', callback_data: 'back_to_avatars' }]
-  );
+  ];
 
   return {
     text: `👤 <b>${avatar.name}</b>
@@ -786,7 +782,7 @@ ${avatar.photos.length} фото`,
     reply_markup: {
       inline_keyboard: inlineKeyboard
     },
-    photo: avatar.photos[0] || null
+    photos: avatar.photos || []
   };
 }
 

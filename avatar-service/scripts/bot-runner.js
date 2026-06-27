@@ -616,7 +616,7 @@ async function tgSendPhoto(chatId, photoPath, caption = '', extra = {}) {
  * @param {string[]} photoPaths — массив локальных путей к файлам
  * @returns {Promise<object>}
  */
-async function tgSendMediaGroup(chatId, photoPaths) {
+async function tgSendMediaGroup(chatId, photoPaths, caption = '') {
   if (!photoPaths || photoPaths.length === 0) return { ok: false };
 
   const boundary = `----FormBoundary${Math.random().toString(36).slice(2)}`;
@@ -628,7 +628,7 @@ async function tgSendMediaGroup(chatId, photoPaths) {
     media: i === 0 ? `attach://photo_${i}` : `attach://photo_${i}`
   }));
   // У первого фото caption
-  mediaItems[0].caption = `📸 Фото аватара`;
+  mediaItems[0].caption = caption || `📸 Фото аватара`;
   mediaItems[0].parse_mode = 'HTML';
 
   const parts = [];
@@ -1133,9 +1133,13 @@ async function handleUpdate(update) {
 
       await tgDelete(chatId, msgId);
 
-      // Сначала отправляем фото аватара, если есть
-      if (result.photo) {
-        await tgSendPhoto(chatId, result.photo);
+      // Сначала отправляем все фото аватара альбомом, если есть
+      if (result.photos && result.photos.length > 0) {
+        if (result.photos.length === 1) {
+          await tgSendPhoto(chatId, result.photos[0]);
+        } else {
+          await tgSendMediaGroup(chatId, result.photos);
+        }
       }
 
       await tgSend(chatId, result.text, {
@@ -1254,7 +1258,7 @@ async function handleUpdate(update) {
         await tgSendPhoto(chatId, photos[0], `📸 ${avatarName}`);
       } else {
         // Несколько фото — отправляем медиа-группой (альбомом)
-        await tgSendMediaGroup(chatId, photos);
+        await tgSendMediaGroup(chatId, photos, `📸 ${avatarName}`);
       }
       return;
     }
