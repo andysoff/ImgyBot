@@ -1389,7 +1389,7 @@ function handleSettings(telegramId) {
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
       [{ text: '🔄 Поворот: ' + faceTurnLabel, callback_data: 'settings_face_turn' }],
-      [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🤖 Режим: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '🔍 Разрешение: ' + resolutionLabel, callback_data: 'settings_resolution' }],
@@ -1397,7 +1397,7 @@ function handleSettings(telegramId) {
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel + '\n🔍 Разрешение: ' + resolutionLabel + '\n🌟 Качество 2: ' + openaiQualityLabel;
+    textLines = '🤖 Режим: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel + '\n🔍 Разрешение: ' + resolutionLabel + '\n🌟 Качество 2: ' + openaiQualityLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
@@ -1406,11 +1406,11 @@ function handleSettings(telegramId) {
       [{ text: '📸 Портрет: ' + portraitLabel, callback_data: 'settings_portrait_type' }],
       [{ text: '🔄 Поворот: ' + faceTurnLabel, callback_data: 'settings_face_turn' }],
       [{ text: '📐 Соотношение: ' + aspectLabel, callback_data: 'settings_aspect' }],
-      [{ text: '🤖 Нейросеть: ' + modelLabel, callback_data: 'settings_model' }],
+      [{ text: '🤖 Режим: ' + modelLabel, callback_data: 'settings_model' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel;
+    textLines = '🤖 Режим: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel;
   }
 
   return {
@@ -1595,7 +1595,7 @@ function handleSettingsModel(telegramId) {
   const openaiLabel = openaiLabel1 + (openaiLabel2 || '') + '\n';
 
   return {
-    text: '🤖 <b>Нейросеть</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери нейросеть 👇',
+    text: '🤖 <b>Режим</b>\n\n' + flashLabel + '\n' + proLabel + oldLabel + openaiLabel + '\nВыбери режим 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
