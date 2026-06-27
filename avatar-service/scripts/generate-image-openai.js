@@ -356,9 +356,6 @@ async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 
   console.log(`🎨 OpenAI ${model}: генерация через Responses API${photoPath ? ' с фото-референсом' : ' (без фото)'}`);
   console.log('📝 Промпт (первые 300):', prompt.slice(0, 300));
 
-  // sizeConfig может быть строкой ('1024x1024') или объектом ({size: '1024x1024', resolution: '1K'})
-  const resolution = typeof sizeConfig === 'string' ? sizeConfig : (sizeConfig.size || '1024x1024');
-
   // Собираем контент: опционально input_image + input_text
   const content = [];
   if (photoPath) {
@@ -386,8 +383,7 @@ async function generateFromPhotoV2(photoPath, prompt, outputDir, filenameBase = 
     ],
     tools: [
       {
-        type: 'image_generation',
-        resolution
+        type: 'image_generation'
       }
     ]
   };
