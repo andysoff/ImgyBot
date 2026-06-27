@@ -649,14 +649,14 @@ async function _callGemini(opts) {
  */
 function _buildPhotoPrompt(description, count, extra = {}, settings = {}) {
   const identityLock = '⚠️ CRITICAL IDENTITY LOCK — THIS IS THE MOST IMPORTANT REQUIREMENT: The output face must be an EXACT pixel-level match to the reference face. Preserve every facial detail IDENTICALLY: eye shape and size, irises and pupils, nose bridge and width, mouth curve and lip shape, jawline contour, cheekbone structure, forehead shape, eyebrow arch, chin form, skin texture and pores. The person MUST be 100%% immediately recognizable as the same individual. You MUST NOT change, improve, beautify, smooth, morph, reshape, slim, widen, or modify the face in ANY way. NO skin smoothing, NO jaw reshaping, NO eye color change, NO cheekbone enhancement, NO facial hair alteration, NO wrinkle removal. Only change: clothing, background, lighting, and styling. The face must appear as if copied and pasted from the reference onto the new scene. If you change the face at all, the generation is a FAILURE.';
-  const base = count === 1
-    ? `Transform this person ${description}. ${identityLock} Make it look like a high-quality professional photo.`
-    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock} Make it look like a high-quality professional photo.`;
-  const qualityPart = QUALITY_HINTS[settings.quality] || '';
   const headFitInstruction = settings?.portraitType === 'close_up'
     ? ''
-    : ' The entire head must fit completely in the frame from top of hair to chin, no cropping of the top of the head or forehead.';
-  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + headFitInstruction + (extra.suffix || '');
+    : ' ⚠️ CRITICAL FRAMING REQUIREMENT: The entire head MUST fit completely in the frame — from the crown (top of hair) down to the chin. DO NOT crop, cut off, or omit any part of the top of the head, hair, or forehead. The full head must be visible with no cropping whatsoever.';
+  const base = count === 1
+    ? `Transform this person ${description}. ${identityLock}${headFitInstruction} Make it look like a high-quality professional photo.`
+    : `Transform this person ${description}. I'm providing ${count} photos of the same person — use ALL of them to capture their facial features, expressions and appearance accurately. ${identityLock}${headFitInstruction} Make it look like a high-quality professional photo.`;
+  const qualityPart = QUALITY_HINTS[settings.quality] || '';
+  return base + qualityPart + ' No text, no letters, no words, no logos, no titles in the image.' + (extra.suffix || '');
 }
 
 // ======================================================================
