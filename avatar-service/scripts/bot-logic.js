@@ -1291,7 +1291,7 @@ const RESOLUTION_OPTIONS = {
 const DEFAULT_SETTINGS = {
   quality: 'standard',
   aspectRatio: '1:1',
-  model: 'gemini-3.1-flash-image-preview',
+  model: 'openai-gpt-image-1.5',
   debug: false,
   portraitType: 'bust',
   faceTurn: 'none',
@@ -1392,11 +1392,11 @@ function handleSettings(telegramId) {
       [{ text: '🔧 Отладка: ' + debugLabel, callback_data: 'settings_debug' }],
       [{ text: '📷 Качество: ' + qualityLabel, callback_data: 'settings_quality' }],
       [{ text: '🔍 Разрешение: ' + resolutionLabel, callback_data: 'settings_resolution' }],
-      [{ text: '🌟 Реализм ПРО: ' + openaiQualityLabel, callback_data: 'settings_openai_quality' }],
+      [{ text: '🌟 Качество 2: ' + openaiQualityLabel, callback_data: 'settings_openai_quality' }],
       [{ text: '🔙 Назад', callback_data: 'settings_back' }]
     ];
 
-    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel + '\n🔍 Разрешение: ' + resolutionLabel + '\n🌟 Реализм ПРО: ' + openaiQualityLabel;
+    textLines = '🤖 Нейросеть: ' + modelLabel + '\n📐 Соотношение: ' + aspectLabel + '\n📸 Портрет: ' + portraitLabel + '\n🔄 Поворот: ' + faceTurnLabel + '\n🔧 Отладка: ' + debugLabel + '\n📷 Качество: ' + qualityLabel + '\n🔍 Разрешение: ' + resolutionLabel + '\n🌟 Качество 2: ' + openaiQualityLabel;
   } else {
     // Обычные пользователи — портрет, модель, соотношение
     const portraitLabel = PORTRAIT_TYPE_OPTIONS[s.portraitType]?.label || 'Головной';
@@ -1570,7 +1570,7 @@ function handleSettingsOpenaiQuality(telegramId) {
     .join('\n');
 
   return {
-    text: '🌟 <b>Реализм ПРО — качество</b>\n\nВыбери качество для OpenAI gpt-image-2 (\"Реализм ПРО\"):\n\n' + lines + '\n\nВыбери 👇',
+    text: '🌟 <b>Качество 2</b>\n\nВыбери качество для OpenAI (gpt-image-1.5 / gpt-image-2):\n\n' + lines + '\n\nВыбери 👇',
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   };
