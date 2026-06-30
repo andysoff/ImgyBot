@@ -14,10 +14,95 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Buffer } = require('buffer');
 
 const API_KEY = process.env.OPENAI_API_KEY;
 const DEFAULT_MODEL = 'gpt-image-1.5';
+
+// ======================================================================
+// Кеш base64 data URI для фото (избегаем повторного чтения/кодирования)
+// ======================================================================
+
+const PHOTO_CACHE_DIR = path.join(__dirname, '..', 'data', 'openai-photo-cache');
+
+function _ensureCacheDir() {
+  fs.mkdirSync(PHOTO_CACHE_DIR, { recursive: true });
+}
+
+/**
+ * Уникальный ключ кеша для файла — зависит от пути + размера + времени модификации.
+ * Если файл изменится — кеш автоматически инвалидируется (другой ключ).
+ */
+function _cacheKey(filePath) {
+  const stat = fs.statSync(filePath);
+  return crypto.createHash('md5').update(`${filePath}::${stat.size}::${stat.mtimeMs}`).digest('hex');
+}
+
+/**
+ * Получить data URI для фото:
+ *  - если есть кеш — читаем оттуда
+ *  - если нет — кодируем в base64 и сохраняем в кеш
+ */
+function _getPhotoDataUri(filePath) {
+  try {
+    const key = _cacheKey(filePath);
+    const cacheFile = path.join(PHOTO_CACHE_DIR, key + '.uri');
+    if (fs.existsSync(cacheFile)) {
+      const cached = fs.readFileSync(cacheFile, 'utf-8');
+      console.log(`  📦 Кеш OpenAI: data URI для ${path.basename(filePath)} (${(Buffer.byteLength(cached, 'utf-8') / 1024).toFixed(0)} KB)`);
+      return cached;
+    }
+    // Кеша нет — кодируем и сохраняем
+    const mime = getMimeType(filePath);
+    const b64 = imageToBase64(filePath);
+    const dataUri = `data:${mime};base64,${b64}`;
+    _ensureCacheDir();
+    fs.writeFileSync(cacheFile, dataUri, 'utf-8');
+    console.log(`  💾 Кеш OpenAI: сохранён data URI для ${path.basename(filePath)} (${(Buffer.byteLength(dataUri, 'utf-8') / 1024).toFixed(0)} KB)`);
+    return dataUri;
+  } catch (e) {
+    console.warn(`  ⚠️ Ошибка кеша OpenAI для ${filePath}: ${e.message}. Кодирую напрямую.`);
+    const mime = getMimeType(filePath);
+    const b64 = imageToBase64(filePath);
+    return `data:${mime};base64,${b64}`;
+  }
+}
+
+/**
+ * Очистить кеш для конкретного файла (или весь, если filePath не указан).
+ */
+function clearPhotoCache(filePath) {
+  if (filePath) {
+    try {
+      const key = _cacheKey(filePath);
+      const cacheFile = path.join(PHOTO_CACHE_DIR, key + '.uri');
+      if (fs.existsSync(cacheFile)) {
+        fs.unlinkSync(cacheFile);
+        console.log(`  🗑️ Кеш OpenAI: удалён data URI для ${path.basename(filePath)}`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠️ Не удалось очистить кеш для ${filePath}: ${e.message}`);
+    }
+  } else {
+    // Очистить весь кеш
+    try {
+      if (fs.existsSync(PHOTO_CACHE_DIR)) {
+        const files = fs.readdirSync(PHOTO_CACHE_DIR);
+        for (const f of files) {
+          fs.unlinkSync(path.join(PHOTO_CACHE_DIR, f));
+        }
+        console.log(`  🗑️ Кеш OpenAI: очищен полностью (${files.length} файлов)`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠️ Не удалось очистить кеш: ${e.message}`);
+    }
+  }
+}
+
+// ======================================================================
+// /Кеш
+// ======================================================================
 
 // Размеры по соотношениям сторон
 // gpt-image-1.5 works with /v1/images/edits → size: "1024x1024" (only standard sizes)
@@ -237,17 +322,16 @@ async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = '
     throw new Error('Нет валидных фото для референса');
   }
 
-  // Конвертируем все фото и логируем детали
+  // Конвертируем все фото (с кешированием base64 data URI)
   const images = [];
   let totalPayloadKB = 0;
   for (const p of validPaths) {
-    const b64 = imageToBase64(p);
-    const mime = getMimeType(p);
-    const imgKB = (Buffer.byteLength(b64, 'base64') / 1024).toFixed(0);
-    totalPayloadKB += parseInt(imgKB);
+    const dataUri = _getPhotoDataUri(p);
+    const payloadSizeKB = (Buffer.byteLength(dataUri, 'utf-8') / 1024).toFixed(0);
+    totalPayloadKB += parseInt(payloadSizeKB);
     const idx = validPaths.indexOf(p) + 1;
-    console.log(`   изображение ${idx}/${validPaths.length}: ${(Buffer.byteLength(b64, 'base64') / 1024).toFixed(0)} KB ` + path.basename(p));
-    images.push({ image_url: `data:${mime};base64,${b64}` });
+    console.log(`   изображение ${idx}/${validPaths.length}: ${payloadSizeKB} KB (data URI) ` + path.basename(p));
+    images.push({ image_url: dataUri });
   }
 
   const isV2 = model === 'gpt-image-2';
@@ -289,6 +373,7 @@ module.exports = {
   generateFromPrompt,
   generateFromPhoto,
   getMimeType,
+  clearPhotoCache,
   SIZE_MAP,
   SIZE_MAP_V2
 };
