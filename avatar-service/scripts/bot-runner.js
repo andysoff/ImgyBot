@@ -337,6 +337,20 @@ async function ensureGeminiFiles(avatar, avatars) {
           }
         }
       }
+      // Дозаполняем openaiFileId — если кеш старый, File API ещё не загружали
+      if (process.env.OPENAI_API_KEY) {
+        const hadAllFileIds = validFiles.every(f => f.openaiFileId);
+        if (!hadAllFileIds) {
+          console.log('📎 Загружаю фото в OpenAI File API (первый раз)...');
+          await generateImage.ensureOpenaiFileIds(validFiles);
+          // Сохраняем обновлённый кеш в avatars.json
+          const idx2 = avatars.findIndex(a => a.id === avatar.id);
+          if (idx2 >= 0) {
+            avatars[idx2] = avatar;
+            fs.writeFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), JSON.stringify(avatars, null, 2) + '\n');
+          }
+        }
+      }
       return validFiles;
     }
 
@@ -346,6 +360,20 @@ async function ensureGeminiFiles(avatar, avatars) {
       avatar.geminiFiles = validFiles;
     } else {
       avatar.geminiFiles = [];
+    }
+
+    // У живых файлов могли сохраниться openaiFileId — перезаписываем их
+    // (чтобы после дозагрузки новых не потерять кеш старых)
+    if (process.env.OPENAI_API_KEY && validFiles.length > 0) {
+      // openaiFileId остаются в объектах validFiles, сохраняем что есть
+      const idxPartial = avatars.findIndex(a => a.id === avatar.id);
+      if (idxPartial >= 0) {
+        avatars[idxPartial] = avatar;
+        fs.writeFileSync(
+          path.join(__dirname, '..', 'data', 'avatars.json'),
+          JSON.stringify(avatars, null, 2) + '\n'
+        );
+      }
     }
   }
 
@@ -359,9 +387,14 @@ async function ensureGeminiFiles(avatar, avatars) {
     const fullPath = path.join(__dirname, '..', photoRel);
     if (fs.existsSync(fullPath)) {
       const fileInfo = await generateImage.uploadPhoto(fullPath);
-      // Сохраняем и localPath для OpenAI (DALL-E 3 Edits нужен локальный файл)
+      // Сохраняем и localPath для OpenAI (нужен для File API upload и как fallback)
       avatar.geminiFiles.push({ uri: fileInfo.uri, mimeType: fileInfo.mimeType, localPath: fullPath });
     }
+  }
+
+  // Загружаем фото в OpenAI File API (если ключ задан)
+  if (process.env.OPENAI_API_KEY && avatar.geminiFiles.length > 0) {
+    await generateImage.ensureOpenaiFileIds(avatar.geminiFiles);
   }
 
   // Сохраняем обновлённый кеш
@@ -1923,6 +1956,9 @@ async function handleUpdate(update) {
 
         // ==== Генерация изображения ====
         const settings = botLogic.getSettings(String(chatId));
+        const modelName = settings?.model || 'unknown';
+        const provider = modelName.startsWith('openai-') ? 'OpenAI (ChatGPT)' : 'Gemini (Google)';
+        console.log(`[GENERATION] style=${styleId}, provider=${provider}, model=${modelName}, chatId=${chatId}`);
         try {
           const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
           const avatar = avatars.find(a => a.id === result.avatarId);

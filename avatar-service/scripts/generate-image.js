@@ -468,7 +468,7 @@ async function _callGemini(opts) {
       : (sizeMap?.[settings?.aspectRatio] || '1024x1024');
 
     _callLabel = label;
-    console.log(`🎨 OpenAI ${openaiModel}${logMessage ? ': ' + logMessage : ''}`);
+    console.log(`🎨 OpenAI/ChatGPT (${openaiModel})${logMessage ? ': ' + logMessage : ''}`);
     console.log('📝 Промпт (первые 1000):', prompt.slice(0, 1000));
 
     const genStart = Date.now();
@@ -476,38 +476,48 @@ async function _callGemini(opts) {
     let refPaths = [];
 
     if (files && files.length > 0) {
-      // Собираем ВСЕ валидные локальные пути для референсов
-      for (const f of files) {
-        if (f.localPath && fs.existsSync(f.localPath)) {
-          refPaths.push(f.localPath);
-        } else if (f.uri && fs.existsSync(f.uri)) {
-          refPaths.push(f.uri);
-        }
-      }
+      // Проверяем, есть ли закешированные file_id от OpenAI File API
+      const allFileIds = files.every(f => f.openaiFileId);
 
-      if (refPaths.length > 0) {
-        // Подсчёт общего размера референсов
-        let totalSize = 0;
-        for (const p of refPaths) {
-          try { totalSize += fs.statSync(p).size; } catch {}
-        }
-        const totalSizeKB = (totalSize / 1024).toFixed(0);
-
-        console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов (общий размер ${totalSizeKB} KB):`);
-        for (const p of refPaths) {
-          let sizeInfo = '';
-          try {
-            const stat = fs.statSync(p);
-            sizeInfo = ` (${(stat.size / 1024).toFixed(0)} KB)`;
-          } catch {}
-          console.log('   [' + (refPaths.indexOf(p) + 1) + '/' + refPaths.length + ']' + sizeInfo + ' ' + p);
-        }
-        console.log(`🔍 OpenAI body: model=${openaiModel}, images=${refPaths.length}, size=${typeof sizeOrConfig === 'string' ? sizeOrConfig : sizeOrConfig?.size || 'auto'}, quality=${sizeOrConfig?.quality || 'standard'}`);
-        result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+      if (allFileIds) {
+        // File API кеш — шлём только file_id, payload минимальный
+        const fileIds = files.map(f => f.openaiFileId);
+        console.log(`📸 OpenAI: кеш File API (${fileIds.length} file_id), base64 не нужен`);
+        result = await openaiGen.generateFromPhotoWithFileIds(fileIds, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
-        // Gemini File URI — не можем использовать напрямую
-        console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
-        result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        // Нет кеша — собираем локальные пути и кодируем в base64
+        for (const f of files) {
+          if (f.localPath && fs.existsSync(f.localPath)) {
+            refPaths.push(f.localPath);
+          } else if (f.uri && fs.existsSync(f.uri)) {
+            refPaths.push(f.uri);
+          }
+        }
+
+        if (refPaths.length > 0) {
+          // Подсчёт общего размера референсов
+          let totalSize = 0;
+          for (const p of refPaths) {
+            try { totalSize += fs.statSync(p).size; } catch {}
+          }
+          const totalSizeKB = (totalSize / 1024).toFixed(0);
+
+          console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов (общий размер ${totalSizeKB} KB, base64):`);
+          for (const p of refPaths) {
+            let sizeInfo = '';
+            try {
+              const stat = fs.statSync(p);
+              sizeInfo = ` (${(stat.size / 1024).toFixed(0)} KB)`;
+            } catch {}
+            console.log('   [' + (refPaths.indexOf(p) + 1) + '/' + refPaths.length + ']' + sizeInfo + ' ' + p);
+          }
+          console.log(`🔍 OpenAI body: model=${openaiModel}, images=${refPaths.length}, size=${typeof sizeOrConfig === 'string' ? sizeOrConfig : sizeOrConfig?.size || 'auto'}, quality=${sizeOrConfig?.quality || 'standard'}`);
+          result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        } else {
+          // Gemini File URI — не можем использовать напрямую
+          console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
+          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        }
       }
     } else if (isV2) {
       // gpt-image-2 без фото — через Image API /v1/images/generations
@@ -595,7 +605,8 @@ async function _callGemini(opts) {
   if (settings?.model) extraConfig.model = settings.model;
 
   _callLabel = label;
-  console.log(`🎨 Gemini${logMessage ? ': ' + logMessage : ''}`);
+  const geminiModelName = settings?.model || MODEL;
+  console.log(`🎨 Gemini (${geminiModelName})${logMessage ? ': ' + logMessage : ''}`);
   console.log('📝 Промпт (первые 1000):', prompt.slice(0, 1000));
 
   const genStart = Date.now();
@@ -2034,6 +2045,62 @@ async function generateWheelAvatar(files, brand, outputDir, settings, chatId) {
   });
 }
 
+/**
+ * Загрузить фото в OpenAI File API (если ещё не загружены) и проставить openaiFileId.
+ * Ничего не делает, если OPENAI_API_KEY не задан или файлы уже имеют openaiFileId.
+ * @param {Array<{localPath?:string, uri?:string, openaiFileId?:string}>} files
+ * @returns {Promise<Array>} тот же массив с проставленными openaiFileId
+ */
+async function ensureOpenaiFileIds(files) {
+  if (!process.env.OPENAI_API_KEY || !openaiGen) return files;
+  if (!files || files.length === 0) return files;
+
+  let changed = false;
+  for (const f of files) {
+    if (f.openaiFileId) continue;
+    const localPath = f.localPath || (f.uri && fs.existsSync(f.uri) ? f.uri : null);
+    if (localPath) {
+      try {
+        f.openaiFileId = await openaiGen.uploadToFileApi(localPath);
+        changed = true;
+        console.log(`📎 OpenAI File API: ${path.basename(localPath)} → ${f.openaiFileId}`);
+      } catch (e) {
+        console.warn(`⚠️ Не удалось загрузить ${path.basename(localPath)} в OpenAI File API: ${e.message}`);
+      }
+    }
+  }
+
+  if (changed) {
+    // Пробуем сохранить кеш в avatars.json
+    try {
+      const avatarsFile = path.join(__dirname, '..', 'data', 'avatars.json');
+      const allAvatars = JSON.parse(fs.readFileSync(avatarsFile, 'utf-8'));
+      for (const avatar of allAvatars) {
+        if (avatar.geminiFiles && avatar.geminiFiles.length === files.length) {
+          // Сопоставляем по localPath
+          let match = true;
+          for (let i = 0; i < avatar.geminiFiles.length; i++) {
+            if ((avatar.geminiFiles[i].localPath || avatar.geminiFiles[i].uri) !== (files[i].localPath || files[i].uri)) {
+              match = false;
+              break;
+            }
+          }
+          if (match) {
+            avatar.geminiFiles = files;
+            fs.writeFileSync(avatarsFile, JSON.stringify(allAvatars, null, 2) + '\n');
+            console.log(`💾 OpenAI file_ids сохранены в avatars.json для аватара ${avatar.id}`);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Не удалось сохранить openaiFileId в avatars.json:', e.message);
+    }
+  }
+
+  return files;
+}
+
 module.exports = {
   // Единая генерация
   generateWithPrompt,
@@ -2086,5 +2153,6 @@ module.exports = {
   generateCarAvatar,
   generateWheelAvatar,
   FACE_TURN_HINTS,
-  PORTRAIT_TYPE_HINTS
+  PORTRAIT_TYPE_HINTS,
+  ensureOpenaiFileIds
 };

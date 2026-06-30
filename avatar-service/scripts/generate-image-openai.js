@@ -224,6 +224,80 @@ function downloadImage(url) {
 }
 
 // ======================================================================
+// FILE API (multipart upload — без внешних зависимостей)
+// ======================================================================
+
+/**
+ * Загрузить фото в OpenAI File API.
+ * Возвращает file_id для использования в /v1/images/edits.
+ */
+function uploadToFileApi(filePath) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(filePath)) {
+      return reject(new Error(`File not found: ${filePath}`));
+    }
+
+    const boundary = '----OpenAIFormBoundary' + Math.random().toString(36).slice(2);
+    const filename = path.basename(filePath);
+    const mime = getMimeType(filePath);
+    const fileData = fs.readFileSync(filePath);
+
+    // Собираем multipart body
+    const headerPart = `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="purpose"\r\n\r\n' +
+      'user_data\r\n' +
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+      `Content-Type: ${mime}\r\n\r\n`;
+    const footerPart = `\r\n--${boundary}--\r\n`;
+
+    const headerBuf = Buffer.from(headerPart, 'utf-8');
+    const footerBuf = Buffer.from(footerPart, 'utf-8');
+    const fullBody = Buffer.concat([headerBuf, fileData, footerBuf]);
+
+    const fileSizeKB = (fileData.length / 1024).toFixed(0);
+    console.log(`📤 OpenAI File API: ${filename} (${fileSizeKB} KB)`);
+
+    const req = https.request(
+      {
+        hostname: 'api.openai.com',
+        path: '/v1/files',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': fullBody.length
+        },
+        timeout: 120000
+      },
+      (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              reject(new Error(`OpenAI File API: ${parsed.error.message} (${parsed.error.type || ''})`));
+            } else if (parsed.id) {
+              console.log(`✅ OpenAI File API: ${filename} → ${parsed.id}`);
+              resolve(parsed.id);
+            } else {
+              reject(new Error(`OpenAI File API: неожиданный ответ: ${data.slice(0, 300)}`));
+            }
+          } catch {
+            reject(new Error(`OpenAI File API parse error: ${data.slice(0, 300)}`));
+          }
+        });
+      }
+    );
+    req.on('error', err => reject(new Error(`OpenAI File API error: ${err.message}`)));
+    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI File API timeout (>2 min)')); });
+    req.write(fullBody);
+    req.end();
+  });
+}
+
+// ======================================================================
 // ВСПОМОГАТЕЛЬНЫЕ
 // ======================================================================
 
@@ -368,10 +442,48 @@ async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = '
   return { path: outputPath, prompt };
 }
 
+/**
+ * Генерация с фото-референсом через file_id (заранее загруженные в File API).
+ * Не шлёт base64, только ссылки на уже загруженные файлы — payload минимальный.
+ */
+async function generateFromPhotoWithFileIds(fileIds, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
+  if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
+  if (!fileIds || fileIds.length === 0) throw new Error('Нет file_id для референса');
+
+  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (file_id × ${fileIds.length})`);
+  console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
+
+  const images = fileIds.map(fid => ({ file_id: fid }));
+  console.log(`🔍 OpenAI body: model=${model}, images (file_id × ${images.length})`);
+
+  const body = {
+    model,
+    prompt,
+    images,
+    n: 1
+  };
+
+  if (typeof sizeOrConfig === 'string') {
+    body.size = sizeOrConfig;
+  } else if (typeof sizeOrConfig === 'object') {
+    body.size = sizeOrConfig.size || '1024x1024';
+    if (sizeOrConfig.quality) body.quality = sizeOrConfig.quality;
+  } else {
+    body.size = '1024x1024';
+  }
+
+  const result = await dalleEdit(body);
+  const imgBuffer = await extractImage(result);
+  const outputPath = saveImage(imgBuffer, outputDir, filenameBase);
+  return { path: outputPath, prompt };
+}
+
 module.exports = {
   uploadPhoto,
   generateFromPrompt,
   generateFromPhoto,
+  generateFromPhotoWithFileIds,
+  uploadToFileApi,
   getMimeType,
   clearPhotoCache,
   SIZE_MAP,
