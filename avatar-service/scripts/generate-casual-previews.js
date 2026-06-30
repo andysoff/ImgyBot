@@ -21,9 +21,9 @@ const SUBSTYLES = [
 async function main() {
   console.log('📤 Загрузка фото девушки в Gemini File API...');
   const fileInfo = await uploadPhoto(BASE_PHOTO);
-  console.log(`✅ Загружено: ${fileInfo.uri}`);
+  console.log(`✅ Загружено: ${fileInfo.gemini.uri}`);
 
-  const files = [{ uri: fileInfo.uri, mimeType: fileInfo.mimeType }];
+  const files = [fileInfo];
 
   for (const sub of SUBSTYLES) {
     console.log(`\n━━━ [${sub.id}] ${sub.name} ━━━`);

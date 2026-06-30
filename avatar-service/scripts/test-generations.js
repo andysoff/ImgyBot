@@ -53,7 +53,7 @@ async function main() {
   let fileData;
   try {
     fileData = await generateImage.uploadPhoto(testPhoto);
-    console.log(`✅ Фото загружено: ${fileData.uri}`);
+    console.log(`✅ Фото загружено: ${fileData.gemini.uri}`);
   } catch (e) {
     console.error(`❌ Ошибка загрузки: ${e.message}`);
     console.log('   Продолжаем тесты без фото (только тест 3)...');

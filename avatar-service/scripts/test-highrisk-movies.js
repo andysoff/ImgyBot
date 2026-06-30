@@ -51,7 +51,7 @@ async function main() {
   console.log(`📸 Тестовое фото: ${PHOTO}\n`);
 
   const file = await gen.uploadPhoto(PHOTO);
-  console.log(`✅ Фото загружено: ${file.uri}\n`);
+  console.log(`✅ Фото загружено: ${file.gemini.uri}\n`);
 
   const settings = {
     model: 'gemini-3.1-flash-image-preview',

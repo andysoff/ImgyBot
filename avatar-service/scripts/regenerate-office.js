@@ -8,7 +8,7 @@ const OUTPUT_DIR = path.resolve(__dirname, '..', 'data', 'previews');
 async function main() {
   console.log('📤 Uploading cropped photo...');
   const file = await uploadPhoto(PHOTO_PATH);
-  console.log('✅ Uploaded:', file.uri);
+  console.log('✅ Uploaded:', file.gemini.uri);
 
   console.log('🎨 Generating casual_office (no text)...');
   const result = await generateAvatar(

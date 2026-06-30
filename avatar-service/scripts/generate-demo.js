@@ -30,9 +30,9 @@ const STYLES_TO_GENERATE = [
 async function main() {
   console.log('📤 Загрузка base_photo в Gemini File API...');
   const fileInfo = await generateImage.uploadPhoto(BASE_PHOTO);
-  console.log(`✅ Загружено: ${fileInfo.uri}`);
+  console.log(`✅ Загружено: ${fileInfo.gemini.uri}`);
 
-  const files = [{ uri: fileInfo.uri, mimeType: fileInfo.mimeType }];
+  const files = [fileInfo];
 
   for (const styleId of STYLES_TO_GENERATE) {
     console.log(`\n🎨 Генерация стиля: ${styleId}...`);

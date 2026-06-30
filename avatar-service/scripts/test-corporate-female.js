@@ -30,7 +30,7 @@ async function main() {
   const photo = path.join(PROJECT_ROOT, 'photos', 'user_3', 'avatar_6', 'photo_1.jpg');
   console.log('📤 Загружаю фото в Gemini...');
   const fileData = await generateImage.uploadPhoto(photo);
-  const files = [{ uri: fileData.uri, mimeType: fileData.mimeType }];
+  const files = [fileData];
   const gender = 'female';
   console.log(`📸 Аватар: Девушка (avatar_6)`);
   console.log(`🔍 Пол: ${gender}`);

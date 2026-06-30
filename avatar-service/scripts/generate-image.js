@@ -376,7 +376,7 @@ async function uploadPhoto(photoPath) {
   const uploadDuration = Date.now() - startTime;
   metrics.track('gemini:file_upload', { file_name: fileName, file_size_kb: fileSizeKB, duration_ms: String(uploadDuration), mime_type: mimeType });
   console.log(`✅ Gemini File URI: ${fileInfo.uri || fileInfo.name}`);
-  return { name: fileInfo.name, uri: fileInfo.uri, mimeType };
+  return { localPath: photoPath, mimeType, gemini: { name: fileInfo.name, uri: fileInfo.uri } };
 }
 
 // ======================================================================
@@ -477,11 +477,11 @@ async function _callGemini(opts) {
 
     if (files && files.length > 0) {
       // Проверяем, есть ли закешированные file_id от OpenAI File API
-      const allFileIds = files.every(f => f.openaiFileId);
+      const allFileIds = files.every(f => f.openai.fileId);
 
       if (allFileIds) {
         // File API кеш — шлём только file_id, payload минимальный
-        const fileIds = files.map(f => f.openaiFileId);
+        const fileIds = files.map(f => f.openai.fileId);
         console.log(`📸 OpenAI: кеш File API (${fileIds.length} file_id), base64 не нужен`);
         result = await openaiGen.generateFromPhotoWithFileIds(fileIds, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
@@ -489,8 +489,8 @@ async function _callGemini(opts) {
         for (const f of files) {
           if (f.localPath && fs.existsSync(f.localPath)) {
             refPaths.push(f.localPath);
-          } else if (f.uri && fs.existsSync(f.uri)) {
-            refPaths.push(f.uri);
+          } else if (f.gemini?.uri && fs.existsSync(f.gemini.uri)) {
+            refPaths.push(f.gemini.uri);
           }
         }
 
@@ -571,7 +571,7 @@ async function _callGemini(opts) {
 
   // Собираем части запроса
   const requestParts = files
-    ? [...files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } })), { text: prompt }]
+    ? [...files.map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.gemini.uri } })), { text: prompt }]
     : [{ text: prompt }];
 
   // Пэйлоад
@@ -649,8 +649,8 @@ async function _callGemini(opts) {
     for (const f of files) {
       if (f.localPath && fs.existsSync(f.localPath)) {
         gRefPaths.push(f.localPath);
-      } else if (f.uri && fs.existsSync(f.uri)) {
-        gRefPaths.push(f.uri);
+      } else if (f.gemini?.uri && fs.existsSync(f.gemini.uri)) {
+        gRefPaths.push(f.gemini.uri);
       }
     }
   }
@@ -703,7 +703,7 @@ async function detectGender(files) {
     const payload = JSON.stringify({
       contents: [{
         parts: [
-          ...files.slice(0, 1).map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.uri } })),
+          ...files.slice(0, 1).map(f => ({ fileData: { mimeType: f.mimeType, fileUri: f.gemini.uri } })),
           { text: 'Look at the person in this photo. Is this a man or a woman? Answer with only one word: male or female.' }
         ]
       }],
@@ -1979,7 +1979,7 @@ if (require.main === module) {
       process.exit(1);
     }
     uploadPhoto(photoPath)
-      .then(f => console.log(`✅ URI: ${f.uri}\n   Name: ${f.name}\n   Type: ${f.mimeType}`))
+      .then(f => console.log(`✅ URI: ${f.gemini.uri}\n   Name: ${f.gemini.name}\n   Type: ${f.mimeType}`))
       .catch(err => { console.error('❌', err.message); process.exit(1); });
   } else if (command === 'generate') {
     const [fileUri, mimeType, styleId] = args;
@@ -1990,7 +1990,7 @@ if (require.main === module) {
     }
     const outputDir = path.join(__dirname, '..', 'photos', 'generated');
     fs.mkdirSync(outputDir, { recursive: true });
-    generateAvatar([{ uri: fileUri, mimeType }], styleId, outputDir)
+    generateAvatar([{ localPath: '', mimeType, gemini: { uri: fileUri } }], styleId, outputDir)
       .then(out => console.log(`✅ Результат: ${out}`))
       .catch(err => { console.error('❌', err.message); process.exit(1); });
   } else {
@@ -2057,13 +2057,13 @@ async function ensureOpenaiFileIds(files) {
 
   let changed = false;
   for (const f of files) {
-    if (f.openaiFileId) continue;
-    const localPath = f.localPath || (f.uri && fs.existsSync(f.uri) ? f.uri : null);
+    if (f.openai?.fileId) continue;
+    const localPath = f.localPath || (f.gemini?.uri && fs.existsSync(f.gemini.uri) ? f.gemini.uri : null);
     if (localPath) {
       try {
-        f.openaiFileId = await openaiGen.uploadToFileApi(localPath);
+        f.openai = { fileId: await openaiGen.uploadToFileApi(localPath) };
         changed = true;
-        console.log(`📎 OpenAI File API: ${path.basename(localPath)} → ${f.openaiFileId}`);
+        console.log(`📎 OpenAI File API: ${path.basename(localPath)} → ${f.openai.fileId}`);
       } catch (e) {
         console.warn(`⚠️ Не удалось загрузить ${path.basename(localPath)} в OpenAI File API: ${e.message}`);
       }
@@ -2076,17 +2076,17 @@ async function ensureOpenaiFileIds(files) {
       const avatarsFile = path.join(__dirname, '..', 'data', 'avatars.json');
       const allAvatars = JSON.parse(fs.readFileSync(avatarsFile, 'utf-8'));
       for (const avatar of allAvatars) {
-        if (avatar.geminiFiles && avatar.geminiFiles.length === files.length) {
+        if (avatar.sourceFiles && avatar.sourceFiles.length === files.length) {
           // Сопоставляем по localPath
           let match = true;
-          for (let i = 0; i < avatar.geminiFiles.length; i++) {
-            if ((avatar.geminiFiles[i].localPath || avatar.geminiFiles[i].uri) !== (files[i].localPath || files[i].uri)) {
+          for (let i = 0; i < avatar.sourceFiles.length; i++) {
+            if ((avatar.sourceFiles[i].localPath || avatar.sourceFiles[i].gemini?.uri) !== (files[i].localPath || files[i].gemini?.uri)) {
               match = false;
               break;
             }
           }
           if (match) {
-            avatar.geminiFiles = files;
+            avatar.sourceFiles = files;
             fs.writeFileSync(avatarsFile, JSON.stringify(allAvatars, null, 2) + '\n');
             console.log(`💾 OpenAI file_ids сохранены в avatars.json для аватара ${avatar.id}`);
             break;
