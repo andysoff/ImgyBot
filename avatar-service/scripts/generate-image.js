@@ -486,10 +486,23 @@ async function _callGemini(opts) {
       }
 
       if (refPaths.length > 0) {
-        console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов:`);
+        // Подсчёт общего размера референсов
+        let totalSize = 0;
         for (const p of refPaths) {
-          console.log('   ' + p);
+          try { totalSize += fs.statSync(p).size; } catch {}
         }
+        const totalSizeKB = (totalSize / 1024).toFixed(0);
+
+        console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов (общий размер ${totalSizeKB} KB):`);
+        for (const p of refPaths) {
+          let sizeInfo = '';
+          try {
+            const stat = fs.statSync(p);
+            sizeInfo = ` (${(stat.size / 1024).toFixed(0)} KB)`;
+          } catch {}
+          console.log('   [' + (refPaths.indexOf(p) + 1) + '/' + refPaths.length + ']' + sizeInfo + ' ' + p);
+        }
+        console.log(`🔍 OpenAI body: model=${openaiModel}, images=${refPaths.length}, size=${typeof sizeOrConfig === 'string' ? sizeOrConfig : sizeOrConfig?.size || 'auto'}, quality=${sizeOrConfig?.quality || 'standard'}`);
         result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
         // Gemini File URI — не можем использовать напрямую

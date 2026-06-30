@@ -59,6 +59,8 @@ function getMimeType(filePath) {
 function openaiRequest(apiPath, body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
+    const payloadKB = (Buffer.byteLength(payload) / 1024).toFixed(0);
+    console.log(`🔌 OpenAI HTTP → ${apiPath}, payload ${payloadKB} KB, model=${body.model || '?'}`);
     const req = https.request(
       {
         hostname: 'api.openai.com',
@@ -72,9 +74,12 @@ function openaiRequest(apiPath, body) {
         timeout: 300000
       },
       (res) => {
+        const reqStart = Date.now();
         let data = '';
         res.on('data', c => data += c);
         res.on('end', () => {
+          const elapsed = ((Date.now() - reqStart) / 1000).toFixed(1);
+          console.log(`🔌 OpenAI HTTP ← ${apiPath} (${elapsed}s, payload ${payloadKB} KB, status ${res.statusCode})`);
           try {
             const parsed = JSON.parse(data);
             if (parsed.error) {
@@ -88,8 +93,15 @@ function openaiRequest(apiPath, body) {
         });
       }
     );
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI timeout (>5 min)')); });
+    req.on('error', (err) => {
+      console.error(`❌ OpenAI HTTP error: ${err.message}`);
+      reject(err);
+    });
+    req.on('timeout', () => {
+      console.error('❌ OpenAI HTTP timeout (>5 min)');
+      req.destroy();
+      reject(new Error('OpenAI timeout (>5 min)'));
+    });
     req.write(payload);
     req.end();
   });
@@ -225,16 +237,24 @@ async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = '
     throw new Error('Нет валидных фото для референса');
   }
 
-  const images = validPaths.map(p => {
+  // Конвертируем все фото и логируем детали
+  const images = [];
+  let totalPayloadKB = 0;
+  for (const p of validPaths) {
     const b64 = imageToBase64(p);
     const mime = getMimeType(p);
-    return { image_url: `data:${mime};base64,${b64}` };
-  });
+    const imgKB = (Buffer.byteLength(b64, 'base64') / 1024).toFixed(0);
+    totalPayloadKB += parseInt(imgKB);
+    const idx = validPaths.indexOf(p) + 1;
+    console.log(`   изображение ${idx}/${validPaths.length}: ${(Buffer.byteLength(b64, 'base64') / 1024).toFixed(0)} KB ` + path.basename(p));
+    images.push({ image_url: `data:${mime};base64,${b64}` });
+  }
 
   const isV2 = model === 'gpt-image-2';
 
-  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits), ${validPaths.length} фото`);
+  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (edits), ${validPaths.length} фото, общий payload ~${totalPayloadKB} KB`);
   console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
+  console.log(`🔍 OpenAI request body: model=${model}, images=${images.length}, totalPayloadKB=${totalPayloadKB}`);
 
   const body = {
     model,
