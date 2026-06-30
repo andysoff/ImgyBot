@@ -124,6 +124,7 @@ if (!TOKEN) {
 const botLogic = require('./bot-logic');
 const { buildBuyKeyboard } = botLogic;
 const generateImage = require('./generate-image');
+const fileUpload = require('./file-upload');
 const metrics = require('./metrics-ga4');
 const payments = require('./payments');
 const { setDemoOverride } = payments;
@@ -327,27 +328,13 @@ async function ensureSourceFiles(avatar, avatars) {
       if (!avatar.gender && validFiles.length > 0) {
         await detectAndSaveGender(avatar, avatars, validFiles);
       }
-      // Дозаполняем localPath для OpenAI — старые кеши могут не содержать localPath
+      // Дозаполняем localPath для кодирования base64 на лету — старые кеши могут не содержать localPath
       const userPhotos = avatar.photos || [];
       for (let i = 0; i < validFiles.length && i < userPhotos.length; i++) {
         if (!validFiles[i].localPath) {
           const fullPath = path.join(__dirname, '..', userPhotos[i]);
           if (fs.existsSync(fullPath)) {
             validFiles[i].localPath = fullPath;
-          }
-        }
-      }
-      // Дозаполняем openaiFileId — если кеш старый, File API ещё не загружали
-      if (process.env.OPENAI_API_KEY) {
-        const hadAllFileIds = validFiles.every(f => f.openai.fileId);
-        if (!hadAllFileIds) {
-          console.log('📎 Загружаю фото в OpenAI File API (первый раз)...');
-          await generateImage.ensureOpenaiFileIds(validFiles);
-          // Сохраняем обновлённый кеш в avatars.json
-          const idx2 = avatars.findIndex(a => a.id === avatar.id);
-          if (idx2 >= 0) {
-            avatars[idx2] = avatar;
-            fs.writeFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), JSON.stringify(avatars, null, 2) + '\n');
           }
         }
       }
@@ -362,19 +349,7 @@ async function ensureSourceFiles(avatar, avatars) {
       avatar.sourceFiles = [];
     }
 
-    // У живых файлов могли сохраниться openaiFileId — перезаписываем их
-    // (чтобы после дозагрузки новых не потерять кеш старых)
-    if (process.env.OPENAI_API_KEY && validFiles.length > 0) {
-      // openaiFileId остаются в объектах validFiles, сохраняем что есть
-      const idxPartial = avatars.findIndex(a => a.id === avatar.id);
-      if (idxPartial >= 0) {
-        avatars[idxPartial] = avatar;
-        fs.writeFileSync(
-          path.join(__dirname, '..', 'data', 'avatars.json'),
-          JSON.stringify(avatars, null, 2) + '\n'
-        );
-      }
-    }
+
   }
 
   // Подгружаем недостающие файлы
@@ -386,15 +361,10 @@ async function ensureSourceFiles(avatar, avatars) {
   for (const photoRel of userPhotos) {
     const fullPath = path.join(__dirname, '..', photoRel);
     if (fs.existsSync(fullPath)) {
-      const fileInfo = await generateImage.uploadPhoto(fullPath);
-      // Сохраняем и localPath для OpenAI (нужен для File API upload и как fallback)
-      avatar.sourceFiles.push({ localPath: fullPath, mimeType: fileInfo.mimeType, gemini: { uri: fileInfo.uri } });
+      const result = await fileUpload.uploadToGemini(fullPath);
+      // localPath нужен для кодирования в base64 на лету при генерации через OpenAI
+      avatar.sourceFiles.push({ localPath: fullPath, mimeType: result.mimeType, gemini: { uri: result.uri } });
     }
-  }
-
-  // Загружаем фото в OpenAI File API (если ключ задан)
-  if (process.env.OPENAI_API_KEY && avatar.sourceFiles.length > 0) {
-    await generateImage.ensureOpenaiFileIds(avatar.sourceFiles);
   }
 
   // Сохраняем обновлённый кеш

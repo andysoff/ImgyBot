@@ -14,95 +14,13 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { Buffer } = require('buffer');
 
 const API_KEY = process.env.OPENAI_API_KEY;
 const DEFAULT_MODEL = 'gpt-image-1.5';
 
 // ======================================================================
-// Кеш base64 data URI для фото (избегаем повторного чтения/кодирования)
-// ======================================================================
-
-const PHOTO_CACHE_DIR = path.join(__dirname, '..', 'data', 'openai-photo-cache');
-
-function _ensureCacheDir() {
-  fs.mkdirSync(PHOTO_CACHE_DIR, { recursive: true });
-}
-
-/**
- * Уникальный ключ кеша для файла — зависит от пути + размера + времени модификации.
- * Если файл изменится — кеш автоматически инвалидируется (другой ключ).
- */
-function _cacheKey(filePath) {
-  const stat = fs.statSync(filePath);
-  return crypto.createHash('md5').update(`${filePath}::${stat.size}::${stat.mtimeMs}`).digest('hex');
-}
-
-/**
- * Получить data URI для фото:
- *  - если есть кеш — читаем оттуда
- *  - если нет — кодируем в base64 и сохраняем в кеш
- */
-function _getPhotoDataUri(filePath) {
-  try {
-    const key = _cacheKey(filePath);
-    const cacheFile = path.join(PHOTO_CACHE_DIR, key + '.uri');
-    if (fs.existsSync(cacheFile)) {
-      const cached = fs.readFileSync(cacheFile, 'utf-8');
-      console.log(`  📦 Кеш OpenAI: data URI для ${path.basename(filePath)} (${(Buffer.byteLength(cached, 'utf-8') / 1024).toFixed(0)} KB)`);
-      return cached;
-    }
-    // Кеша нет — кодируем и сохраняем
-    const mime = getMimeType(filePath);
-    const b64 = imageToBase64(filePath);
-    const dataUri = `data:${mime};base64,${b64}`;
-    _ensureCacheDir();
-    fs.writeFileSync(cacheFile, dataUri, 'utf-8');
-    console.log(`  💾 Кеш OpenAI: сохранён data URI для ${path.basename(filePath)} (${(Buffer.byteLength(dataUri, 'utf-8') / 1024).toFixed(0)} KB)`);
-    return dataUri;
-  } catch (e) {
-    console.warn(`  ⚠️ Ошибка кеша OpenAI для ${filePath}: ${e.message}. Кодирую напрямую.`);
-    const mime = getMimeType(filePath);
-    const b64 = imageToBase64(filePath);
-    return `data:${mime};base64,${b64}`;
-  }
-}
-
-/**
- * Очистить кеш для конкретного файла (или весь, если filePath не указан).
- */
-function clearPhotoCache(filePath) {
-  if (filePath) {
-    try {
-      const key = _cacheKey(filePath);
-      const cacheFile = path.join(PHOTO_CACHE_DIR, key + '.uri');
-      if (fs.existsSync(cacheFile)) {
-        fs.unlinkSync(cacheFile);
-        console.log(`  🗑️ Кеш OpenAI: удалён data URI для ${path.basename(filePath)}`);
-      }
-    } catch (e) {
-      console.warn(`  ⚠️ Не удалось очистить кеш для ${filePath}: ${e.message}`);
-    }
-  } else {
-    // Очистить весь кеш
-    try {
-      if (fs.existsSync(PHOTO_CACHE_DIR)) {
-        const files = fs.readdirSync(PHOTO_CACHE_DIR);
-        for (const f of files) {
-          fs.unlinkSync(path.join(PHOTO_CACHE_DIR, f));
-        }
-        console.log(`  🗑️ Кеш OpenAI: очищен полностью (${files.length} файлов)`);
-      }
-    } catch (e) {
-      console.warn(`  ⚠️ Не удалось очистить кеш: ${e.message}`);
-    }
-  }
-}
-
-// ======================================================================
-// /Кеш
-// ======================================================================
+// Размеры по соотношениям сторон
 
 // Размеры по соотношениям сторон
 // gpt-image-1.5 works with /v1/images/edits → size: "1024x1024" (only standard sizes)
@@ -224,80 +142,6 @@ function downloadImage(url) {
 }
 
 // ======================================================================
-// FILE API (multipart upload — без внешних зависимостей)
-// ======================================================================
-
-/**
- * Загрузить фото в OpenAI File API.
- * Возвращает file_id для использования в /v1/images/edits.
- */
-function uploadToFileApi(filePath) {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(filePath)) {
-      return reject(new Error(`File not found: ${filePath}`));
-    }
-
-    const boundary = '----OpenAIFormBoundary' + Math.random().toString(36).slice(2);
-    const filename = path.basename(filePath);
-    const mime = getMimeType(filePath);
-    const fileData = fs.readFileSync(filePath);
-
-    // Собираем multipart body
-    const headerPart = `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="purpose"\r\n\r\n' +
-      'user_data\r\n' +
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
-      `Content-Type: ${mime}\r\n\r\n`;
-    const footerPart = `\r\n--${boundary}--\r\n`;
-
-    const headerBuf = Buffer.from(headerPart, 'utf-8');
-    const footerBuf = Buffer.from(footerPart, 'utf-8');
-    const fullBody = Buffer.concat([headerBuf, fileData, footerBuf]);
-
-    const fileSizeKB = (fileData.length / 1024).toFixed(0);
-    console.log(`📤 OpenAI File API: ${filename} (${fileSizeKB} KB)`);
-
-    const req = https.request(
-      {
-        hostname: 'api.openai.com',
-        path: '/v1/files',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': fullBody.length
-        },
-        timeout: 120000
-      },
-      (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(new Error(`OpenAI File API: ${parsed.error.message} (${parsed.error.type || ''})`));
-            } else if (parsed.id) {
-              console.log(`✅ OpenAI File API: ${filename} → ${parsed.id}`);
-              resolve(parsed.id);
-            } else {
-              reject(new Error(`OpenAI File API: неожиданный ответ: ${data.slice(0, 300)}`));
-            }
-          } catch {
-            reject(new Error(`OpenAI File API parse error: ${data.slice(0, 300)}`));
-          }
-        });
-      }
-    );
-    req.on('error', err => reject(new Error(`OpenAI File API error: ${err.message}`)));
-    req.on('timeout', () => { req.destroy(); reject(new Error('OpenAI File API timeout (>2 min)')); });
-    req.write(fullBody);
-    req.end();
-  });
-}
-
-// ======================================================================
 // ВСПОМОГАТЕЛЬНЫЕ
 // ======================================================================
 
@@ -396,11 +240,13 @@ async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = '
     throw new Error('Нет валидных фото для референса');
   }
 
-  // Конвертируем все фото (с кешированием base64 data URI)
+  // Конвертируем все фото в base64 на лету (без кэша)
   const images = [];
   let totalPayloadKB = 0;
   for (const p of validPaths) {
-    const dataUri = _getPhotoDataUri(p);
+    const mime = getMimeType(p);
+    const b64 = imageToBase64(p);
+    const dataUri = `data:${mime};base64,${b64}`;
     const payloadSizeKB = (Buffer.byteLength(dataUri, 'utf-8') / 1024).toFixed(0);
     totalPayloadKB += parseInt(payloadSizeKB);
     const idx = validPaths.indexOf(p) + 1;
@@ -442,50 +288,11 @@ async function generateFromPhoto(photoPaths, prompt, outputDir, filenameBase = '
   return { path: outputPath, prompt };
 }
 
-/**
- * Генерация с фото-референсом через file_id (заранее загруженные в File API).
- * Не шлёт base64, только ссылки на уже загруженные файлы — payload минимальный.
- */
-async function generateFromPhotoWithFileIds(fileIds, prompt, outputDir, filenameBase = 'openai_photo', sizeOrConfig = '1024x1024', model = DEFAULT_MODEL) {
-  if (!API_KEY) throw new Error('OPENAI_API_KEY не задан');
-  if (!fileIds || fileIds.length === 0) throw new Error('Нет file_id для референса');
-
-  console.log(`🎨 OpenAI ${model}: генерация с фото-референсом (file_id × ${fileIds.length})`);
-  console.log('📝 Стиль-промпт (первые 300):', prompt.slice(0, 300));
-
-  const images = fileIds.map(fid => ({ file_id: fid }));
-  console.log(`🔍 OpenAI body: model=${model}, images (file_id × ${images.length})`);
-
-  const body = {
-    model,
-    prompt,
-    images,
-    n: 1
-  };
-
-  if (typeof sizeOrConfig === 'string') {
-    body.size = sizeOrConfig;
-  } else if (typeof sizeOrConfig === 'object') {
-    body.size = sizeOrConfig.size || '1024x1024';
-    if (sizeOrConfig.quality) body.quality = sizeOrConfig.quality;
-  } else {
-    body.size = '1024x1024';
-  }
-
-  const result = await dalleEdit(body);
-  const imgBuffer = await extractImage(result);
-  const outputPath = saveImage(imgBuffer, outputDir, filenameBase);
-  return { path: outputPath, prompt };
-}
-
 module.exports = {
   uploadPhoto,
   generateFromPrompt,
   generateFromPhoto,
-  generateFromPhotoWithFileIds,
-  uploadToFileApi,
   getMimeType,
-  clearPhotoCache,
   SIZE_MAP,
   SIZE_MAP_V2
 };
