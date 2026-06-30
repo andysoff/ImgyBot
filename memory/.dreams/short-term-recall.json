@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-27T11:41:01.608Z",
+  "updatedAt": "2026-06-30T20:16:58.890Z",
   "entries": {
     "memory:memory/2026-05-23.md:1:30": {
       "key": "memory:memory/2026-05-23.md:1:30",
@@ -106,15 +106,14 @@
       "endLine": 36,
       "source": "memory",
       "snippet": "# 2026-05-23 — Большая сессия по Imgy Avatar Service ## Что сделано ### Генерации пользователям - user_2 (A, @8709533766): +10 генераций (было 0 → 10) - user_3 (Андрей): +10 +20 = +30 генераций суммарно ### Стили Добавлены и переработаны стили (теперь 8 штук): 1. **Портрет** — как был (фикс) 2. **Спорт** — переделан: 50 видов спорта, случайный выбор, в подписи название спорта 3. **В машине** — как был (фикс) 4. **В офисе** — заменил \"На работе\". 29 офисных ролей/отделов, случайный выбор 5. **Профессия** — переделан из \"Профессии\": 32 профессии, 1 фото (вместо альбома), случайный выбор 6. **Кино** — 107 фильмов из IMDB Top 250, случайный выбор, в подписи название фильма + год 7. **Локация",
-      "recallCount": 68,
+      "recallCount": 69,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 32.94106122851371,
+      "totalScore": 33.42537436187266,
       "maxScore": 0.5326669290661812,
       "firstRecalledAt": "2026-05-27T18:27:57.892Z",
-      "lastRecalledAt": "2026-06-27T11:41:01.608Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
       "queryHashes": [
-        "b47f6150b979",
         "e186fd2815a7",
         "d6d74b09d173",
         "a786b7ca6f46",
@@ -145,7 +144,8 @@
         "364e30019d53",
         "02d7baf4e2eb",
         "f58a11b95c32",
-        "1bc68f8e2fc8"
+        "1bc68f8e2fc8",
+        "07efd9b7b387"
       ],
       "recallDays": [
         "2026-05-27",
@@ -158,7 +158,8 @@
         "2026-06-12",
         "2026-06-16",
         "2026-06-18",
-        "2026-06-27"
+        "2026-06-27",
+        "2026-06-30"
       ],
       "conceptTags": [
         "user-2",
@@ -178,15 +179,14 @@
       "endLine": 21,
       "source": "memory",
       "snippet": "# 2026-05-27 ## Avatar Service — правки ### Удаление текста промпта из caption - Убрал `📝 <code>${generatedResult.prompt}</code>` из всех caption в `bot-runner.js` (все стили: portrait, sport, office, locations, cinema, eras, work, professions) - Сейчас caption выглядит чисто: `✨ Готово! Стиль: «…»\\n🌀 Сделано с помощью <a href=\"…\">Imgy</a>` ### Дублирование процессов бота - Проблема: при перезапусках оставался старый процесс → два бота поллинжили Telegram → дубли ответов - **Решение:** добавлен PID lock `/tmp/imgy-bot.pid` в `bot-runner.js` - При запуске проверяет, жив ли процесс из lock-файла - Если жив — `process.exit(1)` с ошибкой - Если мёртв — удаляет мусор и пишет свой PID",
-      "recallCount": 35,
+      "recallCount": 36,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 17.153849710524078,
+      "totalScore": 17.638001249730582,
       "maxScore": 0.5476321414113045,
       "firstRecalledAt": "2026-05-28T10:42:03.554Z",
-      "lastRecalledAt": "2026-06-27T11:41:01.608Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
       "queryHashes": [
-        "b47f6150b979",
         "e186fd2815a7",
         "d6d74b09d173",
         "a786b7ca6f46",
@@ -217,7 +217,8 @@
         "02d7baf4e2eb",
         "4847962f0a4b",
         "f58a11b95c32",
-        "1bc68f8e2fc8"
+        "1bc68f8e2fc8",
+        "07efd9b7b387"
       ],
       "recallDays": [
         "2026-05-28",
@@ -229,7 +230,8 @@
         "2026-06-12",
         "2026-06-16",
         "2026-06-18",
-        "2026-06-27"
+        "2026-06-27",
+        "2026-06-30"
       ],
       "conceptTags": [
         "generatedresult.prompt",
@@ -1005,20 +1007,22 @@
       "endLine": 15,
       "source": "memory",
       "snippet": "# 2026-06-22 (понедельник) ## Avatar Service — доработки генерации изображений Серия коммитов в `avatar-service/`, в основном правки `generate-image.js`: - **Усиление промптов для сохранения лица** — identity anchor в промптах, чтобы Gemini лучше сохранял черты лица (b2b721a) - **Запрет украшений** — серьги, бижутерия явно запрещены в casual-стилях (03adbce) - **Temperature 0 → 0.1** — сначала понижена до 0 для стабильности (48b7469), потом поднята до 0.1 для небольшой вариативности (3c358f0) - **Поворот лица** — по умолчанию сохранять угол поворота как на референсе (8a8e756), затем фикс для `faceTurn='none'` (d60ef71) - **Логирование** — добавлен лог промпта (a0b6688), увеличено до 1000",
-      "recallCount": 3,
+      "recallCount": 4,
       "dailyCount": 0,
       "groundedCount": 0,
-      "totalScore": 1.459799265861511,
+      "totalScore": 1.9450727641582488,
       "maxScore": 0.4950106412172317,
       "firstRecalledAt": "2026-06-27T09:02:27.900Z",
-      "lastRecalledAt": "2026-06-27T11:41:01.608Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
       "queryHashes": [
         "5e7d69d6f293",
         "f58a11b95c32",
-        "1bc68f8e2fc8"
+        "1bc68f8e2fc8",
+        "07efd9b7b387"
       ],
       "recallDays": [
-        "2026-06-27"
+        "2026-06-27",
+        "2026-06-30"
       ],
       "conceptTags": [
         "avatar-service",
@@ -1060,6 +1064,99 @@
         "warhammer",
         "40k",
         "расширение"
+      ]
+    },
+    "memory:memory/2026-06-27.md:1:33": {
+      "key": "memory:memory/2026-06-27.md:1:33",
+      "path": "memory/2026-06-27.md",
+      "startLine": 1,
+      "endLine": 33,
+      "source": "memory",
+      "snippet": "# 2026-06-27 (Суббота) ## Активность — Avatar Service (5 сессий) ### Сессия 1 (~11:15 UTC) — Голова целиком + OpenAI identityLock - Андрей: голова должна помещаться целиком во всех промптах, кроме Крупный план - Я начал действовать без ответа → замечание - Обсуждали проблему обрезки головы при генерации - Предложил план (п1, п2). Андрей: «попробуй п1» - Неправильно интерпретировал: подумал, что п1 = убрать identityLock для OpenAI - Сделано: в `_buildPhotoPrompt` проверка `isOpenAI` — для OpenAI identityLock не добавляется - ✅ **Задеплоено на тест** (прод не трогал) ### Сессия 2 (~12:00 UTC) — Стоимость + отображение фото - Андрей подтвердил что всё ок - Уменьшение стоимости: Идентичный →",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.48849098682403563,
+      "maxScore": 0.48849098682403563,
+      "firstRecalledAt": "2026-06-30T20:16:58.890Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
+      "queryHashes": [
+        "07efd9b7b387"
+      ],
+      "recallDays": [
+        "2026-06-30"
+      ],
+      "conceptTags": [
+        "openai",
+        "суббота",
+        "активность",
+        "avatar",
+        "service",
+        "сессий",
+        "сессия",
+        "utc"
+      ]
+    },
+    "memory:memory/2026-06-19.md:1:19": {
+      "key": "memory:memory/2026-06-19.md:1:19",
+      "path": "memory/2026-06-19.md",
+      "startLine": 1,
+      "endLine": 19,
+      "source": "memory",
+      "snippet": "# 2026-06-19 (MSK) ## Avatar Service — Health-check GEMINI_API_KEY - **da96c4e** — Добавлен health-check `GEMINI_API_KEY` при старте бота: - Проверка длины (≥30), префикса (AIzaSy… или AQ…), отсутствия бинарных символов - Если ключ битый → ERROR в лог + `/tmp/imgy-gemini-key-status.txt` - Если ок → безопасный лог (первые 6 + последние 4 символа) - Авто-бэкап `.env` → `.env.bak` при каждом старте - Причина: на проде ключ оказался повреждён бинарным мусором - **21b0bee** — docs: авто-обновление `TOOLS.md` (добавлен раздел про health-check) - **f9b7dd1**, **c8b037e** — docs: авто-обновление markdown (предыдущие версии TOOLS.md) ## Инфраструктура - Скрипты деплоя (`deploy-test.sh`,",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.48599272370338437,
+      "maxScore": 0.48599272370338437,
+      "firstRecalledAt": "2026-06-30T20:16:58.890Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
+      "queryHashes": [
+        "07efd9b7b387"
+      ],
+      "recallDays": [
+        "2026-06-30"
+      ],
+      "conceptTags": [
+        "health-check",
+        "gemini-api-key",
+        "tmp/imgy-gemini-key-status.txt",
+        "авто-бэкап",
+        "env.bak",
+        "авто-обновление",
+        "tools.md",
+        "deploy-test.sh"
+      ]
+    },
+    "memory:memory/2026-06-18.md:1:18": {
+      "key": "memory:memory/2026-06-18.md:1:18",
+      "path": "memory/2026-06-18.md",
+      "startLine": 1,
+      "endLine": 18,
+      "source": "memory",
+      "snippet": "# 2026-06-18 (Чт) ## Avatar Service — Демо-режим и кнопка Debug/Отладка - Демо-режим переделан: работает только через кнопку «Отладка» (в настройках) вместо флага `PAYMENT_DEMO_MODE` в `.env` и автодетекта - Кнопка в настройках: была «Отладка» → переименована в «Debug» → затем обратно в «Отладка» - Итого: демо-режим включается вручную через кнопку «Отладка», автоматический режим убран ## Avatar Service — Инфраструктура - `PID_FILE` вынесен в `.env` (`process.env.PID_FILE`) — позволяет запускать два экземпляра бота (тест + прод) с разными PID-файлами - Добавлена тестовая копия бота (`avatar-service-test/`) для деплоя в отдельную папку - `avatar-service-test/` убран из git — на сервере жив",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.4842877447605133,
+      "maxScore": 0.4842877447605133,
+      "firstRecalledAt": "2026-06-30T20:16:58.890Z",
+      "lastRecalledAt": "2026-06-30T20:16:58.890Z",
+      "queryHashes": [
+        "07efd9b7b387"
+      ],
+      "recallDays": [
+        "2026-06-30"
+      ],
+      "conceptTags": [
+        "демо-режим",
+        "debug/отладка",
+        "payment-demo-mode",
+        "pid-file",
+        "process.env.pid-file",
+        "pid-файлами",
+        "avatar-service-test",
+        "avatar"
       ]
     }
   }

@@ -291,65 +291,102 @@ async function detectAndSaveGender(avatar, avatars, files) {
 
 /**
  * Получить валидные sourceFiles для аватара — проверить кеш, перезагрузить протухшие.
+ *
  * @param {object} avatar — объект аватара из avatars.json
  * @param {object} avatars — весь массив (для сохранения)
- * @returns {Promise<Array<{uri: string, mimeType: string}>>}
+ * @param {string} [provider] — 'gemini' | 'openai'. Если передан, при протухании
+ *   перезагружается только файл этого провайдера. Если не передан — оба.
+ * @returns {Promise<Array<{localPath: string, mimeType: string, gemini?: {uri: string}, openai?: {fileId: string} | {dataUrl: string}}>>}
  */
-async function ensureSourceFiles(avatar, avatars) {
+async function ensureSourceFiles(avatar, avatars, provider) {
   if (!avatar) return [];
 
-  // Есть кешированные? Проверяем каждый
+  const hasProvider = provider === 'gemini' || provider === 'openai';
+
+  // Есть кешированные? Проверяем нужные провайдеры
   if (avatar.sourceFiles && avatar.sourceFiles.length > 0) {
     const validFiles = [];
     let allValid = true;
+
     for (const gf of avatar.sourceFiles) {
-      if (gf.gemini?.uri) {
-        // Извлекаем имя файла из URI: .../v1beta/files/xyz
-        const nameMatch = gf.gemini.uri.match(/\/v1beta\/(files\/[^\s?]+)/);
-        const fileName = nameMatch ? nameMatch[1] : null;
-        if (fileName) {
-          const alive = await verifyGeminiFile(fileName);
-          if (alive) {
-            validFiles.push(gf);
+      let fileValid = true;
+
+      // Проверяем Gemini (если нужен или нет конкретного провайдера)
+      if (!hasProvider || provider === 'gemini') {
+        if (gf.gemini && gf.gemini.uri) {
+          const nameMatch = gf.gemini.uri.match(/\/v1beta\/(files\/[^\s?]+)/);
+          const fileName = nameMatch ? nameMatch[1] : null;
+          if (fileName) {
+            const alive = await verifyGeminiFile(fileName);
+            if (!alive) {
+              gf.gemini = null;
+              fileValid = false;
+            }
           } else {
-            allValid = false;
+            gf.gemini = null;
+            fileValid = false;
           }
         } else {
-          // Не смогли распарсить — считаем невалидным
-          allValid = false;
+          fileValid = false;
         }
+      }
+
+      // Проверяем OpenAI (если нужен или нет конкретного провайдера)
+      if (!hasProvider || provider === 'openai') {
+        if (gf.openai && gf.openai.fileId) {
+          const alive = await fileUpload.verifyOpenAIFile(gf.openai.fileId);
+          if (!alive) {
+            gf.openai = null;
+            fileValid = false;
+          }
+        } else {
+          fileValid = false;
+        }
+      }
+
+      if (fileValid) {
+        validFiles.push(gf);
+      } else {
+        allValid = false;
       }
     }
 
-    if (allValid && validFiles.length === avatar.sourceFiles.length) {
-      // Все живы — используем кеш
-      console.log(`⚡ Все ${validFiles.length} файлов аватара ${avatar.id} живы`);
-      // Определяем пол, если ещё не задан (для старых аватаров с кешированными файлами)
+    // Все ли валидны для нужного провайдера
+    let allProviderValid = true;
+    if (hasProvider) {
+      for (const gf of avatar.sourceFiles) {
+        if (provider === 'gemini' && (!gf.gemini || !gf.gemini.uri)) { allProviderValid = false; break; }
+        if (provider === 'openai' && (!gf.openai || !gf.openai.fileId)) { allProviderValid = false; break; }
+      }
+    }
+    const allOk = hasProvider ? allProviderValid : (allValid && validFiles.length === avatar.sourceFiles.length);
+
+    if (allOk) {
+      console.log("All " + (validFiles.length || avatar.sourceFiles.length) + " files of avatar " + avatar.id + " alive");
       if (!avatar.gender && validFiles.length > 0) {
         await detectAndSaveGender(avatar, avatars, validFiles);
       }
-      // Дозаполняем localPath для кодирования base64 на лету — старые кеши могут не содержать localPath
       const userPhotos = avatar.photos || [];
-      for (let i = 0; i < validFiles.length && i < userPhotos.length; i++) {
-        if (!validFiles[i].localPath) {
+      for (let i = 0; i < (validFiles.length || avatar.sourceFiles.length) && i < userPhotos.length; i++) {
+        const f = validFiles[i] || avatar.sourceFiles[i];
+        if (!f.localPath) {
           const fullPath = path.join(__dirname, '..', userPhotos[i]);
           if (fs.existsSync(fullPath)) {
-            validFiles[i].localPath = fullPath;
+            f.localPath = fullPath;
           }
         }
       }
-      return validFiles;
+      return validFiles.length > 0 ? validFiles : avatar.sourceFiles;
     }
 
     // Часть протухла — удаляем мёртвые, оставляем живые
     if (validFiles.length > 0) {
-      console.log(`⚡ ${validFiles.length}/${avatar.sourceFiles.length} файлов живы, остальные перезагрузим`);
+      const providerLabel = hasProvider ? provider + ' ' : '';
+      console.log(providerLabel + validFiles.length + "/" + avatar.sourceFiles.length + " files alive, rest will be reloaded");
       avatar.sourceFiles = validFiles;
     } else {
       avatar.sourceFiles = [];
     }
-
-
   }
 
   // Подгружаем недостающие файлы
@@ -358,16 +395,61 @@ async function ensureSourceFiles(avatar, avatars) {
 
   if (!avatar.sourceFiles) avatar.sourceFiles = [];
 
-  for (const photoRel of userPhotos) {
-    const fullPath = path.join(__dirname, '..', photoRel);
-    if (fs.existsSync(fullPath)) {
-      const result = await fileUpload.uploadToGemini(fullPath);
-      // localPath нужен для кодирования в base64 на лету при генерации через OpenAI
-      avatar.sourceFiles.push({ localPath: fullPath, mimeType: result.mimeType, gemini: { uri: result.uri } });
+  const isFirstLoad = avatar.sourceFiles.length === 0;
+
+  if (isFirstLoad) {
+    // Первая загрузка — оба хранилища
+    for (const photoRel of userPhotos) {
+      const fullPath = path.join(__dirname, '..', photoRel);
+      if (fs.existsSync(fullPath)) {
+        const result = await fileUpload.uploadToAll(fullPath);
+        const entry = {
+          localPath: fullPath,
+          mimeType: result.gemini ? result.gemini.mimeType : 'image/jpeg',
+        };
+        if (result.gemini) {
+          entry.gemini = { uri: result.gemini.uri };
+        }
+        if (result.openai && result.openai.fileId) {
+          entry.openai = { fileId: result.openai.fileId };
+        } else if (result.openai && result.openai.dataUrl) {
+          entry.openai = { dataUrl: result.openai.dataUrl };
+        }
+        avatar.sourceFiles.push(entry);
+      }
+    }
+  } else {
+    // Дозагрузка только нужного провайдера
+    for (const sf of avatar.sourceFiles) {
+      const fullPath = sf.localPath;
+      if (!fullPath || !fs.existsSync(fullPath)) {
+        continue;
+      }
+
+      if (!hasProvider || provider === 'gemini') {
+        if (!sf.gemini || !sf.gemini.uri) {
+          const result = await fileUpload.uploadToGemini(fullPath);
+          sf.gemini = { uri: result.uri };
+          sf.mimeType = result.mimeType;
+        }
+      }
+
+      if (!hasProvider || provider === 'openai') {
+        if (!sf.openai || !sf.openai.fileId) {
+          try {
+            const result = await fileUpload.uploadToOpenAIFileApi(fullPath);
+            sf.openai = { fileId: result.fileId };
+          } catch (e) {
+            console.warn("Failed to upload to OpenAI File API: " + e.message);
+            const b64 = await fileUpload.photoToBase64(fullPath);
+            sf.openai = { dataUrl: b64.dataUrl };
+          }
+        }
+      }
     }
   }
 
-  // Сохраняем обновлённый кеш
+  // Сохраняем кеш
   const idx = avatars.findIndex(a => a.id === avatar.id);
   if (idx >= 0) {
     avatars[idx] = avatar;
@@ -377,18 +459,16 @@ async function ensureSourceFiles(avatar, avatars) {
     );
   }
 
-  // Определяем пол по фото (один раз, при первой загрузке в Gemini)
   if (!avatar.gender && avatar.sourceFiles && avatar.sourceFiles.length > 0) {
     await detectAndSaveGender(avatar, avatars, avatar.sourceFiles);
   }
 
-  console.log(`✅ ${avatar.sourceFiles.length} Gemini URI для аватара ${avatar.id}`);
+  console.log(avatar.sourceFiles.length + " sourceFiles for avatar " + avatar.id);
   return avatar.sourceFiles;
 }
 
-// ===================== Telegram API =====================
-
-function tgApi(method, body, timeoutMs = 60000) {
+function tgApi(method, body, timeoutMs) {
+  if (timeoutMs === undefined) timeoutMs = 60000;
   return tgApiWithReq(method, body, timeoutMs).promise;
 }
 
@@ -823,7 +903,7 @@ async function processPhotos(chatId, filePaths, userName, userLang, isPremium) {
     const avatars = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'avatars.json'), 'utf-8'));
     const avatar = avatars.find(a => a.id === result.avatarId);
     if (avatar) {
-      await ensureSourceFiles(avatar, avatars);
+      await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     }
   } catch (err) {
     console.error('❌ Ошибка загрузки в Gemini File API:', err.message);
@@ -1942,8 +2022,9 @@ async function handleUpdate(update) {
           await tgSend(chatId, statusMsg);
 
           {
-            // Получаем Gemini URI с проверкой кеша и дозагрузкой протухших
-            const sourceFiles = await ensureSourceFiles(avatar, avatars);
+            // Получаем sourceFiles с проверкой кеша и дозагрузкой протухших (только для текущей модели)
+            const modelProvider = modelName.startsWith('openai-') ? 'openai' : 'gemini';
+            const sourceFiles = await ensureSourceFiles(avatar, avatars, modelProvider);
             if (sourceFiles.length === 0) {
               await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
               return;
@@ -2339,7 +2420,8 @@ async function handleUpdate(update) {
         fs.mkdirSync(outputDir, { recursive: true });
 
         const isNoAvatar = result.isNoAvatar || result.avatarId === 'no_avatar';
-        const sourceFiles = isNoAvatar ? [] : await ensureSourceFiles(avatar, avatars);
+        const repeatModelProvider = (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini';
+        const sourceFiles = isNoAvatar ? [] : await ensureSourceFiles(avatar, avatars, repeatModelProvider);
         if (!isNoAvatar && sourceFiles.length === 0) {
           await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
           return;
@@ -3151,7 +3233,7 @@ async function generateCustomAvatarWithPhoto(chatId, promptResult) {
     }
 
     // Получаем Gemini URI для фото аватара
-    let sourceFiles = await ensureSourceFiles(avatar, avatars);
+    let sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0 && !promptResult.attachedPhoto) {
       await tgSend(chatId, '❌ Не найдено фото для генерации.');
       return;
@@ -3537,7 +3619,7 @@ async function generateCinemaMovie(chatId, movie, cb, category = 'foreign') {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -3662,7 +3744,7 @@ async function generateLocationPhoto(chatId, location, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -3775,7 +3857,7 @@ async function generateSportPhoto(chatId, sport, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -3875,7 +3957,7 @@ async function generateOfficePhoto(chatId, office, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -3975,7 +4057,7 @@ async function generateHistoryPhoto(chatId, era, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -4075,7 +4157,7 @@ async function generateLiteraturePhoto(chatId, work, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -4175,7 +4257,7 @@ async function generateProfessionsPhoto(chatId, profession, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -4350,7 +4432,7 @@ async function generateCarPhoto(chatId, brand, model, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;
@@ -4407,7 +4489,7 @@ async function generateWheelPhoto(chatId, brand, cb) {
       return;
     }
 
-    const sourceFiles = await ensureSourceFiles(avatar, avatars);
+    const sourceFiles = await ensureSourceFiles(avatar, avatars, (settings?.model || '').startsWith('openai-') ? 'openai' : 'gemini');
     if (sourceFiles.length === 0) {
       await tgSend(chatId, '❌ Не найдено фото для генерации. Загрузи новые — /start');
       return;

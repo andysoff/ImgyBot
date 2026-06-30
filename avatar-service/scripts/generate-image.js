@@ -476,38 +476,54 @@ async function _callGemini(opts) {
     let refPaths = [];
 
     if (files && files.length > 0) {
-      // Кодируем фото в base64 на лету (без кэша OpenAI File API)
+      // Сначала пробуем использовать заранее загруженные file_id (OpenAI File API)
+      let fileIds = [];
       for (const f of files) {
-        if (f.localPath && fs.existsSync(f.localPath)) {
-          refPaths.push(f.localPath);
-        } else if (f.gemini?.uri && fs.existsSync(f.gemini.uri)) {
-          refPaths.push(f.gemini.uri);
+        if (f.openai && f.openai.fileId) {
+          fileIds.push(f.openai.fileId);
         }
       }
 
-      if (refPaths.length > 0) {
-        // Подсчёт общего размера референсов
-        let totalSize = 0;
-        for (const p of refPaths) {
-          try { totalSize += fs.statSync(p).size; } catch {}
+      if (fileIds.length > 0) {
+        // Все файлы имеют file_id — используем их (минимальный payload)
+        console.log('📸 OpenAI: отправляю ' + fileIds.length + ' фото-референсов (file_id):');
+        for (const fid of fileIds) {
+          console.log('   [' + (fileIds.indexOf(fid) + 1) + '/' + fileIds.length + '] file_id=' + fid);
         }
-        const totalSizeKB = (totalSize / 1024).toFixed(0);
-
-        console.log(`📸 OpenAI: отправляю ${refPaths.length} фото-референсов (общий размер ${totalSizeKB} KB, base64):`);
-        for (const p of refPaths) {
-          let sizeInfo = '';
-          try {
-            const stat = fs.statSync(p);
-            sizeInfo = ` (${(stat.size / 1024).toFixed(0)} KB)`;
-          } catch {}
-          console.log('   [' + (refPaths.indexOf(p) + 1) + '/' + refPaths.length + ']' + sizeInfo + ' ' + p);
-        }
-        console.log(`🔍 OpenAI body: model=${openaiModel}, images=${refPaths.length}, size=${typeof sizeOrConfig === 'string' ? sizeOrConfig : sizeOrConfig?.size || 'auto'}, quality=${sizeOrConfig?.quality || 'standard'}`);
-        result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        result = await openaiGen.generateFromPhotoWithFileIds(fileIds, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
       } else {
-        // Нет локального файла — генерируем без фото
-        console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
-        result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        // Нет file_id — fallback на base64 (на лету с диска)
+        let refPaths = [];
+        for (const f of files) {
+          if (f.localPath && fs.existsSync(f.localPath)) {
+            refPaths.push(f.localPath);
+          } else if (f.gemini && f.gemini.uri && fs.existsSync(f.gemini.uri)) {
+            refPaths.push(f.gemini.uri);
+          }
+        }
+
+        if (refPaths.length > 0) {
+          let totalSize = 0;
+          for (const p of refPaths) {
+            try { totalSize += fs.statSync(p).size; } catch {}
+          }
+          const totalSizeKB = (totalSize / 1024).toFixed(0);
+
+          console.log('📸 OpenAI: отправляю ' + refPaths.length + ' фото-референсов (base64, общий размер ' + totalSizeKB + ' KB):');
+          for (const p of refPaths) {
+            let sizeInfo = '';
+            try {
+              const stat = fs.statSync(p);
+              sizeInfo = ' (' + (stat.size / 1024).toFixed(0) + ' KB)';
+            } catch {}
+            console.log('   [' + (refPaths.indexOf(p) + 1) + '/' + refPaths.length + ']' + sizeInfo + ' ' + p);
+          }
+          result = await openaiGen.generateFromPhoto(refPaths, prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        } else {
+          // Нет локального файла — генерируем без фото
+          console.log('⚠️ OpenAI: нет локального файла для референса. Генерирую без фото.');
+          result = await openaiGen.generateFromPrompt(prompt, outputDir, fnameBase, sizeOrConfig, openaiModel);
+        }
       }
     } else if (isV2) {
       // gpt-image-2 без фото — через Image API /v1/images/generations
