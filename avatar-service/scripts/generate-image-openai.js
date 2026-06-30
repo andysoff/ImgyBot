@@ -374,12 +374,10 @@ async function generateFromPhotoWithFileIds(fileIds, prompt, outputDir, filename
 
   console.log('\u{1F3A8} OpenAI ' + model + ': генерация с фото-референсом (file_id \u00d7 ' + fileIds.length + ')');
 
-  const images = fileIds.map(function(fid) { return { file_id: fid }; });
-
   const body = {
     model: model,
     prompt: prompt,
-    images: images,
+    images: fileIds.map(function(fid) { return { file_id: fid }; }),
     n: 1
   };
 
@@ -392,8 +390,7 @@ async function generateFromPhotoWithFileIds(fileIds, prompt, outputDir, filename
     body.size = '1024x1024';
   }
 
-  const isV2 = model === 'gpt-image-2';
-  const endpoint = isV2 ? '/v1/images/generations' : '/v1/images/edits';
+  const endpoint = '/v1/images/edits';
 
   const result = await openaiRequest(endpoint, body);
   const imgBuffer = await extractImage(result);
